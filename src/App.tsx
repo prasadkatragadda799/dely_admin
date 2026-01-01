@@ -11,7 +11,11 @@ import Products from "./pages/Products";
 import Orders from "./pages/Orders";
 import UsersPage from "./pages/UsersPage";
 import Categories from "./pages/Categories";
-import PlaceholderPage from "./pages/PlaceholderPage";
+import Companies from "./pages/Companies";
+import Offers from "./pages/Offers";
+import KYC from "./pages/KYC";
+import Analytics from "./pages/Analytics";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -108,7 +112,7 @@ function AppRoutes() {
         path="/companies"
         element={
           <ProtectedRoute>
-            <PlaceholderPage />
+            <Companies />
           </ProtectedRoute>
         }
       />
@@ -116,7 +120,7 @@ function AppRoutes() {
         path="/offers"
         element={
           <ProtectedRoute>
-            <PlaceholderPage />
+            <Offers />
           </ProtectedRoute>
         }
       />
@@ -124,7 +128,7 @@ function AppRoutes() {
         path="/kyc"
         element={
           <ProtectedRoute>
-            <PlaceholderPage />
+            <KYC />
           </ProtectedRoute>
         }
       />
@@ -132,7 +136,7 @@ function AppRoutes() {
         path="/analytics"
         element={
           <ProtectedRoute>
-            <PlaceholderPage />
+            <Analytics />
           </ProtectedRoute>
         }
       />
@@ -140,7 +144,7 @@ function AppRoutes() {
         path="/settings"
         element={
           <ProtectedRoute>
-            <PlaceholderPage />
+            <Settings />
           </ProtectedRoute>
         }
       />

@@ -17,9 +17,12 @@
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 10%;
     
-    /* Primary - Dely Blue */
+    /* Primary - Dely Blue (#1E6DD8) */
     --primary: 214 78% 48%;
     --primary-foreground: 0 0% 100%;
+    --primary-dark: 214 70% 40%;
+    --primary-light: 214 100% 65%;
+    --primary-lighter: 214 100% 85%;
     
     /* Secondary */
     --secondary: 214 100% 97%;

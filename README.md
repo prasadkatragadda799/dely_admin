@@ -1,73 +1,114 @@
-# Welcome to your Lovable project
+# Dely Admin Panel
 
-## Project info
+Admin dashboard for managing the Dely B2B grocery mobile app. This web-based admin panel provides comprehensive control over products, orders, users, companies, categories, offers, KYC verifications, and analytics.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Features
 
-## How can I edit this code?
+- **Dashboard**: Overview of key metrics, revenue charts, and recent activity
+- **Product Management**: Full CRUD operations with bulk actions, image upload, and stock management
+- **Order Management**: Order tracking, status updates, and invoice generation
+- **User Management**: User accounts, KYC verification, and activity tracking
+- **Companies & Brands**: Manage companies and their associated brands
+- **Categories**: Hierarchical category management with icons and colors
+- **Offers & Promotions**: Create and manage promotional offers (banner, text, company)
+- **KYC Verification**: Review and verify business KYC submissions
+- **Analytics**: Comprehensive reports and charts for revenue, products, users, and orders
+- **Settings**: Configure payment, delivery, tax, notifications, and admin users
 
-There are several ways of editing your application.
+## Technology Stack
 
-**Use Lovable**
+- **Frontend**: React 18 + TypeScript
+- **Build Tool**: Vite
+- **UI Framework**: Tailwind CSS
+- **Components**: shadcn/ui
+- **Charts**: Recharts
+- **Routing**: React Router
+- **State Management**: React Query
+- **Forms**: React Hook Form + Zod
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+## Getting Started
 
-Changes made via Lovable will be committed automatically to this repo.
+### Prerequisites
 
-**Use your preferred IDE**
+- Node.js 18+ and npm (or use [nvm](https://github.com/nvm-sh/nvm#installing-and-updating))
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+### Installation
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+# Install dependencies
+npm install
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+The application will be available at `http://localhost:8080`
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Build for Production
 
-**Use GitHub Codespaces**
+```sh
+# Build the project
+npm run build
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+# Preview production build
+npm run preview
+```
 
-## What technologies are used for this project?
+## Project Structure
 
-This project is built with:
+```
+src/
+├── components/        # Reusable UI components
+│   ├── layout/       # Layout components (Header, Sidebar, etc.)
+│   └── ui/           # shadcn/ui components
+├── contexts/         # React contexts (Auth, etc.)
+├── hooks/            # Custom React hooks
+├── lib/              # Utility functions
+├── pages/            # Page components
+│   ├── Dashboard.tsx
+│   ├── Products.tsx
+│   ├── Orders.tsx
+│   ├── UsersPage.tsx
+│   ├── Categories.tsx
+│   ├── Companies.tsx
+│   ├── Offers.tsx
+│   ├── KYC.tsx
+│   ├── Analytics.tsx
+│   └── Settings.tsx
+└── App.tsx           # Main app component with routing
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Design System
 
-## How can I deploy this project?
+The admin panel follows a blue-white minimal theme:
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+- **Primary Color**: #1E6DD8 (Deep Blue)
+- **Background**: White with light blue accents
+- **Typography**: Inter font family
+- **Components**: Modern, clean design with consistent spacing and shadows
 
-## Can I connect a custom domain to my Lovable project?
+## Authentication
 
-Yes, you can!
+The admin panel includes a demo authentication system. Default credentials:
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+- **Super Admin**: `admin@dely.com` / `admin123`
+- **Manager**: `manager@dely.com` / `manager123`
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## Development
+
+### Code Style
+
+- ESLint is configured for code quality
+- TypeScript for type safety
+- Follow React best practices and component patterns
+
+### Adding New Features
+
+1. Create new page components in `src/pages/`
+2. Add routes in `src/App.tsx`
+3. Update sidebar navigation in `src/components/layout/AdminSidebar.tsx`
+4. Follow existing patterns for consistency
+
+## License
+
+Private project - All rights reserved
