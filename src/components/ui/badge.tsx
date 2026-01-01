@@ -4,14 +4,24 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+  "inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
   {
     variants: {
       variant: {
-        default: "border-transparent bg-primary text-primary-foreground hover:bg-primary/80",
-        secondary: "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        destructive: "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
-        outline: "text-foreground",
+        default: "border-transparent bg-primary text-primary-foreground",
+        secondary: "border-transparent bg-secondary text-secondary-foreground",
+        destructive: "border-transparent bg-destructive text-destructive-foreground",
+        outline: "text-foreground border border-border",
+        pending: "bg-amber-100 text-amber-800 border-transparent",
+        confirmed: "bg-blue-100 text-blue-800 border-transparent",
+        processing: "bg-indigo-100 text-indigo-800 border-transparent",
+        shipped: "bg-cyan-100 text-cyan-800 border-transparent",
+        delivered: "bg-emerald-100 text-emerald-800 border-transparent",
+        cancelled: "bg-red-100 text-red-800 border-transparent",
+        verified: "bg-emerald-100 text-emerald-800 border-transparent",
+        rejected: "bg-red-100 text-red-800 border-transparent",
+        active: "bg-emerald-100 text-emerald-800 border-transparent",
+        inactive: "bg-gray-100 text-gray-800 border-transparent",
       },
     },
     defaultVariants: {
