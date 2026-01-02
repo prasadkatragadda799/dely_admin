@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { 
   Plus, 
   Search, 
@@ -7,7 +7,8 @@ import {
   Trash2, 
   ChevronRight,
   FolderTree,
-  Package
+  Package,
+  Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,116 +20,106 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { categoriesAPI } from '@/lib/api';
+import { CategoryForm } from '@/components/admin/CategoryForm';
+import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 
-// Mock data
-const categories = [
-  {
-    id: 1,
-    name: 'Rice & Grains',
-    icon: '🌾',
-    color: '#f59e0b',
-    productCount: 145,
-    subcategories: [
-      { id: 11, name: 'Basmati Rice', productCount: 45 },
-      { id: 12, name: 'Brown Rice', productCount: 28 },
-      { id: 13, name: 'White Rice', productCount: 52 },
-      { id: 14, name: 'Specialty Grains', productCount: 20 },
-    ],
-  },
-  {
-    id: 2,
-    name: 'Cooking Oil',
-    icon: '🫒',
-    color: '#84cc16',
-    productCount: 89,
-    subcategories: [
-      { id: 21, name: 'Sunflower Oil', productCount: 32 },
-      { id: 22, name: 'Mustard Oil', productCount: 24 },
-      { id: 23, name: 'Groundnut Oil', productCount: 18 },
-      { id: 24, name: 'Olive Oil', productCount: 15 },
-    ],
-  },
-  {
-    id: 3,
-    name: 'Flour & Atta',
-    icon: '🌾',
-    color: '#f97316',
-    productCount: 67,
-    subcategories: [
-      { id: 31, name: 'Wheat Flour', productCount: 35 },
-      { id: 32, name: 'Maida', productCount: 18 },
-      { id: 33, name: 'Besan', productCount: 14 },
-    ],
-  },
-  {
-    id: 4,
-    name: 'Pulses & Lentils',
-    icon: '🫘',
-    color: '#8b5cf6',
-    productCount: 112,
-    subcategories: [
-      { id: 41, name: 'Toor Dal', productCount: 28 },
-      { id: 42, name: 'Moong Dal', productCount: 24 },
-      { id: 43, name: 'Chana Dal', productCount: 22 },
-      { id: 44, name: 'Urad Dal', productCount: 20 },
-      { id: 45, name: 'Masoor Dal', productCount: 18 },
-    ],
-  },
-  {
-    id: 5,
-    name: 'Sugar & Sweeteners',
-    icon: '🍬',
-    color: '#ec4899',
-    productCount: 34,
-    subcategories: [
-      { id: 51, name: 'Refined Sugar', productCount: 18 },
-      { id: 52, name: 'Jaggery', productCount: 10 },
-      { id: 53, name: 'Honey', productCount: 6 },
-    ],
-  },
-  {
-    id: 6,
-    name: 'Spices & Masalas',
-    icon: '🌶️',
-    color: '#ef4444',
-    productCount: 198,
-    subcategories: [
-      { id: 61, name: 'Ground Spices', productCount: 65 },
-      { id: 62, name: 'Whole Spices', productCount: 78 },
-      { id: 63, name: 'Blended Masalas', productCount: 55 },
-    ],
-  },
-  {
-    id: 7,
-    name: 'Beverages',
-    icon: '🍵',
-    color: '#06b6d4',
-    productCount: 78,
-    subcategories: [
-      { id: 71, name: 'Tea', productCount: 35 },
-      { id: 72, name: 'Coffee', productCount: 28 },
-      { id: 73, name: 'Health Drinks', productCount: 15 },
-    ],
-  },
-  {
-    id: 8,
-    name: 'Dairy Products',
-    icon: '🥛',
-    color: '#3b82f6',
-    productCount: 56,
-    subcategories: [
-      { id: 81, name: 'Ghee', productCount: 24 },
-      { id: 82, name: 'Butter', productCount: 18 },
-      { id: 83, name: 'Paneer', productCount: 14 },
-    ],
-  },
-];
+interface Category {
+  id: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  color?: string;
+  parentId?: string;
+  displayOrder?: number;
+  isActive?: boolean;
+  image?: string;
+  productCount?: number;
+  children?: Category[];
+}
 
 export default function Categories() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedCategories, setExpandedCategories] = useState<number[]>([1, 2]);
+  const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingCategoryId, setEditingCategoryId] = useState<string | undefined>();
+  const [parentCategoryId, setParentCategoryId] = useState<string | undefined>();
+  const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const toggleCategory = (id: number) => {
+  // Fetch categories
+  const { data: categoriesData, isLoading, isError } = useQuery({
+    queryKey: ['categories'],
+    queryFn: async () => {
+      const response = await categoriesAPI.getCategories();
+      return response.data || [];
+    },
+  });
+
+  // Delete category mutation
+  const deleteCategoryMutation = useMutation({
+    mutationFn: categoriesAPI.deleteCategory,
+    onSuccess: () => {
+      toast({
+        title: 'Success',
+        description: 'Category deleted successfully',
+      });
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      setDeletingCategoryId(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.error?.message || 'Failed to delete category',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Filter categories based on search
+  const filteredCategories = useMemo(() => {
+    if (!categoriesData) return [];
+    if (!searchQuery) return categoriesData;
+
+    const searchLower = searchQuery.toLowerCase();
+    const filterRecursive = (cats: Category[]): Category[] => {
+      return cats
+        .map(cat => {
+          const matchesSearch = 
+            cat.name.toLowerCase().includes(searchLower) ||
+            cat.description?.toLowerCase().includes(searchLower);
+          
+          const filteredChildren = cat.children ? filterRecursive(cat.children) : [];
+          
+          if (matchesSearch || filteredChildren.length > 0) {
+            return {
+              ...cat,
+              children: filteredChildren.length > 0 ? filteredChildren : cat.children,
+            };
+          }
+          return null;
+        })
+        .filter((cat): cat is Category => cat !== null);
+    };
+
+    return filterRecursive(categoriesData);
+  }, [categoriesData, searchQuery]);
+
+  const toggleCategory = (id: string) => {
     if (expandedCategories.includes(id)) {
       setExpandedCategories(expandedCategories.filter(c => c !== id));
     } else {
@@ -136,8 +127,170 @@ export default function Categories() {
     }
   };
 
-  const totalProducts = categories.reduce((acc, cat) => acc + cat.productCount, 0);
-  const totalSubcategories = categories.reduce((acc, cat) => acc + cat.subcategories.length, 0);
+  const handleAddCategory = (parentId?: string) => {
+    setEditingCategoryId(undefined);
+    setParentCategoryId(parentId);
+    setIsFormOpen(true);
+  };
+
+  const handleEditCategory = (categoryId: string) => {
+    setEditingCategoryId(categoryId);
+    setParentCategoryId(undefined);
+    setIsFormOpen(true);
+  };
+
+  const handleAddSubcategory = (parentId: string) => {
+    setEditingCategoryId(undefined);
+    setParentCategoryId(parentId);
+    setIsFormOpen(true);
+  };
+
+  const handleDeleteCategory = (categoryId: string) => {
+    setDeletingCategoryId(categoryId);
+  };
+
+  const confirmDelete = () => {
+    if (deletingCategoryId) {
+      deleteCategoryMutation.mutate(deletingCategoryId);
+    }
+  };
+
+  // Calculate stats
+  const stats = useMemo(() => {
+    if (!categoriesData) return { totalCategories: 0, totalSubcategories: 0, totalProducts: 0 };
+    
+    const countRecursive = (cats: Category[]) => {
+      let categories = 0;
+      let subcategories = 0;
+      let products = 0;
+      
+      cats.forEach(cat => {
+        if (!cat.parentId) {
+          categories++;
+        } else {
+          subcategories++;
+        }
+        products += cat.productCount || 0;
+        if (cat.children) {
+          const childStats = countRecursive(cat.children);
+          subcategories += childStats.subcategories;
+          products += childStats.products;
+        }
+      });
+      
+      return { categories, subcategories, products };
+    };
+    
+    return countRecursive(categoriesData);
+  }, [categoriesData]);
+
+  // Render category tree recursively
+  const renderCategoryTree = (categories: Category[], level = 0) => {
+    return categories.map((category) => {
+      const hasChildren = category.children && category.children.length > 0;
+      const isExpanded = expandedCategories.includes(category.id);
+      const isMainCategory = !category.parentId;
+
+      return (
+        <div key={category.id} className="border border-border rounded-lg overflow-hidden mb-2">
+          {/* Main Category */}
+          <div 
+            className={`flex items-center justify-between p-4 ${
+              isMainCategory ? 'bg-secondary/30' : 'bg-background'
+            } hover:bg-secondary/50 cursor-pointer transition-colors`}
+            onClick={() => hasChildren && toggleCategory(category.id)}
+          >
+            <div className="flex items-center gap-3 flex-1">
+              {hasChildren && (
+                <ChevronRight 
+                  className={`h-5 w-5 text-muted-foreground transition-transform duration-200 ${
+                    isExpanded ? 'rotate-90' : ''
+                  }`}
+                />
+              )}
+              {!hasChildren && <div className="w-5" />}
+              
+              {category.icon && (
+                <div 
+                  className="w-10 h-10 rounded-lg flex items-center justify-center text-xl"
+                  style={{ backgroundColor: category.color ? `${category.color}20` : undefined }}
+                >
+                  {category.icon}
+                </div>
+              )}
+              
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="font-medium text-foreground">{category.name}</p>
+                  {!category.isActive && (
+                    <Badge variant="secondary" className="text-xs">Inactive</Badge>
+                  )}
+                </div>
+                {category.description && (
+                  <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                    {category.description}
+                  </p>
+                )}
+                <div className="flex items-center gap-3 mt-1">
+                  {category.productCount !== undefined && (
+                    <span className="text-xs text-muted-foreground">
+                      {category.productCount} products
+                    </span>
+                  )}
+                  {hasChildren && (
+                    <span className="text-xs text-muted-foreground">
+                      {category.children?.length} subcategories
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              {category.color && (
+                <div 
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: category.color }}
+                />
+              )}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                  <Button variant="ghost" size="icon">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-popover">
+                  <DropdownMenuItem onClick={() => handleAddSubcategory(category.id)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Subcategory
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleEditCategory(category.id)}>
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit Category
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    className="text-destructive focus:text-destructive"
+                    onClick={() => handleDeleteCategory(category.id)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Category
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+
+          {/* Subcategories */}
+          {hasChildren && isExpanded && (
+            <div className="border-t border-border animate-fade-in bg-secondary/10">
+              {renderCategoryTree(category.children!, level + 1)}
+            </div>
+          )}
+        </div>
+      );
+    });
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -147,7 +300,7 @@ export default function Categories() {
           <h1 className="text-2xl font-bold text-foreground">Categories</h1>
           <p className="text-muted-foreground">Manage product categories and subcategories</p>
         </div>
-        <Button variant="gradient">
+        <Button variant="gradient" onClick={() => handleAddCategory()}>
           <Plus className="h-4 w-4 mr-2" />
           Add Category
         </Button>
@@ -162,7 +315,11 @@ export default function Categories() {
                 <FolderTree className="h-5 w-5 text-blue-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{categories.length}</p>
+                {isLoading ? (
+                  <Skeleton className="h-8 w-16" />
+                ) : (
+                  <p className="text-2xl font-bold text-foreground">{stats.totalCategories}</p>
+                )}
                 <p className="text-xs text-muted-foreground">Main Categories</p>
               </div>
             </div>
@@ -175,7 +332,11 @@ export default function Categories() {
                 <FolderTree className="h-5 w-5 text-purple-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{totalSubcategories}</p>
+                {isLoading ? (
+                  <Skeleton className="h-8 w-16" />
+                ) : (
+                  <p className="text-2xl font-bold text-foreground">{stats.totalSubcategories}</p>
+                )}
                 <p className="text-xs text-muted-foreground">Subcategories</p>
               </div>
             </div>
@@ -188,7 +349,11 @@ export default function Categories() {
                 <Package className="h-5 w-5 text-emerald-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{totalProducts}</p>
+                {isLoading ? (
+                  <Skeleton className="h-8 w-16" />
+                ) : (
+                  <p className="text-2xl font-bold text-foreground">{stats.totalProducts}</p>
+                )}
                 <p className="text-xs text-muted-foreground">Total Products</p>
               </div>
             </div>
@@ -217,106 +382,79 @@ export default function Categories() {
           <CardTitle className="text-lg font-semibold">Category Structure</CardTitle>
         </CardHeader>
         <CardContent className="p-4">
-          <div className="space-y-2">
-            {categories.map((category) => (
-              <div key={category.id} className="border border-border rounded-lg overflow-hidden">
-                {/* Main Category */}
-                <div 
-                  className="flex items-center justify-between p-4 bg-secondary/30 hover:bg-secondary/50 cursor-pointer transition-colors"
-                  onClick={() => toggleCategory(category.id)}
-                >
-                  <div className="flex items-center gap-3">
-                    <ChevronRight 
-                      className={`h-5 w-5 text-muted-foreground transition-transform duration-200 ${
-                        expandedCategories.includes(category.id) ? 'rotate-90' : ''
-                      }`}
-                    />
-                    <div 
-                      className="w-10 h-10 rounded-lg flex items-center justify-center text-xl"
-                      style={{ backgroundColor: `${category.color}20` }}
-                    >
-                      {category.icon}
-                    </div>
-                    <div>
-                      <p className="font-medium text-foreground">{category.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {category.subcategories.length} subcategories · {category.productCount} products
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div 
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: category.color }}
-                    />
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="bg-popover">
-                        <DropdownMenuItem>
-                          <Plus className="h-4 w-4 mr-2" />
-                          Add Subcategory
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Edit className="h-4 w-4 mr-2" />
-                          Edit Category
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive focus:text-destructive">
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete Category
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
+          {isLoading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="border border-border rounded-lg p-4">
+                  <Skeleton className="h-6 w-48 mb-2" />
+                  <Skeleton className="h-4 w-32" />
                 </div>
-
-                {/* Subcategories */}
-                {expandedCategories.includes(category.id) && (
-                  <div className="border-t border-border animate-fade-in">
-                    {category.subcategories.map((sub, index) => (
-                      <div 
-                        key={sub.id}
-                        className={`flex items-center justify-between p-3 pl-14 hover:bg-secondary/30 transition-colors ${
-                          index < category.subcategories.length - 1 ? 'border-b border-border' : ''
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-2 h-2 rounded-full bg-muted-foreground/30" />
-                          <p className="text-sm text-foreground">{sub.name}</p>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <span className="text-xs text-muted-foreground">{sub.productCount} products</span>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="bg-popover">
-                              <DropdownMenuItem>
-                                <Edit className="h-4 w-4 mr-2" />
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive focus:text-destructive">
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : isError ? (
+            <div className="text-center py-8">
+              <p className="text-destructive">Failed to load categories</p>
+            </div>
+          ) : filteredCategories.length === 0 ? (
+            <div className="text-center py-8">
+              <FolderTree className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <p className="text-muted-foreground">
+                {searchQuery ? 'No categories found matching your search' : 'No categories yet'}
+              </p>
+              {!searchQuery && (
+                <Button
+                  variant="outline"
+                  className="mt-4"
+                  onClick={() => handleAddCategory()}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Your First Category
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {renderCategoryTree(filteredCategories)}
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      {/* Category Form Dialog */}
+      <CategoryForm
+        open={isFormOpen}
+        onOpenChange={setIsFormOpen}
+        categoryId={editingCategoryId}
+        parentId={parentCategoryId}
+        onCategorySaved={() => {
+          setIsFormOpen(false);
+          setEditingCategoryId(undefined);
+          setParentCategoryId(undefined);
+        }}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deletingCategoryId} onOpenChange={(open) => !open && setDeletingCategoryId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the category
+              {deletingCategoryId && ' and all its subcategories'}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDelete}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {deleteCategoryMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
