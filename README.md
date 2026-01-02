@@ -89,10 +89,7 @@ The admin panel follows a blue-white minimal theme:
 
 ## Authentication
 
-The admin panel includes a demo authentication system. Default credentials:
-
-- **Super Admin**: `admin@dely.com` / `admin123`
-- **Manager**: `manager@dely.com` / `manager123`
+The admin panel uses JWT-based authentication with the backend API. Admin users must have valid credentials configured in the backend system.
 
 ## Development
 
