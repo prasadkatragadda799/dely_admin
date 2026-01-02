@@ -67,7 +67,7 @@ export default function Login() {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="admin@dely.com"
+                  placeholder="Enter your email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -125,15 +125,6 @@ export default function Login() {
                 )}
               </Button>
             </form>
-
-            {/* Demo Credentials */}
-            <div className="mt-6 p-4 bg-secondary/50 rounded-lg">
-              <p className="text-xs font-semibold text-muted-foreground mb-2">Demo Credentials:</p>
-              <div className="space-y-1 text-xs">
-                <p><span className="text-muted-foreground">Admin:</span> <code className="bg-secondary px-1.5 py-0.5 rounded">admin@dely.com</code> / <code className="bg-secondary px-1.5 py-0.5 rounded">admin123</code></p>
-                <p><span className="text-muted-foreground">Manager:</span> <code className="bg-secondary px-1.5 py-0.5 rounded">manager@dely.com</code> / <code className="bg-secondary px-1.5 py-0.5 rounded">manager123</code></p>
-              </div>
-            </div>
           </CardContent>
         </Card>
 

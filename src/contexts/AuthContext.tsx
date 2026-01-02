@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { adminAuthAPI } from '@/lib/api';
 
 interface User {
   id: string;
@@ -18,67 +19,87 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Demo users for the prototype
-const DEMO_USERS: Record<string, { password: string; user: User }> = {
-  'admin@dely.com': {
-    password: 'admin123',
-    user: {
-      id: '1',
-      email: 'admin@dely.com',
-      name: 'Rajesh Kumar',
-      role: 'super_admin',
-    },
-  },
-  'manager@dely.com': {
-    password: 'manager123',
-    user: {
-      id: '2',
-      email: 'manager@dely.com',
-      name: 'Priya Sharma',
-      role: 'manager',
-    },
-  },
-};
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for stored session
+    // Check for stored session and validate token
     const storedUser = localStorage.getItem('dely_admin_user');
-    if (storedUser) {
+    const storedToken = localStorage.getItem('dely_admin_token');
+    
+    if (storedUser && storedToken) {
       try {
-        setUser(JSON.parse(storedUser));
+        const userData = JSON.parse(storedUser);
+        setUser(userData);
+        
+        // Validate token with backend
+        adminAuthAPI.getCurrentUser()
+          .then((response) => {
+            if (response.success) {
+              setUser(response.data);
+              localStorage.setItem('dely_admin_user', JSON.stringify(response.data));
+            } else {
+              // Token invalid, clear storage
+              localStorage.removeItem('dely_admin_user');
+              localStorage.removeItem('dely_admin_token');
+              setUser(null);
+            }
+          })
+          .catch(() => {
+            // API error, clear storage
+            localStorage.removeItem('dely_admin_user');
+            localStorage.removeItem('dely_admin_token');
+            setUser(null);
+          })
+          .finally(() => {
+            setIsLoading(false);
+          });
       } catch (e) {
         localStorage.removeItem('dely_admin_user');
+        localStorage.removeItem('dely_admin_token');
+        setIsLoading(false);
       }
+    } else {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   }, []);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-
-    const demoUser = DEMO_USERS[email.toLowerCase()];
-    
-    if (!demoUser) {
-      return { success: false, error: 'User not found' };
+    try {
+      const response = await adminAuthAPI.login(email, password);
+      
+      if (response.success) {
+        const { token, admin } = response.data;
+        
+        // Store token and user data
+        localStorage.setItem('dely_admin_token', token);
+        localStorage.setItem('dely_admin_user', JSON.stringify(admin));
+        
+        setUser(admin);
+        return { success: true };
+      } else {
+        return { success: false, error: 'Invalid credentials' };
+      }
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error?.message || error.message || 'Login failed';
+      return { success: false, error: errorMessage };
     }
-    
-    if (demoUser.password !== password) {
-      return { success: false, error: 'Invalid password' };
-    }
-
-    setUser(demoUser.user);
-    localStorage.setItem('dely_admin_user', JSON.stringify(demoUser.user));
-    return { success: true };
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('dely_admin_user');
+  const logout = async () => {
+    try {
+      // Call logout API
+      await adminAuthAPI.logout();
+    } catch (error) {
+      // Continue with logout even if API call fails
+      console.error('Logout API error:', error);
+    } finally {
+      // Clear local storage
+      setUser(null);
+      localStorage.removeItem('dely_admin_user');
+      localStorage.removeItem('dely_admin_token');
+    }
   };
 
   return (
