@@ -62,11 +62,20 @@ export default function Categories() {
   const queryClient = useQueryClient();
 
   // Fetch categories
-  const { data: categoriesData, isLoading, isError } = useQuery({
+  const { data: categoriesData, isLoading, isError, error } = useQuery({
     queryKey: ['categories'],
     queryFn: async () => {
       const response = await categoriesAPI.getCategories();
       return response.data || [];
+    },
+    retry: 1, // Only retry once
+    onError: (error: any) => {
+      console.error('Failed to fetch categories:', error);
+      toast({
+        title: 'Error loading categories',
+        description: error.response?.data?.error?.message || error.message || 'Failed to load categories. Please check your connection and try again.',
+        variant: 'destructive',
+      });
     },
   });
 
@@ -393,7 +402,19 @@ export default function Categories() {
             </div>
           ) : isError ? (
             <div className="text-center py-8">
-              <p className="text-destructive">Failed to load categories</p>
+              <FolderTree className="h-12 w-12 mx-auto text-destructive mb-4 opacity-50" />
+              <p className="text-destructive font-medium mb-2">Failed to load categories</p>
+              <p className="text-sm text-muted-foreground mb-4">
+                {(error as any)?.response?.data?.error?.message || 
+                 (error as any)?.message || 
+                 'Server returned an error. Please check the console for details.'}
+              </p>
+              <Button
+                variant="outline"
+                onClick={() => queryClient.invalidateQueries({ queryKey: ['categories'] })}
+              >
+                Retry
+              </Button>
             </div>
           ) : filteredCategories.length === 0 ? (
             <div className="text-center py-8">

@@ -250,52 +250,75 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
   // Create/Update product mutation
   const productMutation = useMutation({
     mutationFn: async (data: ProductFormData) => {
-      // Clean data - remove empty strings and 'none' values
-      const cleanData = { ...data };
-      if (cleanData.companyId === '' || cleanData.companyId === 'none') {
-        delete cleanData.companyId;
+      const formData = new FormData();
+      
+      // Add basic fields
+      formData.append('name', data.name);
+      if (data.description) {
+        formData.append('description', data.description);
       }
-      if (cleanData.brandId === '' || cleanData.brandId === 'none') {
-        delete cleanData.brandId;
+      
+      // Add category (required)
+      if (data.categoryId && data.categoryId !== 'none') {
+        formData.append('categoryId', data.categoryId);
+      }
+      
+      // Add company (optional) - backend expects 'company_id'
+      if (data.companyId && data.companyId !== 'none' && data.companyId !== '') {
+        formData.append('company_id', data.companyId);
+      }
+      
+      // Add brand (optional) - backend expects 'brand_id'
+      if (data.brandId && data.brandId !== 'none' && data.brandId !== '') {
+        formData.append('brand_id', data.brandId);
+      }
+      
+      // Add pricing
+      formData.append('mrp', data.mrp.toString());
+      formData.append('sellingPrice', data.sellingPrice.toString());
+      
+      // Add stock and order quantities
+      formData.append('stockQuantity', (data.stockQuantity || 0).toString());
+      formData.append('minOrderQuantity', (data.minOrderQuantity || 1).toString());
+      
+      // Add unit
+      formData.append('unit', data.unit);
+      
+      // Add pieces per set if provided
+      if (data.piecesPerSet) {
+        formData.append('piecesPerSet', data.piecesPerSet.toString());
+      }
+      
+      // Add boolean fields (convert to string)
+      formData.append('isFeatured', (data.isFeatured || false).toString());
+      formData.append('isAvailable', (data.isAvailable !== false).toString());
+      
+      // Add SEO fields if provided
+      if (data.metaTitle) {
+        formData.append('meta_title', data.metaTitle);
+      }
+      if (data.metaDescription) {
+        formData.append('meta_description', data.metaDescription);
+      }
+      
+      // Add images to the same FormData (as per backend guide)
+      if (selectedFiles.length > 0) {
+        selectedFiles.forEach((image) => {
+          formData.append('images', image);
+        });
+        // Set primary image index (first image is primary)
+        formData.append('primaryIndex', '0');
       }
 
       if (productId) {
         // Update product
-        const formData = new FormData();
-        Object.entries(cleanData).forEach(([key, value]) => {
-          if (value !== undefined && value !== null && value !== '') {
-            formData.append(key, value.toString());
-          }
-        });
         return await productsAPI.updateProduct(productId, formData);
       } else {
         // Create product
-        const formData = new FormData();
-        Object.entries(cleanData).forEach(([key, value]) => {
-          if (value !== undefined && value !== null && value !== '') {
-            formData.append(key, value.toString());
-          }
-        });
         return await productsAPI.createProduct(formData);
       }
     },
     onSuccess: async (response, variables) => {
-      const productId = response.data?.id;
-      
-      // Upload images if any
-      if (selectedFiles.length > 0 && productId) {
-        try {
-          await productsAPI.uploadImages(productId, selectedFiles);
-        } catch (error) {
-          console.error('Error uploading images:', error);
-          toast({
-            title: 'Product created but image upload failed',
-            description: 'You can upload images later',
-            variant: 'destructive',
-          });
-        }
-      }
-
       queryClient.invalidateQueries({ queryKey: ['products'] });
       toast({
         title: productId ? 'Product updated' : 'Product created',
@@ -309,9 +332,12 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
       setImagePreviews([]);
     },
     onError: (error: any) => {
+      const errorMessage = error.response?.data?.error?.message 
+        || error.response?.data?.message 
+        || 'Failed to save product';
       toast({
         title: 'Error',
-        description: error.response?.data?.error?.message || 'Failed to save product',
+        description: errorMessage,
         variant: 'destructive',
       });
     },

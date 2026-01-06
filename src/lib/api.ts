@@ -1,7 +1,34 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 
+// Helper function to ensure UUID is properly formatted with dashes
+function formatUUID(uuid: string): string {
+  if (!uuid) return uuid;
+  // If UUID is missing dashes and is 32 characters, add them
+  if (!uuid.includes('-') && uuid.length === 32) {
+    return `${uuid.slice(0, 8)}-${uuid.slice(8, 12)}-${uuid.slice(12, 16)}-${uuid.slice(16, 20)}-${uuid.slice(20)}`;
+  }
+  // If UUID already has dashes, return as is
+  if (uuid.includes('-')) {
+    return uuid;
+  }
+  // Return as is if it doesn't match expected format
+  return uuid;
+}
+
 // API Configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://dely-backend.onrender.com';
+// In development, use Vite proxy to avoid CORS issues
+// In production, use direct backend URL from environment variable
+const isDevelopment = import.meta.env.DEV;
+let API_BASE_URL: string;
+if (isDevelopment) {
+  // In development, use Vite proxy - it will rewrite /api to remove it
+  API_BASE_URL = '/api';
+} else {
+  // In production, use direct backend URL (ensure it doesn't include /api)
+  const prodUrl = import.meta.env.VITE_API_URL || 'https://dely-backend.onrender.com';
+  // Remove trailing /api if present
+  API_BASE_URL = prodUrl.replace(/\/api\/?$/, '');
+}
 
 // Create axios instance
 // Backend endpoints are under /admin/* path
@@ -14,13 +41,22 @@ const apiClient: AxiosInstance = axios.create({
   },
 });
 
-// Request interceptor - Add auth token
+// Request interceptor - Add auth token and handle FormData
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('dely_admin_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    // If data is FormData, remove Content-Type header to let axios set it with boundary
+    if (config.data instanceof FormData) {
+      // Remove Content-Type header so axios can set it automatically with boundary
+      if (config.headers && 'Content-Type' in config.headers) {
+        delete config.headers['Content-Type'];
+      }
+    }
+    
     return config;
   },
   (error) => {
@@ -51,7 +87,13 @@ apiClient.interceptors.response.use(
           break;
         case 500:
           // Server error
-          console.error('Server error');
+          console.error('Server error:', error.response.data);
+          console.error('Error details:', {
+            status: error.response.status,
+            statusText: error.response.statusText,
+            data: error.response.data,
+            url: error.config?.url,
+          });
           break;
         default:
           console.error('API Error:', error.response.data);
@@ -161,30 +203,27 @@ export const productsAPI = {
   },
 
   getProduct: async (id: string) => {
-    const response = await apiClient.get<ApiResponse<any>>(`/admin/products/${id}`);
+    const formattedId = formatUUID(id);
+    const response = await apiClient.get<ApiResponse<any>>(`/admin/products/${formattedId}`);
     return response.data;
   },
 
   createProduct: async (productData: FormData) => {
-    const response = await apiClient.post<ApiResponse<any>>('/admin/products', productData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    // Don't set Content-Type - let axios set it automatically with boundary
+    const response = await apiClient.post<ApiResponse<any>>('/admin/products', productData);
     return response.data;
   },
 
   updateProduct: async (id: string, productData: FormData) => {
-    const response = await apiClient.put<ApiResponse<any>>(`/admin/products/${id}`, productData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    // Don't set Content-Type - let axios set it automatically with boundary
+    const formattedId = formatUUID(id);
+    const response = await apiClient.put<ApiResponse<any>>(`/admin/products/${formattedId}`, productData);
     return response.data;
   },
 
   deleteProduct: async (id: string) => {
-    const response = await apiClient.delete<ApiResponse<void>>(`/admin/products/${id}`);
+    const formattedId = formatUUID(id);
+    const response = await apiClient.delete<ApiResponse<void>>(`/admin/products/${formattedId}`);
     return response.data;
   },
 
@@ -197,21 +236,18 @@ export const productsAPI = {
   },
 
   uploadImages: async (productId: string, images: File[]) => {
+    const formattedId = formatUUID(productId);
     const formData = new FormData();
     images.forEach((image, index) => {
-      formData.append('images[]', image);
+      formData.append('images', image); // Backend expects 'images' not 'images[]'
       if (index === 0) {
         formData.append('primaryIndex', '0');
       }
     });
+    // Don't set Content-Type - let axios set it automatically with boundary
     const response = await apiClient.post<ApiResponse<any>>(
-      `/admin/products/${productId}/images`,
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      }
+      `/admin/products/${formattedId}/images`,
+      formData
     );
     return response.data;
   },
@@ -350,26 +386,28 @@ export const companiesAPI = {
     return response.data;
   },
 
+  getCompany: async (id: string) => {
+    const formattedId = formatUUID(id);
+    const response = await apiClient.get<ApiResponse<any>>(`/admin/companies/${formattedId}`);
+    return response.data;
+  },
+
   createCompany: async (companyData: FormData) => {
-    const response = await apiClient.post<ApiResponse<any>>('/admin/companies', companyData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    // Don't set Content-Type - let axios set it automatically with boundary
+    const response = await apiClient.post<ApiResponse<any>>('/admin/companies', companyData);
     return response.data;
   },
 
   updateCompany: async (id: string, companyData: FormData) => {
-    const response = await apiClient.put<ApiResponse<any>>(`/admin/companies/${id}`, companyData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    // Don't set Content-Type - let axios set it automatically with boundary
+    const formattedId = formatUUID(id);
+    const response = await apiClient.put<ApiResponse<any>>(`/admin/companies/${formattedId}`, companyData);
     return response.data;
   },
 
   deleteCompany: async (id: string) => {
-    const response = await apiClient.delete<ApiResponse<void>>(`/admin/companies/${id}`);
+    const formattedId = formatUUID(id);
+    const response = await apiClient.delete<ApiResponse<void>>(`/admin/companies/${formattedId}`);
     return response.data;
   },
 };
@@ -381,26 +419,28 @@ export const brandsAPI = {
     return response.data;
   },
 
+  getBrand: async (id: string) => {
+    const formattedId = formatUUID(id);
+    const response = await apiClient.get<ApiResponse<any>>(`/admin/brands/${formattedId}`);
+    return response.data;
+  },
+
   createBrand: async (brandData: FormData) => {
-    const response = await apiClient.post<ApiResponse<any>>('/admin/brands', brandData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    // Don't set Content-Type - let axios set it automatically with boundary
+    const response = await apiClient.post<ApiResponse<any>>('/admin/brands', brandData);
     return response.data;
   },
 
   updateBrand: async (id: string, brandData: FormData) => {
-    const response = await apiClient.put<ApiResponse<any>>(`/admin/brands/${id}`, brandData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    // Don't set Content-Type - let axios set it automatically with boundary
+    const formattedId = formatUUID(id);
+    const response = await apiClient.put<ApiResponse<any>>(`/admin/brands/${formattedId}`, brandData);
     return response.data;
   },
 
   deleteBrand: async (id: string) => {
-    const response = await apiClient.delete<ApiResponse<void>>(`/admin/brands/${id}`);
+    const formattedId = formatUUID(id);
+    const response = await apiClient.delete<ApiResponse<void>>(`/admin/brands/${formattedId}`);
     return response.data;
   },
 };
@@ -443,20 +483,14 @@ export const offersAPI = {
   },
 
   createOffer: async (offerData: FormData) => {
-    const response = await apiClient.post<ApiResponse<any>>('/admin/offers', offerData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    // Don't set Content-Type - let axios set it automatically with boundary
+    const response = await apiClient.post<ApiResponse<any>>('/admin/offers', offerData);
     return response.data;
   },
 
   updateOffer: async (id: string, offerData: FormData) => {
-    const response = await apiClient.put<ApiResponse<any>>(`/admin/offers/${id}`, offerData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    // Don't set Content-Type - let axios set it automatically with boundary
+    const response = await apiClient.put<ApiResponse<any>>(`/admin/offers/${id}`, offerData);
     return response.data;
   },
 
@@ -557,17 +591,14 @@ export const uploadAPI = {
     if (entityId) {
       formData.append('entityId', entityId);
     }
+    // Don't set Content-Type - let axios set it automatically with boundary
     const response = await apiClient.post<ApiResponse<{
       url: string;
       thumbnailUrl: string;
       size: number;
       width: number;
       height: number;
-    }>>('/admin/upload/image', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    }>>('/admin/upload/image', formData);
     return response.data;
   },
 };

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { 
   Plus, 
   Search, 
@@ -68,6 +68,12 @@ export default function Products() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Ensure query runs when component mounts
+  useEffect(() => {
+    // Invalidate and refetch products when component mounts
+    queryClient.invalidateQueries({ queryKey: ['products'] });
+  }, [queryClient]);
+
   // Fetch categories for filter
   const { data: categoriesData } = useQuery({
     queryKey: ['categories'],
@@ -122,7 +128,7 @@ export default function Products() {
 
   // Fetch products
   const {
-    data: productsData,
+    data: productsResponse,
     isLoading,
     isError,
     error,
@@ -130,17 +136,76 @@ export default function Products() {
   } = useQuery({
     queryKey: ['products', filters],
     queryFn: async () => {
-      const response = await productsAPI.getProducts(filters);
-      return response.data;
+      try {
+        const response = await productsAPI.getProducts(filters);
+        
+        // Handle different response structures
+        // Backend might return: { success: true, data: { items: [], pagination: {} } }
+        // Or: { success: true, data: [] } (array directly)
+        // Or: { success: true, data: { products: [], total: 10, page: 1 } }
+        if (response) {
+          const responseData = response.data as any;
+          
+          // Case 1: Response has data.items (paginated structure)
+          if (responseData && responseData.items && Array.isArray(responseData.items)) {
+            return responseData;
+          }
+          
+          // Case 2: Response.data is an array directly
+          if (responseData && Array.isArray(responseData)) {
+            return {
+              items: responseData,
+              pagination: {
+                page: filters.page || 1,
+                limit: filters.limit || 20,
+                total: responseData.length,
+                totalPages: Math.ceil(responseData.length / (filters.limit || 20)),
+              },
+            };
+          }
+          
+          // Case 3: Response has products array
+          if (responseData && responseData.products && Array.isArray(responseData.products)) {
+            return {
+              items: responseData.products,
+              pagination: {
+                page: responseData.page || filters.page || 1,
+                limit: responseData.limit || filters.limit || 20,
+                total: responseData.total || responseData.products.length,
+                totalPages: responseData.totalPages || Math.ceil((responseData.total || responseData.products.length) / (responseData.limit || filters.limit || 20)),
+              },
+            };
+          }
+        }
+        
+        // Fallback
+        if (import.meta.env.DEV) {
+          console.warn('[Products] Unexpected response structure:', response);
+        }
+        return {
+          items: [],
+          pagination: {
+            page: filters.page || 1,
+            limit: filters.limit || 20,
+            total: 0,
+            totalPages: 1,
+          },
+        };
+      } catch (error) {
+        console.error('[Products] Error fetching products:', error);
+        throw error;
+      }
     },
     // Use placeholderData instead of deprecated keepPreviousData for React Query v5
     placeholderData: (previousData) => previousData,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    refetchOnWindowFocus: false,
+    staleTime: 0, // Always refetch when navigating to the page
+    refetchOnWindowFocus: true,
+    refetchOnMount: true, // Always refetch when component mounts
+    enabled: true, // Explicitly enable the query
   });
 
-  const products = productsData?.items || [];
-  const pagination = productsData?.pagination || {
+  const products = productsResponse?.items || [];
+  const pagination = productsResponse?.pagination || {
     page: 1,
     limit: 20,
     total: 0,
@@ -179,7 +244,9 @@ export default function Products() {
   };
 
   const getStatusBadge = (product: any) => {
-    const stock = product.stockQuantity || 0;
+    const stock = product.stockQuantity || product.stock_quantity || 0;
+    const isAvailable = product.isAvailable !== undefined ? product.isAvailable : (product.is_available !== undefined ? product.is_available : true);
+    if (!isAvailable) return <Badge variant="cancelled">Unavailable</Badge>;
     if (stock === 0) return <Badge variant="cancelled">Out of Stock</Badge>;
     if (stock < 50) return <Badge variant="pending">Low Stock</Badge>;
     return <Badge variant="delivered">Available</Badge>;
@@ -228,10 +295,20 @@ export default function Products() {
 
   // Calculate stats from products
   const stats = useMemo(() => {
-    const total = pagination.total;
-    const inStock = products.filter((p: any) => (p.stockQuantity || 0) > 0 && p.isAvailable).length;
-    const lowStock = products.filter((p: any) => (p.stockQuantity || 0) > 0 && (p.stockQuantity || 0) < 50).length;
-    const outOfStock = products.filter((p: any) => (p.stockQuantity || 0) === 0).length;
+    const total = pagination.total || products.length;
+    const inStock = products.filter((p: any) => {
+      const stock = p.stockQuantity || p.stock_quantity || 0;
+      const isAvailable = p.isAvailable !== undefined ? p.isAvailable : (p.is_available !== undefined ? p.is_available : true);
+      return stock > 0 && isAvailable;
+    }).length;
+    const lowStock = products.filter((p: any) => {
+      const stock = p.stockQuantity || p.stock_quantity || 0;
+      return stock > 0 && stock < 50;
+    }).length;
+    const outOfStock = products.filter((p: any) => {
+      const stock = p.stockQuantity || p.stock_quantity || 0;
+      return stock === 0;
+    }).length;
     return { total, inStock, lowStock, outOfStock };
   }, [products, pagination]);
 
@@ -424,7 +501,7 @@ export default function Products() {
       {/* Products Table */}
       <Card className="shadow-card">
         <CardContent className="p-0">
-          {isLoading && !productsData ? (
+          {isLoading && !productsResponse ? (
             <div className="p-8 space-y-4">
               {[...Array(5)].map((_, i) => (
                 <Skeleton key={i} className="h-16 w-full" />
@@ -454,7 +531,7 @@ export default function Products() {
             </div>
           ) : (
             <>
-              {isFetching && productsData && (
+              {isFetching && productsResponse && (
                 <div className="absolute top-0 right-0 p-2">
                   <Loader2 className="h-4 w-4 animate-spin text-primary" />
                 </div>
@@ -494,7 +571,15 @@ export default function Products() {
                   </thead>
                   <tbody>
                     {products.map((product: any) => {
-                      const primaryImage = product.images?.find((img: any) => img.isPrimary) || product.images?.[0];
+                      // Handle both camelCase and snake_case field names
+                      const primaryImage = product.images?.find((img: any) => img.isPrimary || img.is_primary) || product.images?.[0];
+                      const imageUrl = primaryImage?.image_url || primaryImage?.imageUrl || primaryImage?.url;
+                      const sellingPrice = product.sellingPrice || product.selling_price || 0;
+                      const mrp = product.mrp || product.mrp || 0;
+                      const stockQuantity = product.stockQuantity || product.stock_quantity || 0;
+                      const isFeatured = product.isFeatured || product.is_featured || false;
+                      const isAvailable = product.isAvailable !== undefined ? product.isAvailable : (product.is_available !== undefined ? product.is_available : true);
+                      
                       return (
                         <tr
                           key={product.id}
@@ -508,20 +593,30 @@ export default function Products() {
                           </td>
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-3">
-                              {primaryImage ? (
-                                <img
-                                  src={primaryImage.url}
-                                  alt={product.name}
-                                  className="h-12 w-12 rounded-lg object-cover bg-secondary"
-                                />
+                              {imageUrl ? (
+                                <div className="h-12 w-12 rounded-lg bg-secondary border border-border overflow-hidden flex items-center justify-center">
+                                  <img
+                                    src={imageUrl}
+                                    alt={product.name}
+                                    className="max-h-full max-w-full object-contain"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).style.display = 'none';
+                                      const parent = (e.target as HTMLImageElement).parentElement;
+                                      if (parent) {
+                                        parent.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M9 9h6v6H9z"></path></svg>';
+                                        parent.className = 'h-12 w-12 rounded-lg bg-secondary flex items-center justify-center';
+                                      }
+                                    }}
+                                  />
+                                </div>
                               ) : (
-                                <div className="h-12 w-12 rounded-lg bg-secondary flex items-center justify-center">
+                                <div className="h-12 w-12 rounded-lg bg-secondary border border-border flex items-center justify-center">
                                   <Package className="h-6 w-6 text-muted-foreground" />
                                 </div>
                               )}
                               <div>
                                 <p className="font-medium text-foreground">{product.name}</p>
-                                {product.isFeatured && (
+                                {isFeatured && (
                                   <Badge variant="secondary" className="mt-1 text-xs">
                                     Featured
                                   </Badge>
@@ -542,25 +637,25 @@ export default function Products() {
                           </td>
                           <td className="py-4 px-4">
                             <p className="font-medium text-foreground">
-                              {formatCurrency(product.sellingPrice || 0)}
+                              {formatCurrency(parseFloat(sellingPrice.toString()))}
                             </p>
-                            {product.mrp > product.sellingPrice && (
+                            {parseFloat(mrp.toString()) > parseFloat(sellingPrice.toString()) && (
                               <p className="text-xs text-muted-foreground line-through">
-                                {formatCurrency(product.mrp || 0)}
+                                {formatCurrency(parseFloat(mrp.toString()))}
                               </p>
                             )}
                           </td>
                           <td className="py-4 px-4">
                             <span
                               className={`font-medium ${
-                                (product.stockQuantity || 0) === 0
+                                stockQuantity === 0
                                   ? 'text-red-600'
-                                  : (product.stockQuantity || 0) < 50
+                                  : stockQuantity < 50
                                   ? 'text-amber-600'
                                   : 'text-foreground'
                               }`}
                             >
-                              {product.stockQuantity || 0}
+                              {stockQuantity}
                             </span>
                           </td>
                           <td className="py-4 px-4">{getStatusBadge(product)}</td>
