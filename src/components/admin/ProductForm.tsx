@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { categoriesAPI, companiesAPI, brandsAPI, productsAPI, uploadAPI } from '@/lib/api';
@@ -51,6 +51,15 @@ interface ProductFormProps {
   productId?: string; // If provided, we're editing
 }
 
+const variantSchema = z.object({
+  hsnCode: z.string().optional(),
+  setPieces: z.string().optional(),
+  weight: z.string().optional(),
+  mrp: z.number().min(0, 'MRP is required for each variant'),
+  specialPrice: z.number().min(0, 'Special price is required for each variant'),
+  freeItem: z.string().optional(),
+});
+
 const productSchema = z.object({
   name: z.string().min(1, 'Product name is required'),
   description: z.string().optional(),
@@ -67,6 +76,11 @@ const productSchema = z.object({
   isAvailable: z.boolean().optional(),
   metaTitle: z.string().optional(),
   metaDescription: z.string().optional(),
+  // Multiple size / pack variants like in Excel sheet
+  variants: z
+    .array(variantSchema)
+    .min(1, 'At least one variant is required')
+    .optional(),
 }).refine((data) => data.sellingPrice <= data.mrp, {
   message: 'Selling price must be less than or equal to MRP',
   path: ['sellingPrice'],
@@ -88,6 +102,7 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
     reset,
     setValue,
     watch,
+    control,
   } = useForm<ProductFormData>({
     resolver: zodResolver(productSchema),
     defaultValues: {
@@ -96,7 +111,26 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
       isFeatured: false,
       isAvailable: true,
       unit: 'piece',
+      variants: [
+        {
+          hsnCode: '',
+          setPieces: '',
+          weight: '',
+          mrp: 0,
+          specialPrice: 0,
+          freeItem: '',
+        },
+      ],
     },
+  });
+
+  const {
+    fields: variantFields,
+    append: appendVariant,
+    remove: removeVariant,
+  } = useFieldArray({
+    control,
+    name: 'variants',
   });
 
   // Fetch categories
@@ -178,6 +212,25 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
         piecesPerSet: productData.piecesPerSet || 1,
         isFeatured: productData.isFeatured || false,
         isAvailable: productData.isAvailable !== false,
+        variants: productData.variants && Array.isArray(productData.variants)
+          ? productData.variants.map((v: any) => ({
+              hsnCode: v.hsnCode || v.hsn_code || '',
+              setPieces: v.setPieces?.toString() || v.set_pcs?.toString() || '',
+              weight: v.weight || '',
+              mrp: Number(v.mrp || 0),
+              specialPrice: Number(v.specialPrice || v.special_price || 0),
+              freeItem: v.freeItem || v.free_item || '',
+            }))
+          : [
+              {
+                hsnCode: '',
+                setPieces: '',
+                weight: '',
+                mrp: Number(productData.mrp || 0),
+                specialPrice: Number(productData.sellingPrice || 0),
+                freeItem: '',
+              },
+            ],
         metaTitle: productData.metaTitle || '',
         metaDescription: productData.metaDescription || '',
       });
@@ -273,15 +326,15 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
         formData.append('brand_id', data.brandId);
       }
       
-      // Add pricing
+      // Add base pricing (can represent default / primary variant)
       formData.append('mrp', data.mrp.toString());
       formData.append('sellingPrice', data.sellingPrice.toString());
       
-      // Add stock and order quantities
+      // Add stock and order quantities (overall stock for all variants)
       formData.append('stockQuantity', (data.stockQuantity || 0).toString());
       formData.append('minOrderQuantity', (data.minOrderQuantity || 1).toString());
       
-      // Add unit
+      // Add unit (generic unit, individual variant weights go in variants array)
       formData.append('unit', data.unit);
       
       // Add pieces per set if provided
@@ -308,6 +361,19 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
         });
         // Set primary image index (first image is primary)
         formData.append('primaryIndex', '0');
+      }
+
+      // Add variants as JSON so backend can create separate rows per variant
+      if (data.variants && data.variants.length > 0) {
+        const cleanedVariants = data.variants.map((v) => ({
+          hsnCode: v.hsnCode || '',
+          setPieces: v.setPieces || '',
+          weight: v.weight || '',
+          mrp: Number.isFinite(v.mrp) ? v.mrp : 0,
+          specialPrice: Number.isFinite(v.specialPrice) ? v.specialPrice : 0,
+          freeItem: v.freeItem || '',
+        }));
+        formData.append('variants', JSON.stringify(cleanedVariants));
       }
 
       if (productId) {

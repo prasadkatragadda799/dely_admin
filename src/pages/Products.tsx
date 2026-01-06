@@ -579,6 +579,8 @@ export default function Products() {
                       const stockQuantity = product.stockQuantity || product.stock_quantity || 0;
                       const isFeatured = product.isFeatured || product.is_featured || false;
                       const isAvailable = product.isAvailable !== undefined ? product.isAvailable : (product.is_available !== undefined ? product.is_available : true);
+                      const variants = Array.isArray(product.variants) ? product.variants : [];
+                      const primaryVariant = variants[0];
                       
                       return (
                         <tr
@@ -616,6 +618,17 @@ export default function Products() {
                               )}
                               <div>
                                 <p className="font-medium text-foreground">{product.name}</p>
+                                {primaryVariant && (
+                                  <p className="text-xs text-muted-foreground">
+                                    {primaryVariant.weight && `${primaryVariant.weight} · `}{' '}
+                                    ₹{primaryVariant.specialPrice || primaryVariant.sellingPrice || primaryVariant.mrp}
+                                  </p>
+                                )}
+                                {variants.length > 1 && (
+                                  <p className="text-[11px] text-muted-foreground">
+                                    {variants.length} variants
+                                  </p>
+                                )}
                                 {isFeatured && (
                                   <Badge variant="secondary" className="mt-1 text-xs">
                                     Featured
