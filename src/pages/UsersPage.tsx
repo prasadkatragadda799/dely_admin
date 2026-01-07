@@ -12,7 +12,8 @@ import {
   Shield,
   Mail,
   Phone,
-  Loader2
+  Loader2,
+  CheckCircle2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,7 +35,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { usersAPI } from '@/lib/api';
+import { usersAPI, kycAPI } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -47,6 +48,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
 export default function UsersPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -55,6 +66,8 @@ export default function UsersPage() {
   const [page, setPage] = useState(1);
   const [blockingUserId, setBlockingUserId] = useState<string | null>(null);
   const [blockReason, setBlockReason] = useState('');
+  const [verifyingUserId, setVerifyingUserId] = useState<string | null>(null);
+  const [verifyComments, setVerifyComments] = useState('');
   const limit = 20;
 
   const { toast } = useToast();
@@ -275,12 +288,69 @@ export default function UsersPage() {
     });
   };
 
+  // Fetch user's KYC submission when verifying
+  const { data: userKYCSubmission, isLoading: isLoadingUserKYC } = useQuery({
+    queryKey: ['user-kyc', verifyingUserId],
+    queryFn: async () => {
+      if (!verifyingUserId) return null;
+      // First, try to get KYC by user ID
+      try {
+        const response = await kycAPI.getKYCByUserId(verifyingUserId);
+        return response.data;
+      } catch (error: any) {
+        // If endpoint doesn't exist, try getting all KYC and filter
+        const response = await kycAPI.getKYCSubmissions({ search: verifyingUserId });
+        const items = response.data?.items || response.data || [];
+        const userKYC = Array.isArray(items) 
+          ? items.find((k: any) => k.userId === verifyingUserId || k.user_id === verifyingUserId)
+          : null;
+        return userKYC || null;
+      }
+    },
+    enabled: !!verifyingUserId,
+  });
+
+  // Verify KYC mutation
+  const verifyKYCMutation = useMutation({
+    mutationFn: ({ kycId, comments }: { kycId: string; comments?: string }) =>
+      kycAPI.verifyKYC(kycId, comments),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['kyc'] });
+      queryClient.invalidateQueries({ queryKey: ['user-kyc'] });
+      toast({
+        title: 'KYC verified',
+        description: 'User KYC has been verified successfully',
+      });
+      setVerifyingUserId(null);
+      setVerifyComments('');
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.error?.message || 'Failed to verify KYC',
+        variant: 'destructive',
+      });
+    },
+  });
+
   const handleVerifyKYC = (userId: string) => {
-    // TODO: Navigate to KYC page or open KYC verification modal
-    toast({
-      title: 'Verify KYC',
-      description: 'Redirecting to KYC verification...',
-    });
+    setVerifyingUserId(userId);
+  };
+
+  const confirmVerifyKYC = () => {
+    if (userKYCSubmission?.id) {
+      verifyKYCMutation.mutate({
+        kycId: userKYCSubmission.id,
+        comments: verifyComments || undefined,
+      });
+    } else {
+      toast({
+        title: 'Error',
+        description: 'KYC submission not found for this user',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -515,10 +585,12 @@ export default function UsersPage() {
                                   <Eye className="h-4 w-4 mr-2" />
                                   View Profile
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleVerifyKYC(userId)}>
-                                  <Shield className="h-4 w-4 mr-2" />
-                                  Verify KYC
-                                </DropdownMenuItem>
+                                {(kycStatus === 'pending' || !kycStatus) && (
+                                  <DropdownMenuItem onClick={() => handleVerifyKYC(userId)}>
+                                    <Shield className="h-4 w-4 mr-2" />
+                                    Verify KYC
+                                  </DropdownMenuItem>
+                                )}
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem 
                                   className={isActive ? "text-destructive focus:text-destructive" : ""}
@@ -625,6 +697,104 @@ export default function UsersPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Verify KYC Dialog */}
+      <Dialog open={!!verifyingUserId} onOpenChange={(open) => {
+        if (!open && !verifyKYCMutation.isPending) {
+          setVerifyingUserId(null);
+          setVerifyComments('');
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Verify KYC</DialogTitle>
+            <DialogDescription>
+              {userKYCSubmission ? (
+                <>Verify KYC for {userKYCSubmission.user?.name || userKYCSubmission.userName || userKYCSubmission.user_name || 'this user'}</>
+              ) : (
+                <>Loading KYC information...</>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          {isLoadingUserKYC ? (
+            <div className="py-8 text-center">
+              <Loader2 className="h-8 w-8 mx-auto animate-spin text-primary mb-4" />
+              <p className="text-muted-foreground">Loading KYC information...</p>
+            </div>
+          ) : userKYCSubmission ? (
+            <>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>Business Name</Label>
+                  <p className="font-medium">{userKYCSubmission.businessName || userKYCSubmission.business_name || '-'}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>GST Number</Label>
+                    <p className="font-mono text-sm">{userKYCSubmission.gstNumber || userKYCSubmission.gst_number || userKYCSubmission.gst || '-'}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>PAN Number</Label>
+                    <p className="font-mono text-sm">{userKYCSubmission.panNumber || userKYCSubmission.pan_number || userKYCSubmission.pan || '-'}</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="verify-comments">Comments (Optional)</Label>
+                  <Textarea 
+                    id="verify-comments" 
+                    placeholder="Add any comments about this verification"
+                    rows={3}
+                    value={verifyComments}
+                    onChange={(e) => setVerifyComments(e.target.value)}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setVerifyingUserId(null);
+                    setVerifyComments('');
+                  }}
+                  disabled={verifyKYCMutation.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  variant="gradient" 
+                  onClick={confirmVerifyKYC}
+                  disabled={verifyKYCMutation.isPending}
+                >
+                  {verifyKYCMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Verifying...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                      Verify KYC
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <div className="py-8 text-center">
+              <p className="text-muted-foreground mb-4">No KYC submission found for this user.</p>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setVerifyingUserId(null);
+                  setVerifyComments('');
+                }}
+              >
+                Close
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

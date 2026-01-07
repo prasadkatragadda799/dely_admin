@@ -347,6 +347,7 @@ export const kycAPI = {
     page?: number;
     limit?: number;
     status?: string;
+    search?: string;
   }) => {
     const response = await apiClient.get<ApiResponse<PaginatedResponse<any>>>('/admin/kyc', {
       params,
@@ -375,6 +376,11 @@ export const kycAPI = {
 
   getKYCDocuments: async (id: string) => {
     const response = await apiClient.get<ApiResponse<any>>(`/admin/kyc/${id}/documents`);
+    return response.data;
+  },
+
+  getKYCByUserId: async (userId: string) => {
+    const response = await apiClient.get<ApiResponse<any>>(`/admin/kyc/user/${userId}`);
     return response.data;
   },
 };
