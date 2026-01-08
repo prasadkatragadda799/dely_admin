@@ -13,9 +13,9 @@ export default defineConfig(({ mode }) => {
       port: 8080,
       proxy: {
         '/api': {
-          target: env.VITE_API_URL || 'http://localhost:8000',
+          target: env.VITE_API_URL || 'https://dely-backend.onrender.com',
           changeOrigin: true,
-          secure: false, // Set to false for localhost
+          secure: true, // Set to true for HTTPS backend
           rewrite: (path) => path.replace(/^\/api/, ''),
         },
       },

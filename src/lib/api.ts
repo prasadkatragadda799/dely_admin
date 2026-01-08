@@ -22,6 +22,7 @@ const isDevelopment = import.meta.env.DEV;
 let API_BASE_URL: string;
 if (isDevelopment) {
   // In development, use Vite proxy - it will rewrite /api to remove it
+  // The proxy targets VITE_API_URL or defaults to https://dely-backend.onrender.com
   API_BASE_URL = '/api';
 } else {
   // In production, use direct backend URL (ensure it doesn't include /api)

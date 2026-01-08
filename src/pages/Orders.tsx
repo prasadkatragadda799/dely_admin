@@ -48,6 +48,12 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 export default function Orders() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -60,6 +66,7 @@ export default function Orders() {
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
   const [newStatus, setNewStatus] = useState<string>('');
   const [statusNotes, setStatusNotes] = useState('');
+  const [invoiceOrder, setInvoiceOrder] = useState<any | null>(null);
   const limit = 20;
 
   const { toast } = useToast();
@@ -183,6 +190,25 @@ export default function Orders() {
     totalPages: 1,
   };
 
+  // Dummy order to always have at least one example with invoice
+  const dummyOrder = {
+    id: 'DUMMY-ORDER-001',
+    orderNumber: 'ODAG79ZY2WMXK7',
+    customerName: 'MANISH JAISWAL',
+    businessName: 'Granary Wholesale Private Limited',
+    itemsCount: 1,
+    totalAmount: 2197.32,
+    paymentMethod: 'Credit',
+    status: 'delivered',
+    createdAt: '2024-04-01T00:00:00.000Z',
+    deliveryDate: '2024-04-01T00:00:00.000Z',
+    isDummy: true,
+  };
+
+  const showDummyOrder = true;
+  const isUsingDummyOrder = showDummyOrder && (!orders || orders.length === 0);
+  const displayedOrders = isUsingDummyOrder ? [dummyOrder] : orders;
+
   // Update order status mutation
   const updateStatusMutation = useMutation({
     mutationFn: ({ orderId, status, notes }: { orderId: string; status: string; notes?: string }) =>
@@ -232,30 +258,31 @@ export default function Orders() {
 
   // Calculate stats from orders data
   const stats = useMemo(() => {
-    const all = pagination.total || orders.length;
-    const pending = orders.filter((o: any) => {
+    const sourceOrders = displayedOrders;
+    const all = sourceOrders.length || pagination.total || 0;
+    const pending = sourceOrders.filter((o: any) => {
       const status = o.status || o.order_status || 'pending';
       return status === 'pending';
     }).length;
-    const confirmed = orders.filter((o: any) => {
+    const confirmed = sourceOrders.filter((o: any) => {
       const status = o.status || o.order_status || 'pending';
       return status === 'confirmed' || status === 'processing';
     }).length;
-    const shipped = orders.filter((o: any) => {
+    const shipped = sourceOrders.filter((o: any) => {
       const status = o.status || o.order_status || 'pending';
       return status === 'shipped' || status === 'out_for_delivery';
     }).length;
-    const delivered = orders.filter((o: any) => {
+    const delivered = sourceOrders.filter((o: any) => {
       const status = o.status || o.order_status || 'pending';
       return status === 'delivered' || status === 'completed';
     }).length;
-    const cancelled = orders.filter((o: any) => {
+    const cancelled = sourceOrders.filter((o: any) => {
       const status = o.status || o.order_status || 'pending';
       return status === 'cancelled' || status === 'canceled';
     }).length;
 
     return { all, pending, confirmed, shipped, delivered, cancelled };
-  }, [orders, pagination]);
+  }, [displayedOrders, pagination]);
 
   const orderStats = [
     { label: 'All Orders', value: stats.all, icon: Package, color: 'bg-blue-100 text-blue-600' },
@@ -537,11 +564,6 @@ export default function Orders() {
                   Retry
                 </Button>
               </div>
-            ) : orders.length === 0 ? (
-              <div className="p-8 text-center">
-                <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">No orders found</p>
-              </div>
             ) : (
               <>
                 {isFetching && ordersResponse && (
@@ -565,7 +587,7 @@ export default function Orders() {
                       </tr>
                     </thead>
                     <tbody>
-                      {orders.map((order: any) => {
+                      {displayedOrders.map((order: any) => {
                         // Handle both camelCase and snake_case field names
                         const orderId = order.id || order.orderId || order.order_id;
                         const orderNumber = order.orderNumber || order.order_number || orderId;
@@ -577,6 +599,7 @@ export default function Orders() {
                         const status = order.status || order.order_status || 'pending';
                         const orderDate = order.createdAt || order.created_at || order.orderDate || order.order_date;
                         const deliveryDate = order.deliveryDate || order.delivery_date || order.expectedDeliveryDate || order.expected_delivery_date;
+                        const isDummy = order.isDummy;
 
                         return (
                           <tr key={orderId} className="border-b border-border last:border-0 hover:bg-secondary/30 transition-colors">
@@ -615,10 +638,16 @@ export default function Orders() {
                                       Update Status
                                     </DropdownMenuItem>
                                   )}
-                                  <DropdownMenuItem onClick={() => handlePrintInvoice(orderId)}>
+                                  <DropdownMenuItem onClick={() => setInvoiceOrder(order)}>
                                     <Printer className="h-4 w-4 mr-2" />
-                                    Print Invoice
+                                    View Invoice
                                   </DropdownMenuItem>
+                                  {!isDummy && (
+                                    <DropdownMenuItem onClick={() => handlePrintInvoice(orderId)}>
+                                      <Download className="h-4 w-4 mr-2" />
+                                      Download Invoice PDF
+                                    </DropdownMenuItem>
+                                  )}
                                   {status !== 'cancelled' && status !== 'canceled' && status !== 'delivered' && status !== 'completed' && (
                                     <>
                                       <DropdownMenuSeparator />
@@ -792,6 +821,141 @@ export default function Orders() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Invoice Dialog */}
+      <Dialog open={!!invoiceOrder} onOpenChange={(open) => !open && setInvoiceOrder(null)}>
+        <DialogContent className="max-w-5xl p-0 bg-white text-black">
+          <DialogHeader className="px-6 pt-4 pb-2 border-b">
+            <DialogTitle className="text-lg font-semibold">Invoice</DialogTitle>
+          </DialogHeader>
+          {/* Udaan-style invoice layout */}
+          <div className="p-6 space-y-4 text-xs leading-relaxed">
+            {/* Top section with QR + meta */}
+            <div className="flex justify-between gap-6">
+              <div className="w-32 h-32 border border-gray-300 flex items-center justify-center bg-white p-1">
+                <img 
+                  src="/qr.png" 
+                  alt="QR Code" 
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <div className="flex-1 grid grid-cols-2 gap-x-6 gap-y-1 text-[11px]">
+                <div>
+                  <p className="font-semibold uppercase">Bill of Supply</p>
+                  <p>Order No : ODAG79ZY2WMXK7</p>
+                  <p>Shipment No : SGHA175KPR4FYJ</p>
+                  <p>Invoice Date : 2024-04-01</p>
+                  <p>Place of Supply : UTTAR PRADESH</p>
+                  <p>Supply Type : INTRASTATE</p>
+                  <p>Page No : 1 / 1</p>
+                </div>
+                <div>
+                  <p className="font-semibold">Bill From:</p>
+                  <p>GRANARY WHOLESALE PRIVATE LIMITED</p>
+                  <p>No 331, Sarai Jagarnath, pargana - Nizamabad, Tehsil</p>
+                  <p>- Sadar, Janpad & Dist - Azamgarh, purwanchal</p>
+                  <p>paudhshala</p>
+                  <p>Azamgarh, Uttar Pradesh - 276207</p>
+                  <p>GSTIN: 09AAHCG7552R1ZP</p>
+                  <p>PAN: AAHCG7552R</p>
+                  <p>FSSAI: 10019043002791</p>
+                  <p className="text-[10px]">https://foscos.fssai.gov.in/</p>
+                </div>
+              </div>
+              <div className="w-60 text-[11px]">
+                <p className="font-semibold">Bill To:</p>
+                <p>MANISH JAISWAL</p>
+                <p>mudarkpur, Purani basti Road ways mudarkpur, Purani basti Road ways</p>
+                <p>mudarkpur</p>
+                <p>Azamgarh, Uttar Pradesh - 276404</p>
+              </div>
+            </div>
+
+            {/* Items table */}
+            <div className="border border-black mt-2">
+              <div className="border-b border-black bg-gray-100 px-3 py-2 font-semibold text-[11px]">
+                Description
+              </div>
+              <div className="grid grid-cols-[2fr,0.7fr,0.7fr,0.7fr,0.4fr,0.8fr,0.5fr,0.5fr,0.8fr] text-[10px] border-b border-black bg-gray-100">
+                <div className="px-2 py-1 border-r border-black"> </div>
+                <div className="px-2 py-1 border-r border-black text-right">Original Rate</div>
+                <div className="px-2 py-1 border-r border-black text-right">Unit Discount</div>
+                <div className="px-2 py-1 border-r border-black text-right">Rate</div>
+                <div className="px-2 py-1 border-r border-black text-right">Qty</div>
+                <div className="px-2 py-1 border-r border-black text-right">Taxable Amt.</div>
+                <div className="px-2 py-1 border-r border-black text-right">SGST</div>
+                <div className="px-2 py-1 border-r border-black text-right">CGST</div>
+                <div className="px-2 py-1 text-right">Total Amt.</div>
+              </div>
+              <div className="grid grid-cols-[2fr,0.7fr,0.7fr,0.7fr,0.4fr,0.8fr,0.5fr,0.5fr,0.8fr] text-[10px] border-b border-black">
+                <div className="px-2 py-2 border-r border-black">
+                  4G Premium Quality Pulses Sortex Clean (Masoor Black Whole) 30 kg India Bopp Bag:
+                  EACH (Set of 1), HSN: 07139090, CGST@ 0.0%, SGST@ 0.0%
+                </div>
+                <div className="px-2 py-2 border-r border-black text-right">2,197.32</div>
+                <div className="px-2 py-2 border-r border-black text-right">0.00</div>
+                <div className="px-2 py-2 border-r border-black text-right">2,197.32</div>
+                <div className="px-2 py-2 border-r border-black text-right">1.0</div>
+                <div className="px-2 py-2 border-r border-black text-right">2,197.32</div>
+                <div className="px-2 py-2 border-r border-black text-right">0.00</div>
+                <div className="px-2 py-2 border-r border-black text-right">0.00</div>
+                <div className="px-2 py-2 text-right">2,197.32</div>
+              </div>
+              <div className="flex justify-between items-center text-[10px] px-2 py-1 border-b border-black">
+                <span>Page Total</span>
+                <span>Qty 1.0</span>
+                <span>2,197.32</span>
+              </div>
+            </div>
+
+            {/* Grand total section */}
+            <div className="flex justify-between items-center mt-2 text-[11px]">
+              <div>
+                <p className="font-semibold">FOR GRANARY WHOLESALE PRIVATE LIMITED</p>
+              </div>
+              <div className="text-right">
+                <p>Grand Total:</p>
+                <p className="font-semibold text-base">₹ 2,197.32</p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs">To Pay:</p>
+                <p className="font-bold text-xl">₹ 2,197.32</p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="mt-6 flex justify-between items-start text-[9px]">
+              <div className="max-w-md">
+                <p className="font-semibold mb-1">Authorised Signatory</p>
+                <div className="mb-2 mt-1">
+                  <img 
+                    src="/sign.png" 
+                    alt="Signature" 
+                    className="h-12 object-contain"
+                  />
+                </div>
+                <p className="mt-1">Is tax payable on reverse charge basis - NO</p>
+                <p className="mt-1">
+                  DECLARATION: We declare that the invoice shows the actual price of the goods described and that the particulars are true and correct.
+                </p>
+                <p className="mt-1">
+                  Note:- This transaction/sale is subject to TDS U/s 194-O hence TDS U/s 194Q is not applicable. This is a computer-generated invoice.
+                </p>
+                <p className="mt-1">
+                  For any issues, please contact DelyCart Customer Care team at 08045744101 or go to Your Biz &gt; Support section on Delycart app.
+                </p>
+              </div>
+              <div className="flex flex-col items-center space-y-2 mr-4">
+                <div className="w-10 h-10 rounded-full border border-red-500 flex items-center justify-center text-[10px] text-red-600">
+                  logo
+                </div>
+                <p className="text-[10px] font-semibold">Ordered Through</p>
+                <p className="text-[11px] font-bold text-red-600">Delycart</p>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
