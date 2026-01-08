@@ -173,7 +173,7 @@ export default function Products() {
                 limit: responseData.limit || filters.limit || 20,
                 total: responseData.total || responseData.products.length,
                 totalPages: responseData.totalPages || Math.ceil((responseData.total || responseData.products.length) / (responseData.limit || filters.limit || 20)),
-              },
+  },
             };
           }
         }
@@ -536,16 +536,16 @@ export default function Products() {
                   <Loader2 className="h-4 w-4 animate-spin text-primary" />
                 </div>
               )}
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-secondary/50">
-                    <tr className="border-b border-border">
-                      <th className="py-4 px-4 text-left">
-                        <Checkbox
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-secondary/50">
+                <tr className="border-b border-border">
+                  <th className="py-4 px-4 text-left">
+                    <Checkbox
                           checked={selectedProducts.length === products.length && products.length > 0}
-                          onCheckedChange={toggleSelectAll}
-                        />
-                      </th>
+                      onCheckedChange={toggleSelectAll}
+                    />
+                  </th>
                       <th className="py-4 px-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                         Product
                       </th>
@@ -567,9 +567,9 @@ export default function Products() {
                       <th className="py-4 px-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                         Actions
                       </th>
-                    </tr>
-                  </thead>
-                  <tbody>
+                </tr>
+              </thead>
+              <tbody>
                     {products.map((product: any) => {
                       // Handle both camelCase and snake_case field names
                       const primaryImage = product.images?.find((img: any) => img.isPrimary || img.is_primary) || product.images?.[0];
@@ -587,19 +587,19 @@ export default function Products() {
                           key={product.id}
                           className="border-b border-border last:border-0 hover:bg-secondary/30 transition-colors"
                         >
-                          <td className="py-4 px-4">
-                            <Checkbox
-                              checked={selectedProducts.includes(product.id)}
-                              onCheckedChange={() => toggleSelectProduct(product.id)}
-                            />
-                          </td>
-                          <td className="py-4 px-4">
-                            <div className="flex items-center gap-3">
+                    <td className="py-4 px-4">
+                      <Checkbox
+                        checked={selectedProducts.includes(product.id)}
+                        onCheckedChange={() => toggleSelectProduct(product.id)}
+                      />
+                    </td>
+                    <td className="py-4 px-4">
+                      <div className="flex items-center gap-3">
                               {imageUrl ? (
                                 <div className="h-12 w-12 rounded-lg bg-secondary border border-border overflow-hidden flex items-center justify-center">
-                                  <img
+                        <img
                                     src={imageUrl}
-                                    alt={product.name}
+                          alt={product.name}
                                     className="max-h-full max-w-full object-contain"
                                     onError={(e) => {
                                       (e.target as HTMLImageElement).style.display = 'none';
@@ -616,8 +616,8 @@ export default function Products() {
                                   <Package className="h-6 w-6 text-muted-foreground" />
                                 </div>
                               )}
-                              <div>
-                                <p className="font-medium text-foreground">{product.name}</p>
+                        <div>
+                          <p className="font-medium text-foreground">{product.name}</p>
                                 {primaryVariant && (
                                   <p className="text-xs text-muted-foreground">
                                     {primaryVariant.weight && `${primaryVariant.weight} · `}{' '}
@@ -633,11 +633,11 @@ export default function Products() {
                                   <Badge variant="secondary" className="mt-1 text-xs">
                                     Featured
                                   </Badge>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-4 px-4">
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-4 px-4">
                             <p className="font-medium text-foreground">
                               {product.brand?.name || '-'}
                             </p>
@@ -647,8 +647,8 @@ export default function Products() {
                           </td>
                           <td className="py-4 px-4 text-foreground">
                             {product.category?.name || '-'}
-                          </td>
-                          <td className="py-4 px-4">
+                    </td>
+                    <td className="py-4 px-4">
                             <p className="font-medium text-foreground">
                               {formatCurrency(parseFloat(sellingPrice.toString()))}
                             </p>
@@ -657,8 +657,8 @@ export default function Products() {
                                 {formatCurrency(parseFloat(mrp.toString()))}
                               </p>
                             )}
-                          </td>
-                          <td className="py-4 px-4">
+                    </td>
+                    <td className="py-4 px-4">
                             <span
                               className={`font-medium ${
                                 stockQuantity === 0
@@ -669,51 +669,51 @@ export default function Products() {
                               }`}
                             >
                               {stockQuantity}
-                            </span>
-                          </td>
+                      </span>
+                    </td>
                           <td className="py-4 px-4">{getStatusBadge(product)}</td>
-                          <td className="py-4 px-4">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="bg-popover">
-                                <DropdownMenuItem>
-                                  <Eye className="h-4 w-4 mr-2" />
-                                  View Details
-                                </DropdownMenuItem>
+                    <td className="py-4 px-4">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="bg-popover">
+                          <DropdownMenuItem>
+                            <Eye className="h-4 w-4 mr-2" />
+                            View Details
+                          </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleEdit(product.id)}>
-                                  <Edit className="h-4 w-4 mr-2" />
-                                  Edit Product
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit Product
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
                                 <DropdownMenuItem
                                   className="text-destructive focus:text-destructive"
                                   onClick={() => handleDelete(product.id)}
                                 >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Delete Product
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </td>
-                        </tr>
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete Product
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </td>
+                  </tr>
                       );
                     })}
-                  </tbody>
-                </table>
-              </div>
+              </tbody>
+            </table>
+          </div>
 
-              {/* Pagination */}
-              <div className="flex items-center justify-between px-4 py-3 border-t border-border">
-                <p className="text-sm text-muted-foreground">
+          {/* Pagination */}
+          <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+            <p className="text-sm text-muted-foreground">
                   Showing <strong>{(page - 1) * limit + 1}</strong> to{' '}
                   <strong>{Math.min(page * limit, pagination.total)}</strong> of{' '}
                   <strong>{pagination.total}</strong> products
-                </p>
-                <div className="flex gap-2">
+            </p>
+            <div className="flex gap-2">
                   <Button
                     variant="outline"
                     size="sm"
@@ -743,8 +743,8 @@ export default function Products() {
                   >
                     Next
                   </Button>
-                </div>
-              </div>
+            </div>
+          </div>
             </>
           )}
         </CardContent>
