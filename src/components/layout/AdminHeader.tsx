@@ -17,6 +17,13 @@ import { Badge } from '@/components/ui/badge';
 export function AdminHeader() {
   const { user, logout } = useAuth();
 
+  const handleLogout = () => {
+    const confirmed = window.confirm('Are you sure you want to logout?');
+    if (confirmed) {
+      logout();
+    }
+  };
+
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -107,7 +114,7 @@ export function AdminHeader() {
             <DropdownMenuItem>Profile Settings</DropdownMenuItem>
             <DropdownMenuItem>Activity Log</DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive">
+            <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
               Logout
             </DropdownMenuItem>
           </DropdownMenuContent>

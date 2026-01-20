@@ -114,6 +114,13 @@ export function AdminSidebar() {
     return systemItems;
   })();
 
+  const handleLogout = () => {
+    const confirmed = window.confirm('Are you sure you want to logout?');
+    if (confirmed) {
+      logout();
+    }
+  };
+
   const NavItem = ({ item }: { item: { title: string; url: string; icon: React.ElementType } }) => (
     <SidebarMenuItem>
       <SidebarMenuButton asChild>
@@ -229,7 +236,7 @@ export function AdminSidebar() {
 
       <SidebarFooter className="p-3 border-t border-sidebar-border">
         <button
-          onClick={logout}
+          onClick={handleLogout}
           className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm font-medium text-destructive hover:bg-destructive/10 transition-all duration-200"
         >
           <LogOut className="h-5 w-5 shrink-0" />
