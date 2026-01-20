@@ -32,9 +32,10 @@ import {
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { productsAPI, categoriesAPI } from '@/lib/api';
+import { productsAPI, categoriesAPI, sellerProductsAPI } from '@/lib/api';
 import { ProductForm } from '@/components/admin/ProductForm';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -67,6 +68,8 @@ export default function Products() {
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const isSeller = user?.role === 'seller';
 
   // Ensure query runs when component mounts
   useEffect(() => {
@@ -99,6 +102,12 @@ export default function Products() {
   };
 
   const categories = categoriesData ? flattenCategories(categoriesData) : [];
+
+  // Calculate discount percentage helper
+  const calculateDiscountPercent = (mrp: number, sellingPrice: number): number => {
+    if (!mrp || mrp === 0 || mrp <= sellingPrice) return 0;
+    return Math.round(((mrp - sellingPrice) / mrp) * 100);
+  };
 
   // Build filters
   const filters = useMemo(() => {
@@ -137,7 +146,15 @@ export default function Products() {
     queryKey: ['products', filters],
     queryFn: async () => {
       try {
-        const response = await productsAPI.getProducts(filters);
+        const response = isSeller
+          ? await sellerProductsAPI.getProducts({
+              page: filters.page,
+              limit: filters.limit,
+              search: filters.search,
+              category_id: filters.category,
+              is_available: filters.status === 'available' ? true : undefined,
+            })
+          : await productsAPI.getProducts(filters);
         
         // Handle different response structures
         // Backend might return: { success: true, data: { items: [], pagination: {} } }
@@ -214,7 +231,8 @@ export default function Products() {
 
   // Delete product mutation
   const deleteMutation = useMutation({
-    mutationFn: (productId: string) => productsAPI.deleteProduct(productId),
+    mutationFn: (productId: string) =>
+      isSeller ? sellerProductsAPI.deleteProduct(productId) : productsAPI.deleteProduct(productId),
     onSuccess: () => {
       // Invalidate and refetch products
       queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -550,6 +568,9 @@ export default function Products() {
                         Product
                       </th>
                       <th className="py-4 px-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        HSN Code
+                      </th>
+                      <th className="py-4 px-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                         Brand / Company
                       </th>
                       <th className="py-4 px-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -557,6 +578,9 @@ export default function Products() {
                       </th>
                       <th className="py-4 px-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                         Price
+                      </th>
+                      <th className="py-4 px-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Discount %
                       </th>
                       <th className="py-4 px-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                         Stock
@@ -638,6 +662,11 @@ export default function Products() {
                       </div>
                     </td>
                     <td className="py-4 px-4">
+                            <span className="text-sm text-muted-foreground">
+                              {product.hsnCode || product.hsn_code || primaryVariant?.hsnCode || primaryVariant?.hsn_code || '-'}
+                            </span>
+                    </td>
+                    <td className="py-4 px-4">
                             <p className="font-medium text-foreground">
                               {product.brand?.name || '-'}
                             </p>
@@ -657,6 +686,21 @@ export default function Products() {
                                 {formatCurrency(parseFloat(mrp.toString()))}
                               </p>
                             )}
+                    </td>
+                    <td className="py-4 px-4">
+                            {(() => {
+                              const discountPercent = calculateDiscountPercent(
+                                parseFloat(mrp.toString()),
+                                parseFloat(sellingPrice.toString())
+                              );
+                              return discountPercent > 0 ? (
+                                <span className="font-semibold text-emerald-600">
+                                  {discountPercent}% OFF
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              );
+                            })()}
                     </td>
                     <td className="py-4 px-4">
                             <span

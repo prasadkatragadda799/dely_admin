@@ -152,6 +152,7 @@ export const adminAuthAPI = {
         email: string;
         name: string;
         role: string;
+        companyId?: string | null;
         avatar?: string;
       };
     }>>('/admin/auth/login', { email, password });
@@ -169,6 +170,7 @@ export const adminAuthAPI = {
       email: string;
       name: string;
       role: string;
+      companyId?: string | null;
       avatar?: string;
     }>>('/admin/auth/me');
     return response.data;
@@ -179,6 +181,110 @@ export const adminAuthAPI = {
       token: string;
       refreshToken: string;
     }>>('/admin/auth/refresh-token', { refreshToken });
+    return response.data;
+  },
+
+  // Change own password (for sellers/admins)
+  changePassword: async (currentPassword: string, newPassword: string) => {
+    const response = await apiClient.put<ApiResponse<void>>('/admin/auth/change-password', {
+      currentPassword,
+      newPassword,
+    });
+    return response.data;
+  },
+};
+
+// Sellers (admin-managed)
+export const sellersAPI = {
+  getSellers: async (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    company_id?: string;
+    is_active?: boolean;
+  }) => {
+    const response = await apiClient.get<ApiResponse<PaginatedResponse<any>>>('/admin/sellers', { params });
+    return response.data;
+  },
+
+  getSeller: async (id: string) => {
+    const formattedId = formatUUID(id);
+    const response = await apiClient.get<ApiResponse<any>>(`/admin/sellers/${formattedId}`);
+    return response.data;
+  },
+
+  createSeller: async (data: {
+    email: string;
+    name: string;
+    company_id: string;
+    password?: string;
+  }) => {
+    const response = await apiClient.post<ApiResponse<any>>('/admin/sellers', data);
+    return response.data;
+  },
+
+  updateSeller: async (
+    id: string,
+    data: { name?: string; email?: string; company_id?: string; is_active?: boolean }
+  ) => {
+    const formattedId = formatUUID(id);
+    const response = await apiClient.put<ApiResponse<any>>(`/admin/sellers/${formattedId}`, data);
+    return response.data;
+  },
+
+  deleteSeller: async (id: string) => {
+    const formattedId = formatUUID(id);
+    const response = await apiClient.delete<ApiResponse<void>>(`/admin/sellers/${formattedId}`);
+    return response.data;
+  },
+
+  resetSellerPassword: async (id: string) => {
+    const formattedId = formatUUID(id);
+    const response = await apiClient.post<ApiResponse<{ temporary_password: string }>>(
+      `/admin/sellers/${formattedId}/reset-password`
+    );
+    return response.data;
+  },
+};
+
+// Seller Products API (same UI as admin products, but restricted by backend to seller's company)
+export const sellerProductsAPI = {
+  getProducts: async (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    category_id?: string;
+    is_available?: boolean;
+  }) => {
+    const response = await apiClient.get<ApiResponse<PaginatedResponse<any>>>('/seller/products', { params });
+    return response.data;
+  },
+
+  getProduct: async (id: string) => {
+    const formattedId = formatUUID(id);
+    const response = await apiClient.get<ApiResponse<any>>(`/seller/products/${formattedId}`);
+    return response.data;
+  },
+
+  createProduct: async (productData: FormData) => {
+    const response = await apiClient.post<ApiResponse<any>>('/seller/products', productData);
+    return response.data;
+  },
+
+  updateProduct: async (id: string, productData: FormData) => {
+    const formattedId = formatUUID(id);
+    const response = await apiClient.put<ApiResponse<any>>(`/seller/products/${formattedId}`, productData);
+    return response.data;
+  },
+
+  deleteProduct: async (id: string) => {
+    const formattedId = formatUUID(id);
+    const response = await apiClient.delete<ApiResponse<void>>(`/seller/products/${formattedId}`);
+    return response.data;
+  },
+
+  getStatistics: async () => {
+    const response = await apiClient.get<ApiResponse<any>>('/seller/products/statistics/overview');
     return response.data;
   },
 };
@@ -297,6 +403,120 @@ export const ordersAPI = {
     const response = await apiClient.get(`/admin/orders/${id}/invoice`, {
       responseType: 'blob',
     });
+    return response.data;
+  },
+
+  // Invoice JSON (for on-screen Udaan-style invoice)
+  getInvoiceData: async (id: string) => {
+    const response = await apiClient.get<ApiResponse<any>>(`/admin/orders/${id}/invoice`);
+    return response.data;
+  },
+};
+
+// Delivery System APIs
+export const adminDeliveryAPI = {
+  // Delivery persons
+  getDeliveryPersons: async (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    is_online?: boolean;
+    is_available?: boolean;
+    is_active?: boolean;
+  }) => {
+    const response = await apiClient.get<ApiResponse<PaginatedResponse<any>>>('/admin/delivery/persons', { params });
+    return response.data;
+  },
+
+  createDeliveryPerson: async (data: {
+    name: string;
+    phone: string;
+    email?: string;
+    password: string;
+    employeeId?: string;
+    licenseNumber?: string;
+    vehicleNumber?: string;
+    vehicleType?: string;
+  }) => {
+    const response = await apiClient.post<ApiResponse<any>>('/admin/delivery/persons', data);
+    return response.data;
+  },
+
+  updateDeliveryPerson: async (
+    id: string,
+    data: Partial<{
+      name: string;
+      phone: string;
+      email: string;
+      password: string;
+      employeeId: string;
+      licenseNumber: string;
+      vehicleNumber: string;
+      vehicleType: string;
+      isActive: boolean;
+    }>
+  ) => {
+    const response = await apiClient.put<ApiResponse<any>>(`/admin/delivery/persons/${formatUUID(id)}`, data);
+    return response.data;
+  },
+
+  deactivateDeliveryPerson: async (id: string) => {
+    const response = await apiClient.delete<ApiResponse<void>>(`/admin/delivery/persons/${formatUUID(id)}`);
+    return response.data;
+  },
+
+  // Assignment
+  assignOrder: async (data: { orderId: string; deliveryPersonId: string }) => {
+    const response = await apiClient.post<ApiResponse<any>>('/admin/delivery/assign', data);
+    return response.data;
+  },
+
+  // Person orders
+  getDeliveryPersonOrders: async (personId: string) => {
+    const response = await apiClient.get<ApiResponse<any>>(`/admin/delivery/persons/${formatUUID(personId)}/orders`);
+    return response.data;
+  },
+};
+
+export const deliveryAuthAPI = {
+  login: async (phone: string, password: string) => {
+    const response = await apiClient.post<ApiResponse<any>>('/delivery/auth/login', { phone, password });
+    return response.data;
+  },
+};
+
+export const deliveryOrdersAPI = {
+  getAssignedOrders: async (params?: { status?: string }) => {
+    const response = await apiClient.get<ApiResponse<any>>('/delivery/orders/assigned', { params });
+    return response.data;
+  },
+
+  getOrder: async (orderId: string) => {
+    const response = await apiClient.get<ApiResponse<any>>(`/delivery/orders/${formatUUID(orderId)}`);
+    return response.data;
+  },
+
+  updateOrderStatus: async (
+    orderId: string,
+    data: {
+      status: string;
+      latitude: number;
+      longitude: number;
+      notes?: string;
+      photo?: string;
+    }
+  ) => {
+    const response = await apiClient.put<ApiResponse<any>>(`/delivery/orders/${formatUUID(orderId)}/status`, data);
+    return response.data;
+  },
+
+  updateLocation: async (data: { latitude: number; longitude: number }) => {
+    const response = await apiClient.post<ApiResponse<any>>('/delivery/orders/location', data);
+    return response.data;
+  },
+
+  setAvailability: async (available: boolean) => {
+    const response = await apiClient.post<ApiResponse<any>>('/delivery/orders/availability', { available });
     return response.data;
   },
 };
@@ -455,8 +675,27 @@ export const brandsAPI = {
 // Categories API
 export const categoriesAPI = {
   getCategories: async () => {
-    const response = await apiClient.get<ApiResponse<any[]>>('/admin/categories');
-    return response.data;
+    // Admin endpoint first, fallback to public endpoint for seller/mobile-like access
+    try {
+      const response = await apiClient.get<ApiResponse<any[]>>('/admin/categories');
+      return response.data;
+    } catch (error: any) {
+      const status = error?.response?.status;
+      if (status === 401 || status === 403) {
+        // Public fallback (as per backend): /api/v1/categories
+        // Backend may return either `data: Category[]` or `data: { categories: Category[] }`
+        const response = await apiClient.get<ApiResponse<any>>('/api/v1/categories');
+        const data = response.data?.data as any;
+        if (Array.isArray(data)) {
+          return { ...response.data, data };
+        }
+        if (data && Array.isArray(data.categories)) {
+          return { ...response.data, data: data.categories };
+        }
+        return { ...response.data, data: [] };
+      }
+      throw error;
+    }
   },
 
   createCategory: async (categoryData: any) => {
@@ -514,8 +753,12 @@ export const offersAPI = {
 
 // Analytics API
 export const analyticsAPI = {
-  getDashboardMetrics: async () => {
-    const response = await apiClient.get<ApiResponse<any>>('/admin/analytics/dashboard');
+  getDashboardMetrics: async (params?: {
+    period?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }) => {
+    const response = await apiClient.get<ApiResponse<any>>('/admin/analytics/dashboard', { params });
     return response.data;
   },
 
@@ -541,8 +784,27 @@ export const analyticsAPI = {
     period?: string;
     dateFrom?: string;
     dateTo?: string;
+    limit?: number;
   }) => {
     const response = await apiClient.get<ApiResponse<any>>('/admin/analytics/products', { params });
+    return response.data;
+  },
+
+  getCategoryAnalytics: async (params?: {
+    period?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }) => {
+    const response = await apiClient.get<ApiResponse<any>>('/admin/analytics/categories', { params });
+    return response.data;
+  },
+
+  getCompanyAnalytics: async (params?: {
+    period?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }) => {
+    const response = await apiClient.get<ApiResponse<any>>('/admin/analytics/companies', { params });
     return response.data;
   },
 
@@ -554,37 +816,161 @@ export const analyticsAPI = {
     const response = await apiClient.get<ApiResponse<any>>('/admin/analytics/users', { params });
     return response.data;
   },
+
+  exportAnalyticsReport: async (params?: {
+    period?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    format?: 'xlsx' | 'csv';
+  }) => {
+    const response = await apiClient.get('/admin/analytics/export', {
+      params,
+      responseType: 'blob',
+    });
+    return response.data;
+  },
 };
 
 // Settings API
 export const settingsAPI = {
+  // Get all settings
   getSettings: async () => {
     const response = await apiClient.get<ApiResponse<any>>('/admin/settings');
     return response.data;
   },
 
+  // Update all settings (or specific section)
   updateSettings: async (settings: any) => {
     const response = await apiClient.put<ApiResponse<void>>('/admin/settings', settings);
     return response.data;
   },
 
+  // General settings
+  getGeneralSettings: async () => {
+    const response = await apiClient.get<ApiResponse<any>>('/admin/settings/general');
+    return response.data;
+  },
+
+  updateGeneralSettings: async (settings: {
+    appName?: string;
+    appLogo?: File | string;
+    contactEmail?: string;
+    contactPhone?: string;
+    businessAddress?: string;
+  }) => {
+    const formData = new FormData();
+    if (settings.appName) formData.append('appName', settings.appName);
+    if (settings.appLogo instanceof File) formData.append('appLogo', settings.appLogo);
+    if (settings.appLogo && typeof settings.appLogo === 'string') formData.append('appLogoUrl', settings.appLogo);
+    if (settings.contactEmail) formData.append('contactEmail', settings.contactEmail);
+    if (settings.contactPhone) formData.append('contactPhone', settings.contactPhone);
+    if (settings.businessAddress) formData.append('businessAddress', settings.businessAddress);
+    
+    const response = await apiClient.put<ApiResponse<void>>('/admin/settings/general', formData);
+    return response.data;
+  },
+
+  // Payment settings
+  getPaymentSettings: async () => {
+    const response = await apiClient.get<ApiResponse<any>>('/admin/settings/payment');
+    return response.data;
+  },
+
+  updatePaymentSettings: async (settings: {
+    creditEnabled?: boolean;
+    upiEnabled?: boolean;
+    bankTransferEnabled?: boolean;
+    cashOnDeliveryEnabled?: boolean;
+    defaultCreditLimit?: number;
+    paymentTermsDays?: number;
+  }) => {
+    const response = await apiClient.put<ApiResponse<void>>('/admin/settings/payment', settings);
+    return response.data;
+  },
+
+  // Delivery settings
+  getDeliverySettings: async () => {
+    const response = await apiClient.get<ApiResponse<any>>('/admin/settings/delivery');
+    return response.data;
+  },
+
+  updateDeliverySettings: async (settings: {
+    standardDeliveryCharge?: number;
+    freeDeliveryThreshold?: number;
+    deliveryTimeSlots?: string;
+    serviceablePincodes?: string[];
+  }) => {
+    const response = await apiClient.put<ApiResponse<void>>('/admin/settings/delivery', settings);
+    return response.data;
+  },
+
+  // Tax settings
+  getTaxSettings: async () => {
+    const response = await apiClient.get<ApiResponse<any>>('/admin/settings/tax');
+    return response.data;
+  },
+
+  updateTaxSettings: async (settings: {
+    defaultGstRate?: number;
+    categoryGstRates?: Array<{ categoryId: string; categoryName: string; gstRate: number }>;
+  }) => {
+    const response = await apiClient.put<ApiResponse<void>>('/admin/settings/tax', settings);
+    return response.data;
+  },
+
+  // Notification settings
+  getNotificationSettings: async () => {
+    const response = await apiClient.get<ApiResponse<any>>('/admin/settings/notifications');
+    return response.data;
+  },
+
+  updateNotificationSettings: async (settings: {
+    emailTemplates?: {
+      orderConfirmation?: string;
+      orderShipped?: string;
+      orderDelivered?: string;
+      orderCancelled?: string;
+    };
+    smsTemplates?: {
+      orderConfirmation?: string;
+      orderShipped?: string;
+      orderDelivered?: string;
+      orderCancelled?: string;
+    };
+  }) => {
+    const response = await apiClient.put<ApiResponse<void>>('/admin/settings/notifications', settings);
+    return response.data;
+  },
+
+  // Admin users
   getAdmins: async () => {
     const response = await apiClient.get<ApiResponse<any[]>>('/admin/admins');
     return response.data;
   },
 
-  createAdmin: async (adminData: any) => {
+  createAdmin: async (adminData: {
+    name: string;
+    email: string;
+    password: string;
+    role: 'super_admin' | 'admin' | 'manager' | 'support';
+  }) => {
     const response = await apiClient.post<ApiResponse<any>>('/admin/admins', adminData);
     return response.data;
   },
 
-  updateAdmin: async (id: string, adminData: any) => {
-    const response = await apiClient.put<ApiResponse<any>>(`/admin/admins/${id}`, adminData);
+  updateAdmin: async (id: string, adminData: {
+    name?: string;
+    email?: string;
+    password?: string;
+    role?: 'super_admin' | 'admin' | 'manager' | 'support';
+    status?: 'active' | 'inactive';
+  }) => {
+    const response = await apiClient.put<ApiResponse<any>>(`/admin/admins/${formatUUID(id)}`, adminData);
     return response.data;
   },
 
   deleteAdmin: async (id: string) => {
-    const response = await apiClient.delete<ApiResponse<void>>(`/admin/admins/${id}`);
+    const response = await apiClient.delete<ApiResponse<void>>(`/admin/admins/${formatUUID(id)}`);
     return response.data;
   },
 };
@@ -606,6 +992,42 @@ export const uploadAPI = {
       width: number;
       height: number;
     }>>('/admin/upload/image', formData);
+    return response.data;
+  },
+};
+
+// Reports API
+export const reportsAPI = {
+  getWeeklyUserLocationReport: async (startDate: string, endDate: string) => {
+    const response = await apiClient.get<ApiResponse<{
+      locations: Array<{
+        city?: string;
+        state?: string;
+        activeUsers: number;
+        inactiveUsers: number;
+      }>;
+      summary: {
+        totalActive: number;
+        totalInactive: number;
+        totalUsers: number;
+      };
+    }>>('/admin/reports/weekly/user-location', {
+      params: {
+        startDate,
+        endDate,
+      },
+    });
+    return response.data;
+  },
+
+  exportWeeklyUserLocationReport: async (startDate: string, endDate: string) => {
+    const response = await apiClient.get('/admin/reports/weekly/user-location/export', {
+      params: {
+        startDate,
+        endDate,
+      },
+      responseType: 'blob',
+    });
     return response.data;
   },
 };

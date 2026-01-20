@@ -15,7 +15,13 @@ import Companies from "./pages/Companies";
 import Offers from "./pages/Offers";
 import KYC from "./pages/KYC";
 import Analytics from "./pages/Analytics";
+import WeeklyReports from "./pages/WeeklyReports";
+import InventoryManagement from "./pages/InventoryManagement";
 import Settings from "./pages/Settings";
+import Profile from "./pages/Profile";
+import Sellers from "./pages/Sellers";
+import DeliveryPersons from "./pages/DeliveryPersons";
+import DeliveryTracking from "./pages/DeliveryTracking";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,6 +42,24 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   return <AdminLayout>{children}</AdminLayout>;
+}
+
+function BlockSellerRoute({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+  if (isLoading) return null;
+  if (user?.role === 'seller') {
+    return <Navigate to="/products" replace />;
+  }
+  return <>{children}</>;
+}
+
+function AdminOnlyRoute({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+  if (isLoading) return null;
+  if (user?.role !== 'admin' && user?.role !== 'super_admin') {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <>{children}</>;
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
@@ -88,7 +112,9 @@ function AppRoutes() {
         path="/orders"
         element={
           <ProtectedRoute>
-            <Orders />
+            <BlockSellerRoute>
+              <Orders />
+            </BlockSellerRoute>
           </ProtectedRoute>
         }
       />
@@ -96,7 +122,9 @@ function AppRoutes() {
         path="/users"
         element={
           <ProtectedRoute>
-            <UsersPage />
+            <BlockSellerRoute>
+              <UsersPage />
+            </BlockSellerRoute>
           </ProtectedRoute>
         }
       />
@@ -104,7 +132,9 @@ function AppRoutes() {
         path="/categories"
         element={
           <ProtectedRoute>
-            <Categories />
+            <BlockSellerRoute>
+              <Categories />
+            </BlockSellerRoute>
           </ProtectedRoute>
         }
       />
@@ -112,7 +142,9 @@ function AppRoutes() {
         path="/companies"
         element={
           <ProtectedRoute>
-            <Companies />
+            <BlockSellerRoute>
+              <Companies />
+            </BlockSellerRoute>
           </ProtectedRoute>
         }
       />
@@ -120,7 +152,9 @@ function AppRoutes() {
         path="/offers"
         element={
           <ProtectedRoute>
-            <Offers />
+            <BlockSellerRoute>
+              <Offers />
+            </BlockSellerRoute>
           </ProtectedRoute>
         }
       />
@@ -128,7 +162,9 @@ function AppRoutes() {
         path="/kyc"
         element={
           <ProtectedRoute>
-            <KYC />
+            <BlockSellerRoute>
+              <KYC />
+            </BlockSellerRoute>
           </ProtectedRoute>
         }
       />
@@ -136,7 +172,29 @@ function AppRoutes() {
         path="/analytics"
         element={
           <ProtectedRoute>
-            <Analytics />
+            <BlockSellerRoute>
+              <Analytics />
+            </BlockSellerRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/reports"
+        element={
+          <ProtectedRoute>
+            <BlockSellerRoute>
+              <WeeklyReports />
+            </BlockSellerRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/inventory"
+        element={
+          <ProtectedRoute>
+            <BlockSellerRoute>
+              <InventoryManagement />
+            </BlockSellerRoute>
           </ProtectedRoute>
         }
       />
@@ -144,7 +202,47 @@ function AppRoutes() {
         path="/settings"
         element={
           <ProtectedRoute>
-            <Settings />
+            <BlockSellerRoute>
+              <Settings />
+            </BlockSellerRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <Profile />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/sellers"
+        element={
+          <ProtectedRoute>
+            <AdminOnlyRoute>
+              <Sellers />
+            </AdminOnlyRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/delivery/persons"
+        element={
+          <ProtectedRoute>
+            <AdminOnlyRoute>
+              <DeliveryPersons />
+            </AdminOnlyRoute>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/delivery/tracking"
+        element={
+          <ProtectedRoute>
+            <AdminOnlyRoute>
+              <DeliveryTracking />
+            </AdminOnlyRoute>
           </ProtectedRoute>
         }
       />

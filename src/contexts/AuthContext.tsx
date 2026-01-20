@@ -5,7 +5,8 @@ interface User {
   id: string;
   email: string;
   name: string;
-  role: 'super_admin' | 'admin' | 'manager' | 'support';
+  role: 'super_admin' | 'admin' | 'manager' | 'seller' | 'support';
+  companyId?: string | null;
   avatar?: string;
 }
 
@@ -30,15 +31,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     if (storedUser && storedToken) {
       try {
-        const userData = JSON.parse(storedUser);
+        const userData = JSON.parse(storedUser) as User;
         setUser(userData);
         
         // Validate token with backend
         adminAuthAPI.getCurrentUser()
           .then((response) => {
             if (response.success) {
-              setUser(response.data);
-              localStorage.setItem('dely_admin_user', JSON.stringify(response.data));
+              const normalizedUser: User = {
+                ...response.data,
+                role: response.data.role as User['role'],
+              };
+              setUser(normalizedUser);
+              localStorage.setItem('dely_admin_user', JSON.stringify(normalizedUser));
             } else {
               // Token invalid, clear storage
               localStorage.removeItem('dely_admin_user');
@@ -71,12 +76,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (response.success) {
         const { token, admin } = response.data;
+        const normalizedUser: User = {
+          ...admin,
+          role: admin.role as User['role'],
+        };
         
         // Store token and user data
         localStorage.setItem('dely_admin_token', token);
-        localStorage.setItem('dely_admin_user', JSON.stringify(admin));
+        localStorage.setItem('dely_admin_user', JSON.stringify(normalizedUser));
         
-        setUser(admin);
+        setUser(normalizedUser);
         return { success: true };
       } else {
         return { success: false, error: 'Invalid credentials' };

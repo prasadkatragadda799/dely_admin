@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { categoriesAPI, companiesAPI, brandsAPI, productsAPI, uploadAPI } from '@/lib/api';
+import { categoriesAPI, companiesAPI, brandsAPI, productsAPI, sellerProductsAPI, uploadAPI } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,6 +24,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { Loader2, Upload, X, Image as ImageIcon } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
@@ -66,12 +67,14 @@ const productSchema = z.object({
   categoryId: z.string().min(1, 'Category is required'),
   companyId: z.string().optional(),
   brandId: z.string().optional(),
+  hsnCode: z.string().optional(),
   mrp: z.number().min(0, 'MRP must be greater than 0'),
   sellingPrice: z.number().min(0, 'Selling price must be greater than 0'),
   stockQuantity: z.number().int().min(0, 'Stock quantity must be 0 or greater'),
   minOrderQuantity: z.number().int().min(1, 'Minimum order quantity must be at least 1'),
   unit: z.string().min(1, 'Unit is required'),
   piecesPerSet: z.number().int().min(1).optional(),
+  expiryDate: z.string().optional(),
   isFeatured: z.boolean().optional(),
   isAvailable: z.boolean().optional(),
   metaTitle: z.string().optional(),
@@ -91,6 +94,8 @@ type ProductFormData = z.infer<typeof productSchema>;
 export function ProductForm({ open, onOpenChange, productId }: ProductFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const isSeller = user?.role === 'seller';
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [selectedCompany, setSelectedCompany] = useState<string>('');
@@ -150,7 +155,7 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
       const response = await companiesAPI.getCompanies();
       return response.data || [];
     },
-    enabled: open,
+    enabled: open && !isSeller,
   });
 
   // Fetch brands (filtered by company if selected)
@@ -170,11 +175,23 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
     queryKey: ['product', productId],
     queryFn: async () => {
       if (!productId) return null;
-      const response = await productsAPI.getProduct(productId);
+      const response = isSeller
+        ? await sellerProductsAPI.getProduct(productId)
+        : await productsAPI.getProduct(productId);
       return response.data;
     },
     enabled: !!productId && open,
   });
+
+  // If seller, lock companyId to assigned company
+  useEffect(() => {
+    if (!open) return;
+    if (!isSeller) return;
+    const assignedCompanyId = user?.companyId || '';
+    if (!assignedCompanyId) return;
+    setSelectedCompany(assignedCompanyId);
+    setValue('companyId', assignedCompanyId);
+  }, [open, isSeller, user?.companyId, setValue]);
 
   // Flatten categories for dropdown
   const flattenCategories = (cats: Category[]): Category[] => {
@@ -231,6 +248,8 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
                 freeItem: '',
               },
             ],
+        hsnCode: productData.hsnCode || productData.hsn_code || '',
+        expiryDate: productData.expiryDate || productData.expiry_date || '',
         metaTitle: productData.metaTitle || '',
         metaDescription: productData.metaDescription || '',
       });
@@ -346,6 +365,16 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
       formData.append('isFeatured', (data.isFeatured || false).toString());
       formData.append('isAvailable', (data.isAvailable !== false).toString());
       
+      // Add HSN code if provided
+      if (data.hsnCode) {
+        formData.append('hsnCode', data.hsnCode);
+      }
+
+      // Add expiry date if provided
+      if (data.expiryDate) {
+        formData.append('expiryDate', data.expiryDate);
+      }
+      
       // Add SEO fields if provided
       if (data.metaTitle) {
         formData.append('meta_title', data.metaTitle);
@@ -378,10 +407,14 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
 
       if (productId) {
         // Update product
-        return await productsAPI.updateProduct(productId, formData);
+        return await (isSeller
+          ? sellerProductsAPI.updateProduct(productId, formData)
+          : productsAPI.updateProduct(productId, formData));
       } else {
         // Create product
-        return await productsAPI.createProduct(formData);
+        return await (isSeller
+          ? sellerProductsAPI.createProduct(formData)
+          : productsAPI.createProduct(formData));
       }
     },
     onSuccess: async (response, variables) => {
@@ -493,9 +526,10 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
                 <Select
                   value={watch('companyId') || 'none'}
                   onValueChange={(value) => handleCompanyChange(value === 'none' ? '' : value)}
+                  disabled={isSeller}
                 >
                   <SelectTrigger id="companyId">
-                    <SelectValue placeholder="Select company (optional)" />
+                    <SelectValue placeholder={isSeller ? 'Assigned company' : 'Select company (optional)'} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">None</SelectItem>
@@ -506,6 +540,9 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
                     ))}
                   </SelectContent>
                 </Select>
+                {isSeller && !user?.companyId && (
+                  <p className="text-sm text-destructive">Seller account is missing company assignment.</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -528,6 +565,15 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="hsnCode">HSN Code</Label>
+              <Input
+                id="hsnCode"
+                {...register('hsnCode')}
+                placeholder="Enter HSN code (e.g., 07139090)"
+              />
             </div>
           </div>
 
@@ -593,6 +639,29 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
                 {errors.stockQuantity && (
                   <p className="text-sm text-destructive">{errors.stockQuantity.message}</p>
                 )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="expiryDate">Expiry Date</Label>
+                <Input
+                  id="expiryDate"
+                  type="date"
+                  {...register('expiryDate')}
+                />
+                {watch('expiryDate') && (() => {
+                  const expiry = new Date(watch('expiryDate'));
+                  const today = new Date();
+                  const twoMonthsFromNow = new Date();
+                  twoMonthsFromNow.setMonth(today.getMonth() + 2);
+                  const daysUntilExpiry = Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                  
+                  if (daysUntilExpiry < 0) {
+                    return <p className="text-sm text-red-600">⚠️ Product has expired</p>;
+                  } else if (daysUntilExpiry <= 60) {
+                    return <p className="text-sm text-amber-600">⚠️ Expires in {daysUntilExpiry} days (less than 2 months)</p>;
+                  }
+                  return null;
+                })()}
               </div>
 
               <div className="space-y-2">

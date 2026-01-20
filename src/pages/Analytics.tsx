@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { 
   Download,
   Calendar,
   TrendingUp,
+  TrendingDown,
   DollarSign,
   ShoppingCart,
   Users,
   Package,
-  BarChart3
+  BarChart3,
+  Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -36,67 +38,367 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
+import { useQuery } from '@tanstack/react-query';
+import { analyticsAPI } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
+import { Skeleton } from '@/components/ui/skeleton';
 
-// Mock data
-const revenueData = [
-  { month: 'Jan', revenue: 420000, orders: 234 },
-  { month: 'Feb', revenue: 580000, orders: 298 },
-  { month: 'Mar', revenue: 350000, orders: 189 },
-  { month: 'Apr', revenue: 720000, orders: 456 },
-  { month: 'May', revenue: 680000, orders: 412 },
-  { month: 'Jun', revenue: 890000, orders: 567 },
-];
+// Dummy data generator - will be replaced with API calls when backend is ready
+const generateDummyData = (dateRange: string) => {
+  const now = new Date();
+  let periods: string[] = [];
+  let periodLabel = '';
 
-const productPerformance = [
-  { name: 'Basmati Rice 25kg', sales: 245, revenue: 269500 },
-  { name: 'Sunflower Oil 15L', sales: 189, revenue: 31185 },
-  { name: 'Wheat Flour 50kg', sales: 156, revenue: 65520 },
-  { name: 'Sugar 25kg', sales: 134, revenue: 6432 },
-  { name: 'Toor Dal 10kg', sales: 112, revenue: 18480 },
-];
+  switch (dateRange) {
+    case 'week':
+      periodLabel = 'Day';
+      periods = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      break;
+    case 'month':
+      periodLabel = 'Week';
+      periods = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
+      break;
+    case 'quarter':
+      periodLabel = 'Month';
+      periods = ['Month 1', 'Month 2', 'Month 3'];
+      break;
+    case 'year':
+      periodLabel = 'Month';
+      periods = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      break;
+    default:
+      periodLabel = 'Month';
+      periods = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+  }
 
-const categoryPerformance = [
-  { name: 'Rice & Grains', sales: 1245, revenue: 1245000 },
-  { name: 'Cooking Oil', sales: 890, revenue: 146850 },
-  { name: 'Flour & Atta', sales: 567, revenue: 238140 },
-  { name: 'Pulses & Lentils', sales: 456, revenue: 75240 },
-  { name: 'Sugar & Sweeteners', sales: 234, revenue: 11232 },
-  { name: 'Beverages', sales: 189, revenue: 91665 },
-];
-
-const companyPerformance = [
-  { name: 'KRBL Limited', revenue: 495000, orders: 234 },
-  { name: 'Adani Wilmar', revenue: 412000, orders: 189 },
-  { name: 'ITC Limited', revenue: 378000, orders: 156 },
-  { name: 'Tata Consumer', revenue: 345000, orders: 134 },
-];
-
-const paymentMethodData = [
-  { name: 'Credit', value: 45, color: '#1E6DD8' },
-  { name: 'UPI', value: 30, color: '#10B981' },
-  { name: 'Bank Transfer', value: 15, color: '#F59E0B' },
-  { name: 'Cash', value: 10, color: '#EF4444' },
-];
-
-const orderStatusData = [
-  { name: 'Delivered', value: 1087, color: '#10B981' },
-  { name: 'Shipped', value: 67, color: '#06b6d4' },
-  { name: 'Confirmed', value: 45, color: '#3b82f6' },
-  { name: 'Pending', value: 23, color: '#F59E0B' },
-  { name: 'Cancelled', value: 12, color: '#EF4444' },
-];
-
-const userGrowthData = [
-  { month: 'Jan', users: 120, newUsers: 15 },
-  { month: 'Feb', users: 145, newUsers: 25 },
-  { month: 'Mar', users: 178, newUsers: 33 },
-  { month: 'Apr', users: 210, newUsers: 32 },
-  { month: 'May', users: 245, newUsers: 35 },
-  { month: 'Jun', users: 289, newUsers: 44 },
-];
+  return {
+    revenueData: periods.map((period, i) => ({
+      period,
+      revenue: Math.floor(Math.random() * 500000) + 200000,
+      orders: Math.floor(Math.random() * 300) + 100,
+    })),
+    productPerformance: [
+      { name: 'Basmati Rice 25kg', sales: 245, revenue: 269500 },
+      { name: 'Sunflower Oil 15L', sales: 189, revenue: 31185 },
+      { name: 'Wheat Flour 50kg', sales: 156, revenue: 65520 },
+      { name: 'Sugar 25kg', sales: 134, revenue: 6432 },
+      { name: 'Toor Dal 10kg', sales: 112, revenue: 18480 },
+    ],
+    categoryPerformance: [
+      { name: 'Rice & Grains', sales: 1245, revenue: 1245000 },
+      { name: 'Cooking Oil', sales: 890, revenue: 146850 },
+      { name: 'Flour & Atta', sales: 567, revenue: 238140 },
+      { name: 'Pulses & Lentils', sales: 456, revenue: 75240 },
+      { name: 'Sugar & Sweeteners', sales: 234, revenue: 11232 },
+      { name: 'Beverages', sales: 189, revenue: 91665 },
+    ],
+    companyPerformance: [
+      { name: 'KRBL Limited', revenue: 495000, orders: 234 },
+      { name: 'Adani Wilmar', revenue: 412000, orders: 189 },
+      { name: 'ITC Limited', revenue: 378000, orders: 156 },
+      { name: 'Tata Consumer', revenue: 345000, orders: 134 },
+    ],
+    paymentMethodData: [
+      { name: 'Credit', value: 45, color: '#1E6DD8' },
+      { name: 'UPI', value: 30, color: '#10B981' },
+      { name: 'Bank Transfer', value: 15, color: '#F59E0B' },
+      { name: 'Cash', value: 10, color: '#EF4444' },
+    ],
+    orderStatusData: [
+      { name: 'Delivered', value: 1087, color: '#10B981' },
+      { name: 'Shipped', value: 67, color: '#06b6d4' },
+      { name: 'Confirmed', value: 45, color: '#3b82f6' },
+      { name: 'Pending', value: 23, color: '#F59E0B' },
+      { name: 'Cancelled', value: 12, color: '#EF4444' },
+    ],
+    userGrowthData: periods.map((period, i) => ({
+      period,
+      users: 120 + i * 25 + Math.floor(Math.random() * 20),
+      newUsers: 15 + Math.floor(Math.random() * 15),
+    })),
+  };
+};
 
 export default function Analytics() {
   const [dateRange, setDateRange] = useState('month');
+  const { toast } = useToast();
+
+  // Calculate date range
+  const getDateRange = (period: string) => {
+    const now = new Date();
+    let startDate: Date;
+    let endDate = new Date(now);
+
+    switch (period) {
+      case 'week':
+        startDate = new Date(now);
+        startDate.setDate(now.getDate() - 7);
+        break;
+      case 'month':
+        startDate = new Date(now);
+        startDate.setMonth(now.getMonth() - 1);
+        break;
+      case 'quarter':
+        startDate = new Date(now);
+        startDate.setMonth(now.getMonth() - 3);
+        break;
+      case 'year':
+        startDate = new Date(now);
+        startDate.setFullYear(now.getFullYear() - 1);
+        break;
+      default:
+        startDate = new Date(0);
+    }
+
+    return {
+      startDate: startDate.toISOString().split('T')[0],
+      endDate: endDate.toISOString().split('T')[0],
+    };
+  };
+
+  const dateRangeParams = getDateRange(dateRange);
+
+  // Fetch dashboard metrics from API
+  const { data: dashboardMetricsResponse, isLoading: isLoadingMetrics, isError: isDashboardError } = useQuery({
+    queryKey: ['analytics', 'dashboard', dateRange, dateRangeParams],
+    queryFn: async () => {
+      try {
+        const response = await analyticsAPI.getDashboardMetrics({
+          period: dateRange,
+          ...dateRangeParams,
+        });
+        return response.data;
+      } catch (error) {
+        console.error('Error fetching dashboard metrics:', error);
+        return null;
+      }
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: false,
+  });
+
+  // Fetch revenue data from API
+  const { data: revenueDataResponse, isLoading: isLoadingRevenue, isError: isRevenueError } = useQuery({
+    queryKey: ['analytics', 'revenue', dateRange, dateRangeParams],
+    queryFn: async () => {
+      try {
+        const response = await analyticsAPI.getRevenueData({
+          period: dateRange,
+          ...dateRangeParams,
+        });
+        return response.data || [];
+      } catch (error) {
+        console.error('Error fetching revenue data:', error);
+        return [];
+      }
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+
+  // Fetch product analytics from API
+  const { data: productDataResponse, isLoading: isLoadingProducts, isError: isProductError } = useQuery({
+    queryKey: ['analytics', 'products', dateRange, dateRangeParams],
+    queryFn: async () => {
+      try {
+        const response = await analyticsAPI.getProductAnalytics({
+          period: dateRange,
+          ...dateRangeParams,
+          limit: 10,
+        });
+        return response.data || [];
+      } catch (error) {
+        console.error('Error fetching product analytics:', error);
+        return [];
+      }
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+
+  // Fetch category analytics from API
+  const { data: categoryDataResponse, isLoading: isLoadingCategories, isError: isCategoryError } = useQuery({
+    queryKey: ['analytics', 'categories', dateRange, dateRangeParams],
+    queryFn: async () => {
+      try {
+        const response = await analyticsAPI.getCategoryAnalytics({
+          period: dateRange,
+          ...dateRangeParams,
+        });
+        return response.data || [];
+      } catch (error) {
+        console.error('Error fetching category analytics:', error);
+        return [];
+      }
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+
+  // Fetch company analytics from API
+  const { data: companyDataResponse, isLoading: isLoadingCompanies, isError: isCompanyError } = useQuery({
+    queryKey: ['analytics', 'companies', dateRange, dateRangeParams],
+    queryFn: async () => {
+      try {
+        const response = await analyticsAPI.getCompanyAnalytics({
+          period: dateRange,
+          ...dateRangeParams,
+        });
+        return response.data || [];
+      } catch (error) {
+        console.error('Error fetching company analytics:', error);
+        return [];
+      }
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+
+  // Fetch user analytics from API
+  const { data: userDataResponse, isLoading: isLoadingUsers, isError: isUserError } = useQuery({
+    queryKey: ['analytics', 'users', dateRange, dateRangeParams],
+    queryFn: async () => {
+      try {
+        const response = await analyticsAPI.getUserAnalytics({
+          period: dateRange,
+          ...dateRangeParams,
+        });
+        return response.data || [];
+      } catch (error) {
+        console.error('Error fetching user analytics:', error);
+        return [];
+      }
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+
+  // Fetch order analytics from API
+  const { data: orderDataResponse, isLoading: isLoadingOrders, isError: isOrderError } = useQuery({
+    queryKey: ['analytics', 'orders', dateRange, dateRangeParams],
+    queryFn: async () => {
+      try {
+        const response = await analyticsAPI.getOrderAnalytics({
+          period: dateRange,
+          ...dateRangeParams,
+        });
+        return response.data || {};
+      } catch (error) {
+        console.error('Error fetching order analytics:', error);
+        return {};
+      }
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+
+  // Extract metrics from response with safe defaults
+  const metrics = {
+    totalRevenue: dashboardMetricsResponse?.totalRevenue ?? 0,
+    totalOrders: dashboardMetricsResponse?.totalOrders ?? 0,
+    activeUsers: dashboardMetricsResponse?.activeUsers ?? 0,
+    avgOrderValue: dashboardMetricsResponse?.avgOrderValue ?? 0,
+    revenueChange: dashboardMetricsResponse?.revenueChange ?? 0,
+    ordersChange: dashboardMetricsResponse?.ordersChange ?? 0,
+    usersChange: dashboardMetricsResponse?.usersChange ?? 0,
+    avgOrderValueChange: dashboardMetricsResponse?.avgOrderValueChange ?? 0,
+  };
+
+  // Prepare chart data from API responses with fallback to dummy data
+  const data = useMemo(() => {
+    const dummyData = generateDummyData(dateRange);
+    
+    try {
+      // Map revenue data to chart format
+      const revenueData = Array.isArray(revenueDataResponse) 
+        ? revenueDataResponse.map((item: any) => ({
+            period: item.period || '',
+            revenue: item.revenue || 0,
+            orders: item.orders || 0,
+          }))
+        : [];
+
+      // Map product data
+      const productPerformance = Array.isArray(productDataResponse)
+        ? productDataResponse.map((item: any) => ({
+            name: item.name || 'Unknown',
+            sales: item.sales || 0,
+            revenue: item.revenue || 0,
+          }))
+        : [];
+
+      // Map category data
+      const categoryPerformance = Array.isArray(categoryDataResponse)
+        ? categoryDataResponse.map((item: any) => ({
+            name: item.name || 'Unknown',
+            sales: item.sales || 0,
+            revenue: item.revenue || 0,
+          }))
+        : [];
+
+      // Map company data
+      const companyPerformance = Array.isArray(companyDataResponse)
+        ? companyDataResponse.map((item: any) => ({
+            name: item.name || 'Unknown',
+            revenue: item.revenue || 0,
+            orders: item.orders || 0,
+          }))
+        : [];
+
+      // Map user growth data
+      const userGrowthData = Array.isArray(userDataResponse)
+        ? userDataResponse.map((item: any) => ({
+            period: item.period || '',
+            users: item.users || 0,
+            newUsers: item.newUsers || 0,
+          }))
+        : [];
+
+      // Extract order analytics
+      const orderAnalytics = orderDataResponse || {};
+      const orderStatusData = Array.isArray(orderAnalytics.statusDistribution)
+        ? orderAnalytics.statusDistribution.map((item: any) => ({
+            name: item.name || '',
+            value: item.value || 0,
+            color: item.color || '#1E6DD8',
+          }))
+        : [];
+      const paymentMethodData = Array.isArray(orderAnalytics.paymentMethodDistribution)
+        ? orderAnalytics.paymentMethodDistribution.map((item: any) => ({
+            name: item.name || '',
+            value: item.value || 0,
+            color: item.color || '#1E6DD8',
+          }))
+        : [];
+
+      return {
+        revenueData: revenueData.length > 0 ? revenueData : dummyData.revenueData,
+        productPerformance: productPerformance.length > 0 ? productPerformance : dummyData.productPerformance,
+        categoryPerformance: categoryPerformance.length > 0 ? categoryPerformance : dummyData.categoryPerformance,
+        companyPerformance: companyPerformance.length > 0 ? companyPerformance : dummyData.companyPerformance,
+        userGrowthData: userGrowthData.length > 0 ? userGrowthData : dummyData.userGrowthData,
+        orderStatusData: orderStatusData.length > 0 ? orderStatusData : dummyData.orderStatusData,
+        paymentMethodData: paymentMethodData.length > 0 ? paymentMethodData : dummyData.paymentMethodData,
+      };
+    } catch (error) {
+      console.error('Error preparing chart data:', error);
+      return dummyData;
+    }
+  }, [
+    revenueDataResponse,
+    productDataResponse,
+    categoryDataResponse,
+    companyDataResponse,
+    userDataResponse,
+    orderDataResponse,
+    dateRange,
+  ]);
+
+  const isLoadingData = isLoadingRevenue || isLoadingProducts || isLoadingCategories || 
+                        isLoadingCompanies || isLoadingUsers || isLoadingOrders;
+
+  // Ensure data is always defined - use dummy data as fallback if API fails or returns empty
+  const chartData = data || generateDummyData(dateRange);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -104,6 +406,36 @@ export default function Analytics() {
       currency: 'INR',
       maximumFractionDigits: 0,
     }).format(value);
+  };
+
+  const handleExport = async () => {
+    try {
+      const blob = await analyticsAPI.exportAnalyticsReport({
+        period: dateRange,
+        ...dateRangeParams,
+        format: 'csv',
+      });
+      
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `analytics-report-${dateRange}-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: 'Report exported',
+        description: 'Analytics report has been downloaded successfully',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.error?.message || 'Failed to export report',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -127,7 +459,7 @@ export default function Analytics() {
               <SelectItem value="all">All Time</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline">
+          <Button variant="outline" onClick={handleExport}>
             <Download className="h-4 w-4 mr-2" />
             Export Report
           </Button>
@@ -141,13 +473,25 @@ export default function Analytics() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Total Revenue</p>
-                <p className="text-2xl font-bold text-foreground mt-1">
-                  {formatCurrency(3640000)}
-                </p>
-                <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
-                  <TrendingUp className="h-3 w-3" />
-                  +12.5% vs last period
-                </p>
+                {isLoadingMetrics ? (
+                  <Skeleton className="h-8 w-32 mt-1" />
+                ) : (
+                  <>
+                    <p className="text-2xl font-bold text-foreground mt-1">
+                      {formatCurrency(metrics.totalRevenue)}
+                    </p>
+                    <p className={`text-xs mt-1 flex items-center gap-1 ${
+                      metrics.revenueChange >= 0 ? 'text-emerald-600' : 'text-red-600'
+                    }`}>
+                      {metrics.revenueChange >= 0 ? (
+                        <TrendingUp className="h-3 w-3" />
+                      ) : (
+                        <TrendingDown className="h-3 w-3" />
+                      )}
+                      {metrics.revenueChange >= 0 ? '+' : ''}{(metrics.revenueChange ?? 0).toFixed(1)}% vs last period
+                    </p>
+                  </>
+                )}
               </div>
               <div className="p-3 rounded-lg bg-blue-100">
                 <DollarSign className="h-6 w-6 text-blue-600" />
@@ -160,11 +504,25 @@ export default function Analytics() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Total Orders</p>
-                <p className="text-2xl font-bold text-foreground mt-1">1,234</p>
-                <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
-                  <TrendingUp className="h-3 w-3" />
-                  +8.2% vs last period
-                </p>
+                {isLoadingMetrics ? (
+                  <Skeleton className="h-8 w-32 mt-1" />
+                ) : (
+                  <>
+                    <p className="text-2xl font-bold text-foreground mt-1">
+                      {metrics.totalOrders.toLocaleString()}
+                    </p>
+                    <p className={`text-xs mt-1 flex items-center gap-1 ${
+                      metrics.ordersChange >= 0 ? 'text-emerald-600' : 'text-red-600'
+                    }`}>
+                      {metrics.ordersChange >= 0 ? (
+                        <TrendingUp className="h-3 w-3" />
+                      ) : (
+                        <TrendingDown className="h-3 w-3" />
+                      )}
+                      {metrics.ordersChange >= 0 ? '+' : ''}{(metrics.ordersChange ?? 0).toFixed(1)}% vs last period
+                    </p>
+                  </>
+                )}
               </div>
               <div className="p-3 rounded-lg bg-purple-100">
                 <ShoppingCart className="h-6 w-6 text-purple-600" />
@@ -177,11 +535,25 @@ export default function Analytics() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Active Users</p>
-                <p className="text-2xl font-bold text-foreground mt-1">456</p>
-                <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
-                  <TrendingUp className="h-3 w-3" />
-                  +15.3% vs last period
-                </p>
+                {isLoadingMetrics ? (
+                  <Skeleton className="h-8 w-32 mt-1" />
+                ) : (
+                  <>
+                    <p className="text-2xl font-bold text-foreground mt-1">
+                      {metrics.activeUsers.toLocaleString()}
+                    </p>
+                    <p className={`text-xs mt-1 flex items-center gap-1 ${
+                      metrics.usersChange >= 0 ? 'text-emerald-600' : 'text-red-600'
+                    }`}>
+                      {metrics.usersChange >= 0 ? (
+                        <TrendingUp className="h-3 w-3" />
+                      ) : (
+                        <TrendingDown className="h-3 w-3" />
+                      )}
+                      {metrics.usersChange >= 0 ? '+' : ''}{(metrics.usersChange ?? 0).toFixed(1)}% vs last period
+                    </p>
+                  </>
+                )}
               </div>
               <div className="p-3 rounded-lg bg-emerald-100">
                 <Users className="h-6 w-6 text-emerald-600" />
@@ -194,13 +566,25 @@ export default function Analytics() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Avg Order Value</p>
-                <p className="text-2xl font-bold text-foreground mt-1">
-                  {formatCurrency(2950)}
-                </p>
-                <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
-                  <TrendingUp className="h-3 w-3 rotate-180" />
-                  -2.1% vs last period
-                </p>
+                {isLoadingMetrics ? (
+                  <Skeleton className="h-8 w-32 mt-1" />
+                ) : (
+                  <>
+                    <p className="text-2xl font-bold text-foreground mt-1">
+                      {formatCurrency(metrics.avgOrderValue)}
+                    </p>
+                    <p className={`text-xs mt-1 flex items-center gap-1 ${
+                      metrics.avgOrderValueChange >= 0 ? 'text-emerald-600' : 'text-red-600'
+                    }`}>
+                      {metrics.avgOrderValueChange >= 0 ? (
+                        <TrendingUp className="h-3 w-3" />
+                      ) : (
+                        <TrendingDown className="h-3 w-3" />
+                      )}
+                      {metrics.avgOrderValueChange >= 0 ? '+' : ''}{(metrics.avgOrderValueChange ?? 0).toFixed(1)}% vs last period
+                    </p>
+                  </>
+                )}
               </div>
               <div className="p-3 rounded-lg bg-amber-100">
                 <BarChart3 className="h-6 w-6 text-amber-600" />
@@ -230,34 +614,40 @@ export default function Analytics() {
             </CardHeader>
             <CardContent>
               <div className="h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={revenueData}>
-                    <defs>
-                      <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#1E6DD8" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#1E6DD8" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                    <XAxis dataKey="month" stroke="#6B7280" />
-                    <YAxis stroke="#6B7280" tickFormatter={(value) => `₹${value/1000}k`} />
-                    <Tooltip 
-                      formatter={(value: number) => formatCurrency(value)}
-                      contentStyle={{ 
-                        backgroundColor: '#fff',
-                        border: '1px solid #E5E7EB',
-                        borderRadius: '8px',
-                      }}
-                    />
-                    <Area 
-                      type="monotone" 
-                      dataKey="revenue" 
-                      stroke="#1E6DD8" 
-                      strokeWidth={2}
-                      fill="url(#revenueGradient)" 
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+                {isLoadingData ? (
+                  <div className="h-full flex items-center justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData.revenueData}>
+                      <defs>
+                        <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#1E6DD8" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#1E6DD8" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                      <XAxis dataKey="period" stroke="#6B7280" />
+                      <YAxis stroke="#6B7280" tickFormatter={(value) => `₹${value/1000}k`} />
+                      <Tooltip 
+                        formatter={(value: number) => formatCurrency(value)}
+                        contentStyle={{ 
+                          backgroundColor: '#fff',
+                          border: '1px solid #E5E7EB',
+                          borderRadius: '8px',
+                        }}
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="revenue" 
+                        stroke="#1E6DD8" 
+                        strokeWidth={2}
+                        fill="url(#revenueGradient)" 
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -272,8 +662,13 @@ export default function Analytics() {
             </CardHeader>
             <CardContent>
               <div className="h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={productPerformance}>
+                {isLoadingData ? (
+                  <div className="h-full flex items-center justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData.productPerformance}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                     <XAxis dataKey="name" stroke="#6B7280" angle={-45} textAnchor="end" height={100} />
                     <YAxis stroke="#6B7280" />
@@ -287,7 +682,8 @@ export default function Analytics() {
                     />
                     <Bar dataKey="revenue" fill="#1E6DD8" radius={[8, 8, 0, 0]} />
                   </BarChart>
-                </ResponsiveContainer>
+                  </ResponsiveContainer>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -302,8 +698,13 @@ export default function Analytics() {
             </CardHeader>
             <CardContent>
               <div className="h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={categoryPerformance} layout="vertical">
+                {isLoadingData ? (
+                  <div className="h-full flex items-center justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData.categoryPerformance} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                     <XAxis type="number" stroke="#6B7280" tickFormatter={(value) => `₹${value/1000}k`} />
                     <YAxis dataKey="name" type="category" stroke="#6B7280" width={120} />
@@ -317,7 +718,8 @@ export default function Analytics() {
                     />
                     <Bar dataKey="revenue" fill="#1E6DD8" radius={[0, 8, 8, 0]} />
                   </BarChart>
-                </ResponsiveContainer>
+                  </ResponsiveContainer>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -332,8 +734,13 @@ export default function Analytics() {
             </CardHeader>
             <CardContent>
               <div className="h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={companyPerformance}>
+                {isLoadingData ? (
+                  <div className="h-full flex items-center justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={chartData.companyPerformance}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
                     <XAxis dataKey="name" stroke="#6B7280" angle={-45} textAnchor="end" height={100} />
                     <YAxis stroke="#6B7280" tickFormatter={(value) => `₹${value/1000}k`} />
@@ -347,7 +754,8 @@ export default function Analytics() {
                     />
                     <Bar dataKey="revenue" fill="#1E6DD8" radius={[8, 8, 0, 0]} />
                   </BarChart>
-                </ResponsiveContainer>
+                  </ResponsiveContainer>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -362,10 +770,15 @@ export default function Analytics() {
             </CardHeader>
             <CardContent>
               <div className="h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={userGrowthData}>
+                {isLoadingData ? (
+                  <div className="h-full flex items-center justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={chartData.userGrowthData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                    <XAxis dataKey="month" stroke="#6B7280" />
+                    <XAxis dataKey="period" stroke="#6B7280" />
                     <YAxis stroke="#6B7280" />
                     <Tooltip 
                       contentStyle={{ 
@@ -390,7 +803,8 @@ export default function Analytics() {
                       name="New Users"
                     />
                   </LineChart>
-                </ResponsiveContainer>
+                  </ResponsiveContainer>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -406,10 +820,15 @@ export default function Analytics() {
               </CardHeader>
               <CardContent>
                 <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={orderStatusData}
+                  {isLoadingData ? (
+                    <div className="h-full flex items-center justify-center">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={chartData.orderStatusData}
                         cx="50%"
                         cy="50%"
                         innerRadius={60}
@@ -417,22 +836,23 @@ export default function Analytics() {
                         paddingAngle={2}
                         dataKey="value"
                       >
-                        {orderStatusData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: '#fff',
-                          border: '1px solid #E5E7EB',
-                          borderRadius: '8px',
-                        }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
+                          {chartData.orderStatusData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: '#fff',
+                            border: '1px solid #E5E7EB',
+                            borderRadius: '8px',
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-2 mt-4">
-                  {orderStatusData.map((item) => (
+                  {chartData.orderStatusData.map((item) => (
                     <div key={item.name} className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
                       <span className="text-xs text-muted-foreground">{item.name}: {item.value}</span>
@@ -448,10 +868,15 @@ export default function Analytics() {
               </CardHeader>
               <CardContent>
                 <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={paymentMethodData}
+                  {isLoadingData ? (
+                    <div className="h-full flex items-center justify-center">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={chartData.paymentMethodData}
                         cx="50%"
                         cy="50%"
                         innerRadius={60}
@@ -460,19 +885,20 @@ export default function Analytics() {
                         dataKey="value"
                         label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                       >
-                        {paymentMethodData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: '#fff',
-                          border: '1px solid #E5E7EB',
-                          borderRadius: '8px',
-                        }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
+                          {chartData.paymentMethodData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: '#fff',
+                            border: '1px solid #E5E7EB',
+                            borderRadius: '8px',
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  )}
                 </div>
               </CardContent>
             </Card>

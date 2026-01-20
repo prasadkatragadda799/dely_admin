@@ -30,6 +30,7 @@ export function AdminHeader() {
       super_admin: 'Super Admin',
       admin: 'Admin',
       manager: 'Manager',
+      seller: 'Seller',
       support: 'Support',
     };
     return roleLabels[role] || role;
