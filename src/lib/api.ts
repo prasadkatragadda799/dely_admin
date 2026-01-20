@@ -289,6 +289,24 @@ export const sellerProductsAPI = {
   },
 };
 
+// Seller resource APIs (brands, categories, companies) for seller-scoped access
+export const sellerResourcesAPI = {
+  getBrands: async () => {
+    const response = await apiClient.get<ApiResponse<any[]>>('/seller/brands');
+    return response.data;
+  },
+
+  getCategories: async () => {
+    const response = await apiClient.get<ApiResponse<any[]>>('/seller/categories');
+    return response.data;
+  },
+
+  getCompanies: async () => {
+    const response = await apiClient.get<ApiResponse<any[]>>('/seller/companies');
+    return response.data;
+  },
+};
+
 // Products API
 export const productsAPI = {
   getProducts: async (params?: {
@@ -675,24 +693,30 @@ export const brandsAPI = {
 // Categories API
 export const categoriesAPI = {
   getCategories: async () => {
-    // Admin endpoint first, fallback to public endpoint for seller/mobile-like access
+    // Admin endpoint first, fallback to seller/public endpoints for seller/mobile-like access
     try {
       const response = await apiClient.get<ApiResponse<any[]>>('/admin/categories');
       return response.data;
     } catch (error: any) {
       const status = error?.response?.status;
       if (status === 401 || status === 403) {
-        // Public fallback (as per backend): /api/v1/categories
-        // Backend may return either `data: Category[]` or `data: { categories: Category[] }`
-        const response = await apiClient.get<ApiResponse<any>>('/api/v1/categories');
-        const data = response.data?.data as any;
-        if (Array.isArray(data)) {
-          return { ...response.data, data };
+        // Seller fallback (preferred when logged-in as seller)
+        try {
+          const response = await apiClient.get<ApiResponse<any[]>>('/seller/categories');
+          return response.data;
+        } catch (sellerErr: any) {
+          // Public fallback (as per backend): /api/v1/categories
+          // Backend may return either `data: Category[]` or `data: { categories: Category[] }`
+          const response = await apiClient.get<ApiResponse<any>>('/api/v1/categories');
+          const data = response.data?.data as any;
+          if (Array.isArray(data)) {
+            return { ...response.data, data };
+          }
+          if (data && Array.isArray(data.categories)) {
+            return { ...response.data, data: data.categories };
+          }
+          return { ...response.data, data: [] };
         }
-        if (data && Array.isArray(data.categories)) {
-          return { ...response.data, data: data.categories };
-        }
-        return { ...response.data, data: [] };
       }
       throw error;
     }

@@ -2,7 +2,15 @@ import { useState, useEffect } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { categoriesAPI, companiesAPI, brandsAPI, productsAPI, sellerProductsAPI, uploadAPI } from '@/lib/api';
+import {
+  categoriesAPI,
+  companiesAPI,
+  brandsAPI,
+  productsAPI,
+  sellerProductsAPI,
+  sellerResourcesAPI,
+  uploadAPI,
+} from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -142,7 +150,9 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
   const { data: categoriesData } = useQuery({
     queryKey: ['categories'],
     queryFn: async () => {
-      const response = await categoriesAPI.getCategories();
+      const response = isSeller
+        ? await sellerResourcesAPI.getCategories()
+        : await categoriesAPI.getCategories();
       return response.data || [];
     },
     enabled: open,
@@ -152,19 +162,26 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
   const { data: companiesData } = useQuery({
     queryKey: ['companies'],
     queryFn: async () => {
-      const response = await companiesAPI.getCompanies();
+      const response = isSeller
+        ? await sellerResourcesAPI.getCompanies()
+        : await companiesAPI.getCompanies();
       return response.data || [];
     },
-    enabled: open && !isSeller,
+    enabled: open,
   });
 
   // Fetch brands (filtered by company if selected)
   const { data: brandsData } = useQuery({
     queryKey: ['brands', selectedCompany],
     queryFn: async () => {
-      const response = await brandsAPI.getBrands(
-        selectedCompany ? { companyId: selectedCompany } : undefined
-      );
+      if (isSeller) {
+        const response = await sellerResourcesAPI.getBrands();
+        const all = (response.data || []) as any[];
+        if (!selectedCompany) return all;
+        return all.filter((b) => (b.company?.id || b.companyId || b.company_id) === selectedCompany);
+      }
+
+      const response = await brandsAPI.getBrands(selectedCompany ? { companyId: selectedCompany } : undefined);
       return response.data || [];
     },
     enabled: open,
