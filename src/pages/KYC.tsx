@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   XCircle,
   FileText,
+  Image as ImageIcon,
   Download,
   Filter,
   Clock,
@@ -57,6 +58,8 @@ export default function KYC() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isVerifyDialogOpen, setIsVerifyDialogOpen] = useState(false);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+  const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
+  const [previewImage, setPreviewImage] = useState<{ title: string; url: string } | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [verifyComments, setVerifyComments] = useState('');
   const limit = 20;
@@ -316,8 +319,130 @@ export default function KYC() {
     }
   };
 
+  const openImagePreview = (title: string, url?: string) => {
+    if (!url) return;
+    setPreviewImage({ title, url });
+    setIsImageDialogOpen(true);
+  };
+
+  const getDocUrl = (docs: any, predicate: (doc: any) => boolean): string | undefined => {
+    if (!docs) return undefined;
+    const list = Array.isArray(docs) ? docs : (docs?.items && Array.isArray(docs.items) ? docs.items : []);
+    const found = list.find(predicate);
+    const url = found?.url || found?.fileUrl || found?.file_url || found?.path || found?.key;
+    return typeof url === 'string' ? url : undefined;
+  };
+
+  const getShopImageUrl = (kyc: any, docs: any): string | undefined => {
+    const direct =
+      kyc?.shopImageUrl ||
+      kyc?.shop_image_url ||
+      kyc?.shop_image ||
+      kyc?.shopImage ||
+      undefined;
+    if (typeof direct === 'string' && direct) return direct;
+    return getDocUrl(docs, (d: any) => {
+      const type = `${d?.type || d?.documentType || d?.document_type || d?.name || ''}`.toLowerCase();
+      return type.includes('shop');
+    });
+  };
+
+  const getFssaiLicenseImageUrl = (kyc: any, docs: any): string | undefined => {
+    const direct =
+      kyc?.fssaiLicenseImageUrl ||
+      kyc?.fssai_license_image_url ||
+      kyc?.fssai_license_image ||
+      kyc?.fssaiLicenseImage ||
+      undefined;
+    if (typeof direct === 'string' && direct) return direct;
+    return getDocUrl(docs, (d: any) => {
+      const type = `${d?.type || d?.documentType || d?.document_type || d?.name || ''}`.toLowerCase();
+      return (type.includes('fssai') && type.includes('license')) || type.includes('fssai_license') || type.includes('fssai');
+    });
+  };
+
+  const downloadFile = async (url: string, filename: string) => {
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const objectUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(objectUrl);
+    } catch {
+      // fallback
+      window.open(url, '_blank');
+    }
+  };
+
+  const escapeCSV = (value: any) => {
+    const s = value === null || value === undefined ? '' : String(value);
+    const escaped = s.replace(/"/g, '""');
+    return /[",\n]/.test(escaped) ? `"${escaped}"` : escaped;
+  };
+
+  const exportKycCsv = () => {
+    const headers = [
+      'id',
+      'userName',
+      'userEmail',
+      'businessName',
+      'gstNumber',
+      'fssaiNumber',
+      'shopImageUrl',
+      'fssaiLicenseImageUrl',
+      'status',
+      'submittedAt',
+      'legacy_pan_number',
+    ];
+
+    const rows = kycSubmissions.map((k: any) => {
+      const userName = k.user?.name || k.userName || k.user_name || '';
+      const userEmail = k.user?.email || k.email || '';
+      const businessName = k.businessName || k.business_name || k.companyName || '';
+      const gstNumber = k.gstNumber || k.gst_number || k.gst || '';
+      const fssaiNumber = k.fssaiNumber || k.fssai_number || k.fssai || '';
+      const shopImageUrl = k.shopImageUrl || k.shop_image_url || '';
+      const fssaiLicenseImageUrl = k.fssaiLicenseImageUrl || k.fssai_license_image_url || '';
+      const status = k.status || k.kyc_status || '';
+      const submittedAt = k.submittedAt || k.submitted_at || k.createdAt || k.created_at || '';
+      const legacyPanNumber = k.panNumber || k.pan_number || k.pan || '';
+
+      return [
+        k.id || '',
+        userName,
+        userEmail,
+        businessName,
+        gstNumber,
+        fssaiNumber,
+        shopImageUrl,
+        fssaiLicenseImageUrl,
+        status,
+        submittedAt,
+        legacyPanNumber,
+      ].map(escapeCSV).join(',');
+    });
+
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `kyc-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  };
+
   // Use details if available, otherwise use selected KYC
   const displayKYC = kycDetails || selectedKYC;
+  const shopImageUrl = getShopImageUrl(displayKYC, kycDocuments);
+  const fssaiLicenseImageUrl = getFssaiLicenseImageUrl(displayKYC, kycDocuments);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -328,7 +453,7 @@ export default function KYC() {
           <p className="text-muted-foreground">Review and verify business KYC submissions</p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline">
+          <Button variant="outline" onClick={exportKycCsv}>
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
@@ -514,6 +639,7 @@ export default function KYC() {
                         <TableHead>Business Name</TableHead>
                         <TableHead>GST Number</TableHead>
                         <TableHead>FSSAI License Number</TableHead>
+                        <TableHead>Images</TableHead>
                         <TableHead>Submission Date</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Actions</TableHead>
@@ -531,6 +657,8 @@ export default function KYC() {
                           kyc.fssai_number ||
                           kyc.fssai ||
                           '-';
+                        const shopImg = kyc.shopImageUrl || kyc.shop_image_url;
+                        const fssaiImg = kyc.fssaiLicenseImageUrl || kyc.fssai_license_image_url;
                         const submissionDate = kyc.submittedAt || kyc.submitted_at || kyc.submissionDate || kyc.submission_date || kyc.createdAt || kyc.created_at;
                         const status = kyc.status || kyc.kyc_status || 'pending';
 
@@ -547,6 +675,16 @@ export default function KYC() {
                             <TableCell className="font-medium">{businessName}</TableCell>
                             <TableCell className="font-mono text-sm">{gstNumber}</TableCell>
                             <TableCell className="font-mono text-sm">{fssaiNumber}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                <span title={shopImg ? 'Shop image available' : 'Shop image missing'} className={shopImg ? 'text-emerald-600' : 'text-muted-foreground'}>
+                                  <ImageIcon className="h-4 w-4" />
+                                </span>
+                                <span title={fssaiImg ? 'FSSAI license image available' : 'FSSAI license image missing'} className={fssaiImg ? 'text-emerald-600' : 'text-muted-foreground'}>
+                                  <FileText className="h-4 w-4" />
+                                </span>
+                              </div>
+                            </TableCell>
                             <TableCell className="text-muted-foreground text-sm">
                               {formatDate(submissionDate)}
                             </TableCell>
@@ -677,6 +815,15 @@ export default function KYC() {
                   Business Information
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
+                  <div className="col-span-2">
+                    <Label className="text-muted-foreground">FSSAI License Number</Label>
+                    <p className="font-mono text-base font-semibold">
+                      {displayKYC.fssaiNumber ||
+                        displayKYC.fssai_number ||
+                        displayKYC.fssai ||
+                        '-'}
+                    </p>
+                  </div>
                   <div>
                     <Label className="text-muted-foreground">Business Name</Label>
                     <p className="font-medium">{displayKYC.businessName || displayKYC.business_name || displayKYC.companyName || '-'}</p>
@@ -684,15 +831,6 @@ export default function KYC() {
                   <div>
                     <Label className="text-muted-foreground">GST Number</Label>
                     <p className="font-mono">{displayKYC.gstNumber || displayKYC.gst_number || displayKYC.gst || '-'}</p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">FSSAI License Number</Label>
-                    <p className="font-mono">
-                      {displayKYC.fssaiNumber ||
-                        displayKYC.fssai_number ||
-                        displayKYC.fssai ||
-                        '-'}
-                    </p>
                   </div>
                   <div>
                     <Label className="text-muted-foreground">Submission Date</Label>
@@ -707,60 +845,97 @@ export default function KYC() {
                   <FileText className="h-4 w-4" />
                   Documents
                 </h3>
-                {kycDocuments && Array.isArray(kycDocuments) && kycDocuments.length > 0 ? (
-                  <div className="grid grid-cols-3 gap-4">
-                    {kycDocuments.map((doc: any, index: number) => (
-                      <Card key={index} className="border-2 border-dashed">
-                        <CardContent className="p-4 text-center">
-                          <FileText className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                          <p className="text-sm font-medium">{doc.type || doc.name || `Document ${index + 1}`}</p>
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="mt-2 w-full"
-                            onClick={() => {
-                              if (doc.url) {
-                                window.open(doc.url, '_blank');
-                              }
-                            }}
-                          >
-                            View Document
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-3 gap-4">
-                    <Card className="border-2 border-dashed">
-                      <CardContent className="p-4 text-center">
-                        <FileText className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                        <p className="text-sm font-medium">GST Certificate</p>
-                        <Button variant="outline" size="sm" className="mt-2 w-full" disabled>
-                          View Document
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Card className="border-2 border-dashed">
+                    <CardContent className="p-4">
+                      <p className="text-sm font-medium mb-2">Shop Image</p>
+                      {shopImageUrl ? (
+                        <button
+                          type="button"
+                          className="w-full"
+                          onClick={() => openImagePreview('Shop Image', shopImageUrl)}
+                        >
+                          <img
+                            src={shopImageUrl}
+                            alt="Shop"
+                            className="w-full h-40 object-cover rounded-md border"
+                          />
+                        </button>
+                      ) : (
+                        <div className="h-40 rounded-md border flex items-center justify-center text-muted-foreground text-sm">
+                          Missing
+                        </div>
+                      )}
+                      <div className="flex gap-2 mt-3">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          disabled={!shopImageUrl}
+                          onClick={() => shopImageUrl && openImagePreview('Shop Image', shopImageUrl)}
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          Preview
                         </Button>
-                      </CardContent>
-                    </Card>
-                    <Card className="border-2 border-dashed">
-                      <CardContent className="p-4 text-center">
-                        <FileText className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                        <p className="text-sm font-medium">FSSAI License</p>
-                        <Button variant="outline" size="sm" className="mt-2 w-full" disabled>
-                          View Document
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          disabled={!shopImageUrl}
+                          onClick={() => shopImageUrl && downloadFile(shopImageUrl, `shop-image-${displayKYC.id || 'kyc'}`)}
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          Download
                         </Button>
-                      </CardContent>
-                    </Card>
-                    <Card className="border-2 border-dashed">
-                      <CardContent className="p-4 text-center">
-                        <FileText className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                        <p className="text-sm font-medium">Business License</p>
-                        <Button variant="outline" size="sm" className="mt-2 w-full" disabled>
-                          View Document
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-2 border-dashed">
+                    <CardContent className="p-4">
+                      <p className="text-sm font-medium mb-2">FSSAI License Image</p>
+                      {fssaiLicenseImageUrl ? (
+                        <button
+                          type="button"
+                          className="w-full"
+                          onClick={() => openImagePreview('FSSAI License Image', fssaiLicenseImageUrl)}
+                        >
+                          <img
+                            src={fssaiLicenseImageUrl}
+                            alt="FSSAI License"
+                            className="w-full h-40 object-cover rounded-md border"
+                          />
+                        </button>
+                      ) : (
+                        <div className="h-40 rounded-md border flex items-center justify-center text-muted-foreground text-sm">
+                          Missing
+                        </div>
+                      )}
+                      <div className="flex gap-2 mt-3">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          disabled={!fssaiLicenseImageUrl}
+                          onClick={() => fssaiLicenseImageUrl && openImagePreview('FSSAI License Image', fssaiLicenseImageUrl)}
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          Preview
                         </Button>
-                      </CardContent>
-                    </Card>
-                  </div>
-                )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          disabled={!fssaiLicenseImageUrl}
+                          onClick={() => fssaiLicenseImageUrl && downloadFile(fssaiLicenseImageUrl, `fssai-license-${displayKYC.id || 'kyc'}`)}
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          Download
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
               </div>
 
               {(displayKYC.rejectionReason || displayKYC.rejection_reason) && (
@@ -790,6 +965,42 @@ export default function KYC() {
               Close
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Image Preview Dialog */}
+      <Dialog open={isImageDialogOpen} onOpenChange={(open) => {
+        setIsImageDialogOpen(open);
+        if (!open) setPreviewImage(null);
+      }}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{previewImage?.title || 'Image Preview'}</DialogTitle>
+          </DialogHeader>
+          {previewImage?.url ? (
+            <div className="space-y-4">
+              <img
+                src={previewImage.url}
+                alt={previewImage.title}
+                className="w-full max-h-[70vh] object-contain rounded-md border"
+              />
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => window.open(previewImage.url, '_blank')}>
+                  <Eye className="h-4 w-4 mr-2" />
+                  Open in new tab
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => downloadFile(previewImage.url, `${(previewImage.title || 'image').toLowerCase().replace(/\s+/g, '-')}-${displayKYC?.id || 'kyc'}`)}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-muted-foreground">No image available</div>
+          )}
         </DialogContent>
       </Dialog>
 
