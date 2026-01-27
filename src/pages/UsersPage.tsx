@@ -734,8 +734,13 @@ export default function UsersPage() {
                     <p className="font-mono text-sm">{userKYCSubmission.gstNumber || userKYCSubmission.gst_number || userKYCSubmission.gst || '-'}</p>
                   </div>
                   <div className="space-y-2">
-                    <Label>PAN Number</Label>
-                    <p className="font-mono text-sm">{userKYCSubmission.panNumber || userKYCSubmission.pan_number || userKYCSubmission.pan || '-'}</p>
+                    <Label>FSSAI License Number</Label>
+                    <p className="font-mono text-sm">
+                      {userKYCSubmission.fssaiNumber ||
+                        userKYCSubmission.fssai_number ||
+                        userKYCSubmission.fssai ||
+                        '-'}
+                    </p>
                   </div>
                 </div>
                 <div className="space-y-2">

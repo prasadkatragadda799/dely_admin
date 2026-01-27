@@ -414,7 +414,7 @@ export default function KYC() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by name, business, GST, or PAN..."
+                placeholder="Search by name, business, GST, or FSSAI..."
                 className="pl-10"
                 value={searchQuery}
                 onChange={(e) => {
@@ -513,7 +513,7 @@ export default function KYC() {
                         <TableHead>User</TableHead>
                         <TableHead>Business Name</TableHead>
                         <TableHead>GST Number</TableHead>
-                        <TableHead>PAN Number</TableHead>
+                        <TableHead>FSSAI License Number</TableHead>
                         <TableHead>Submission Date</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Actions</TableHead>
@@ -526,7 +526,11 @@ export default function KYC() {
                         const userEmail = kyc.user?.email || kyc.email || '';
                         const businessName = kyc.businessName || kyc.business_name || kyc.companyName || '-';
                         const gstNumber = kyc.gstNumber || kyc.gst_number || kyc.gst || '-';
-                        const panNumber = kyc.panNumber || kyc.pan_number || kyc.pan || '-';
+                        const fssaiNumber =
+                          kyc.fssaiNumber ||
+                          kyc.fssai_number ||
+                          kyc.fssai ||
+                          '-';
                         const submissionDate = kyc.submittedAt || kyc.submitted_at || kyc.submissionDate || kyc.submission_date || kyc.createdAt || kyc.created_at;
                         const status = kyc.status || kyc.kyc_status || 'pending';
 
@@ -542,7 +546,7 @@ export default function KYC() {
                             </TableCell>
                             <TableCell className="font-medium">{businessName}</TableCell>
                             <TableCell className="font-mono text-sm">{gstNumber}</TableCell>
-                            <TableCell className="font-mono text-sm">{panNumber}</TableCell>
+                            <TableCell className="font-mono text-sm">{fssaiNumber}</TableCell>
                             <TableCell className="text-muted-foreground text-sm">
                               {formatDate(submissionDate)}
                             </TableCell>
@@ -682,8 +686,13 @@ export default function KYC() {
                     <p className="font-mono">{displayKYC.gstNumber || displayKYC.gst_number || displayKYC.gst || '-'}</p>
                   </div>
                   <div>
-                    <Label className="text-muted-foreground">PAN Number</Label>
-                    <p className="font-mono">{displayKYC.panNumber || displayKYC.pan_number || displayKYC.pan || '-'}</p>
+                    <Label className="text-muted-foreground">FSSAI License Number</Label>
+                    <p className="font-mono">
+                      {displayKYC.fssaiNumber ||
+                        displayKYC.fssai_number ||
+                        displayKYC.fssai ||
+                        '-'}
+                    </p>
                   </div>
                   <div>
                     <Label className="text-muted-foreground">Submission Date</Label>
@@ -735,7 +744,7 @@ export default function KYC() {
                     <Card className="border-2 border-dashed">
                       <CardContent className="p-4 text-center">
                         <FileText className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                        <p className="text-sm font-medium">PAN Card</p>
+                        <p className="text-sm font-medium">FSSAI License</p>
                         <Button variant="outline" size="sm" className="mt-2 w-full" disabled>
                           View Document
                         </Button>

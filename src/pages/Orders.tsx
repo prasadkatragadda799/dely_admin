@@ -1010,7 +1010,6 @@ const orderStats = [
                         <p>paudhshala</p>
                         <p>Azamgarh, Uttar Pradesh - 276207</p>
                         <p>GSTIN: 09AAHCG7552R1ZP</p>
-                        <p>PAN: AAHCG7552R</p>
                         <p>FSSAI: 10019043002791</p>
                         <p className="text-[10px]">https://foscos.fssai.gov.in/</p>
                       </div>
