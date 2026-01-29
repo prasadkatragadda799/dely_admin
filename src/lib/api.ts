@@ -618,6 +618,14 @@ export const kycAPI = {
     return response.data;
   },
 
+  // Optional: single-file ZIP download (best UX)
+  downloadKYCDocumentsZip: async (id: string) => {
+    const response = await apiClient.get(`/admin/kyc/${id}/documents/download`, {
+      responseType: 'blob',
+    });
+    return response.data as Blob;
+  },
+
   getKYCByUserId: async (userId: string) => {
     const response = await apiClient.get<ApiResponse<any>>(`/admin/kyc/user/${userId}`);
     return response.data;

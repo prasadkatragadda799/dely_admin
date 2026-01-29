@@ -304,12 +304,83 @@ export default function KYC() {
 
   const handleDownloadDocuments = async (kycId: string) => {
     try {
-      const documents = await kycAPI.getKYCDocuments(kycId);
-      // TODO: Implement document download logic
-      toast({
-        title: 'Download Documents',
-        description: 'Document download coming soon',
+      // Prefer single-file ZIP endpoint when available (most reliable UX)
+      try {
+        const zipBlob = await kycAPI.downloadKYCDocumentsZip(kycId);
+        const zipUrl = window.URL.createObjectURL(zipBlob);
+        const a = document.createElement('a');
+        a.href = zipUrl;
+        a.download = `kyc-documents-${kycId}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(zipUrl);
+        toast({ title: 'Downloaded', description: 'KYC documents ZIP downloaded.' });
+        return;
+      } catch {
+        // fallback to multi-download below
+      }
+
+      const resp = await kycAPI.getKYCDocuments(kycId);
+      const data = (resp as any)?.data;
+      const docs: any[] = Array.isArray(data)
+        ? data
+        : (data?.items && Array.isArray(data.items) ? data.items : []);
+
+      // Collect URLs from document list + common fields if present
+      const urls: Array<{ title: string; url: string }> = [];
+
+      // Try dedicated fields if backend includes them in documents response
+      const shopUrl =
+        data?.shopImageUrl ||
+        data?.shop_image_url ||
+        data?.shopImage ||
+        data?.shop_image;
+      const fssaiUrl =
+        data?.fssaiLicenseImageUrl ||
+        data?.fssai_license_image_url ||
+        data?.fssaiLicenseImage ||
+        data?.fssai_license_image;
+      if (typeof shopUrl === 'string' && shopUrl) urls.push({ title: 'shop-image', url: shopUrl });
+      if (typeof fssaiUrl === 'string' && fssaiUrl) urls.push({ title: 'fssai-license-image', url: fssaiUrl });
+
+      // Add all docs URLs
+      docs.forEach((doc, idx) => {
+        const url = doc?.url || doc?.fileUrl || doc?.file_url || doc?.path;
+        if (typeof url !== 'string' || !url) return;
+        const name =
+          doc?.name ||
+          doc?.type ||
+          doc?.documentType ||
+          doc?.document_type ||
+          `document-${idx + 1}`;
+        urls.push({ title: String(name).toLowerCase().replace(/\s+/g, '-'), url });
       });
+
+      // De-dupe by URL
+      const unique = Array.from(new Map(urls.map((u) => [u.url, u])).values());
+
+      if (unique.length === 0) {
+        toast({
+          title: 'No documents',
+          description: 'No downloadable document URLs found for this KYC submission.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      toast({
+        title: 'Downloading…',
+        description: `Starting download of ${unique.length} document(s)`,
+      });
+
+      // Download sequentially to avoid browser throttling / popup blockers
+      for (let i = 0; i < unique.length; i++) {
+        const { title, url } = unique[i];
+        await downloadFile(url, `${title}-${kycId}`);
+        // small delay helps some browsers start each download cleanly
+        await new Promise((r) => setTimeout(r, 250));
+      }
     } catch (error: any) {
       toast({
         title: 'Error',

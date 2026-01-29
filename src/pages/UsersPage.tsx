@@ -68,6 +68,9 @@ export default function UsersPage() {
   const [blockReason, setBlockReason] = useState('');
   const [verifyingUserId, setVerifyingUserId] = useState<string | null>(null);
   const [verifyComments, setVerifyComments] = useState('');
+  const [viewingUserId, setViewingUserId] = useState<string | null>(null);
+  const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
+  const [previewImage, setPreviewImage] = useState<{ title: string; url: string } | null>(null);
   const limit = 20;
 
   const { toast } = useToast();
@@ -258,6 +261,65 @@ export default function UsersPage() {
     });
   };
 
+  const openImagePreview = (title: string, url?: string) => {
+    if (!url) return;
+    setPreviewImage({ title, url });
+    setIsImageDialogOpen(true);
+  };
+
+  const downloadFile = async (url: string, filename: string) => {
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const objectUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(objectUrl);
+    } catch {
+      window.open(url, '_blank');
+    }
+  };
+
+  const getDocUrl = (docs: any, predicate: (doc: any) => boolean): string | undefined => {
+    if (!docs) return undefined;
+    const list = Array.isArray(docs) ? docs : (docs?.items && Array.isArray(docs.items) ? docs.items : []);
+    const found = list.find(predicate);
+    const url = found?.url || found?.fileUrl || found?.file_url || found?.path || found?.key;
+    return typeof url === 'string' ? url : undefined;
+  };
+
+  const getShopImageUrl = (kyc: any, docs: any): string | undefined => {
+    const direct =
+      kyc?.shopImageUrl ||
+      kyc?.shop_image_url ||
+      kyc?.shop_image ||
+      kyc?.shopImage ||
+      undefined;
+    if (typeof direct === 'string' && direct) return direct;
+    return getDocUrl(docs, (d: any) => {
+      const type = `${d?.type || d?.documentType || d?.document_type || d?.name || ''}`.toLowerCase();
+      return type.includes('shop');
+    });
+  };
+
+  const getFssaiLicenseImageUrl = (kyc: any, docs: any): string | undefined => {
+    const direct =
+      kyc?.fssaiLicenseImageUrl ||
+      kyc?.fssai_license_image_url ||
+      kyc?.fssai_license_image ||
+      kyc?.fssaiLicenseImage ||
+      undefined;
+    if (typeof direct === 'string' && direct) return direct;
+    return getDocUrl(docs, (d: any) => {
+      const type = `${d?.type || d?.documentType || d?.document_type || d?.name || ''}`.toLowerCase();
+      return (type.includes('fssai') && type.includes('license')) || type.includes('fssai_license') || type.includes('fssai');
+    });
+  };
+
   const handleBlockUser = (userId: string, isCurrentlyActive: boolean) => {
     setBlockingUserId(userId);
     if (!isCurrentlyActive) {
@@ -281,11 +343,7 @@ export default function UsersPage() {
   };
 
   const handleViewProfile = (userId: string) => {
-    // TODO: Implement user detail view/modal
-    toast({
-      title: 'View Profile',
-      description: 'User profile view coming soon',
-    });
+    setViewingUserId(userId);
   };
 
   // Fetch user's KYC submission when verifying
@@ -308,6 +366,61 @@ export default function UsersPage() {
       }
     },
     enabled: !!verifyingUserId,
+  });
+
+  // Fetch user details for "View Profile" modal
+  const { data: viewedUser, isLoading: isLoadingViewedUser } = useQuery({
+    queryKey: ['user', viewingUserId],
+    queryFn: async () => {
+      if (!viewingUserId) return null;
+      const response = await usersAPI.getUser(viewingUserId);
+      return response.data;
+    },
+    enabled: !!viewingUserId,
+  });
+
+  // Fetch viewed user's KYC (reuse existing endpoint if available)
+  const { data: viewedUserKYC, isLoading: isLoadingViewedUserKYC } = useQuery({
+    queryKey: ['user-kyc-view', viewingUserId],
+    queryFn: async () => {
+      if (!viewingUserId) return null;
+      try {
+        const response = await kycAPI.getKYCByUserId(viewingUserId);
+        return response.data;
+      } catch (error: any) {
+        // fallback: search
+        const response = await kycAPI.getKYCSubmissions({ search: viewingUserId });
+        const items = response.data?.items || response.data || [];
+        const userKYC = Array.isArray(items)
+          ? items.find((k: any) => k.userId === viewingUserId || k.user_id === viewingUserId)
+          : null;
+        return userKYC || null;
+      }
+    },
+    enabled: !!viewingUserId,
+  });
+
+  // Fetch KYC documents for viewed user (used to derive shop/FSSAI image URLs if not directly present)
+  const { data: viewedUserKYCDocuments } = useQuery({
+    queryKey: ['user-kyc-documents-view', viewedUserKYC?.id],
+    queryFn: async () => {
+      if (!viewedUserKYC?.id) return null;
+      const response = await kycAPI.getKYCDocuments(viewedUserKYC.id);
+      return response.data;
+    },
+    enabled: (() => {
+      if (!viewingUserId || !viewedUserKYC?.id) return false;
+      // If backend already provides dedicated URLs, skip extra documents call.
+      const hasShop =
+        typeof (viewedUserKYC as any)?.shopImageUrl === 'string' ||
+        typeof (viewedUserKYC as any)?.shop_image_url === 'string' ||
+        typeof (viewedUserKYC as any)?.shop_image === 'string';
+      const hasFssai =
+        typeof (viewedUserKYC as any)?.fssaiLicenseImageUrl === 'string' ||
+        typeof (viewedUserKYC as any)?.fssai_license_image_url === 'string' ||
+        typeof (viewedUserKYC as any)?.fssai_license_image === 'string';
+      return !(hasShop && hasFssai);
+    })(),
   });
 
   // Verify KYC mutation
@@ -797,6 +910,240 @@ export default function UsersPage() {
                 Close
               </Button>
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* View Profile Dialog */}
+      <Dialog
+        open={!!viewingUserId}
+        onOpenChange={(open) => {
+          if (!open) setViewingUserId(null);
+        }}
+      >
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>User Profile</DialogTitle>
+            <DialogDescription>View user details and KYC summary</DialogDescription>
+          </DialogHeader>
+
+          {isLoadingViewedUser ? (
+            <div className="py-10 text-center">
+              <Loader2 className="h-8 w-8 mx-auto animate-spin text-primary mb-4" />
+              <p className="text-muted-foreground">Loading user details...</p>
+            </div>
+          ) : viewedUser ? (
+            <div className="space-y-6 py-2">
+              {/* Basic */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-foreground">Basic</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-muted-foreground">Name</Label>
+                    <p className="font-medium">{viewedUser.name || viewedUser.fullName || '—'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">User ID</Label>
+                    <p className="font-mono text-sm">{viewedUser.id || viewingUserId}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Email</Label>
+                    <p className="font-medium">{viewedUser.email || '—'}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Phone</Label>
+                    <p className="font-medium">{viewedUser.phone || viewedUser.phoneNumber || '—'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Business */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-foreground">Business</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="col-span-2">
+                    <Label className="text-muted-foreground">Business Name</Label>
+                    <p className="font-medium">
+                      {viewedUser.businessName ||
+                        viewedUser.business_name ||
+                        viewedUser.companyName ||
+                        '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">GST Number</Label>
+                    <p className="font-mono text-sm">
+                      {viewedUser.gstNumber || viewedUser.gst_number || viewedUser.gst || '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">FSSAI License Number</Label>
+                    <p className="font-mono text-sm">
+                      {viewedUser.fssaiNumber ||
+                        viewedUser.fssai_number ||
+                        viewedUser.fssai ||
+                        '—'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* KYC */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-foreground">KYC</h3>
+                {isLoadingViewedUserKYC ? (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading KYC...
+                  </div>
+                ) : viewedUserKYC ? (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-muted-foreground">KYC Status</Label>
+                      <div className="mt-1">
+                        {getKycBadge(viewedUserKYC.kycStatus || viewedUserKYC.kyc_status || viewedUser.kycStatus || viewedUser.kyc_status || 'pending')}
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">Submission Date</Label>
+                      <p className="font-medium">
+                        {formatDate(
+                          viewedUserKYC.submittedAt ||
+                            viewedUserKYC.submitted_at ||
+                            viewedUserKYC.createdAt ||
+                            viewedUserKYC.created_at ||
+                            '—'
+                        )}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">GST Number (KYC)</Label>
+                      <p className="font-mono text-sm">
+                        {viewedUserKYC.gstNumber || viewedUserKYC.gst_number || viewedUserKYC.gst || '—'}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">FSSAI License Number (KYC)</Label>
+                      <p className="font-mono text-sm">
+                        {viewedUserKYC.fssaiNumber || viewedUserKYC.fssai_number || viewedUserKYC.fssai || '—'}
+                      </p>
+                    </div>
+                    </div>
+
+                    {/* KYC Images */}
+                    {(() => {
+                      const shopUrl = getShopImageUrl(viewedUserKYC, viewedUserKYCDocuments);
+                      const fssaiUrl = getFssaiLicenseImageUrl(viewedUserKYC, viewedUserKYCDocuments);
+                      return (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label className="text-muted-foreground">Shop Image</Label>
+                            {shopUrl ? (
+                              <button type="button" className="w-full" onClick={() => openImagePreview('Shop Image', shopUrl)}>
+                                <img src={shopUrl} alt="Shop" className="w-full h-40 object-cover rounded-md border" />
+                              </button>
+                            ) : (
+                              <div className="h-40 rounded-md border flex items-center justify-center text-muted-foreground text-sm">
+                                Missing
+                              </div>
+                            )}
+                            <div className="flex gap-2">
+                              <Button variant="outline" size="sm" className="flex-1" disabled={!shopUrl} onClick={() => shopUrl && openImagePreview('Shop Image', shopUrl)}>
+                                <Eye className="h-4 w-4 mr-2" />
+                                Preview
+                              </Button>
+                              <Button variant="outline" size="sm" className="flex-1" disabled={!shopUrl} onClick={() => shopUrl && downloadFile(shopUrl, `shop-image-${viewedUserKYC.id}`)}>
+                                <Download className="h-4 w-4 mr-2" />
+                                Download
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-muted-foreground">FSSAI License Image</Label>
+                            {fssaiUrl ? (
+                              <button type="button" className="w-full" onClick={() => openImagePreview('FSSAI License Image', fssaiUrl)}>
+                                <img src={fssaiUrl} alt="FSSAI License" className="w-full h-40 object-cover rounded-md border" />
+                              </button>
+                            ) : (
+                              <div className="h-40 rounded-md border flex items-center justify-center text-muted-foreground text-sm">
+                                Missing
+                              </div>
+                            )}
+                            <div className="flex gap-2">
+                              <Button variant="outline" size="sm" className="flex-1" disabled={!fssaiUrl} onClick={() => fssaiUrl && openImagePreview('FSSAI License Image', fssaiUrl)}>
+                                <Eye className="h-4 w-4 mr-2" />
+                                Preview
+                              </Button>
+                              <Button variant="outline" size="sm" className="flex-1" disabled={!fssaiUrl} onClick={() => fssaiUrl && downloadFile(fssaiUrl, `fssai-license-${viewedUserKYC.id}`)}>
+                                <Download className="h-4 w-4 mr-2" />
+                                Download
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground">No KYC submission found for this user.</p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="py-10 text-center text-muted-foreground">
+              Failed to load user details.
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewingUserId(null)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Image Preview Dialog */}
+      <Dialog
+        open={isImageDialogOpen}
+        onOpenChange={(open) => {
+          setIsImageDialogOpen(open);
+          if (!open) setPreviewImage(null);
+        }}
+      >
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{previewImage?.title || 'Image Preview'}</DialogTitle>
+          </DialogHeader>
+          {previewImage?.url ? (
+            <div className="space-y-4">
+              <img
+                src={previewImage.url}
+                alt={previewImage.title}
+                className="w-full max-h-[70vh] object-contain rounded-md border"
+              />
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => window.open(previewImage.url, '_blank')}>
+                  <Eye className="h-4 w-4 mr-2" />
+                  Open in new tab
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    downloadFile(
+                      previewImage.url,
+                      `${(previewImage.title || 'image').toLowerCase().replace(/\s+/g, '-')}-${viewingUserId || 'user'}`
+                    )
+                  }
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-muted-foreground">No image available</div>
           )}
         </DialogContent>
       </Dialog>

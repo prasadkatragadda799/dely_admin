@@ -232,20 +232,45 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
   // Load product data when editing
   useEffect(() => {
     if (productData && open) {
+      const categoryId =
+        productData.category?.id ||
+        productData.categoryId ||
+        productData.category_id ||
+        '';
+      const companyId =
+        productData.company?.id ||
+        productData.companyId ||
+        productData.company_id ||
+        '';
+      const brandId =
+        productData.brand?.id ||
+        productData.brandId ||
+        productData.brand_id ||
+        '';
+      const mrp = Number(productData.mrp ?? 0);
+      const sellingPrice = Number(productData.sellingPrice ?? productData.selling_price ?? 0);
+      const stockQuantity = Number(productData.stockQuantity ?? productData.stock_quantity ?? 0);
+      const minOrderQuantity = Number(productData.minOrderQuantity ?? productData.min_order_quantity ?? 1);
+      const piecesPerSet = Number(productData.piecesPerSet ?? productData.pieces_per_set ?? 1);
+      const isFeatured = Boolean(productData.isFeatured ?? productData.is_featured ?? false);
+      const isAvailable = productData.isAvailable !== undefined
+        ? Boolean(productData.isAvailable)
+        : (productData.is_available !== undefined ? Boolean(productData.is_available) : true);
+
       reset({
         name: productData.name || '',
         description: productData.description || '',
-        categoryId: productData.category?.id || '',
-        companyId: productData.company?.id || 'none',
-        brandId: productData.brand?.id || 'none',
-        mrp: productData.mrp || 0,
-        sellingPrice: productData.sellingPrice || 0,
-        stockQuantity: productData.stockQuantity || 0,
-        minOrderQuantity: productData.minOrderQuantity || 1,
+        categoryId,
+        companyId: companyId || 'none',
+        brandId: brandId || 'none',
+        mrp,
+        sellingPrice,
+        stockQuantity,
+        minOrderQuantity,
         unit: productData.unit || 'piece',
-        piecesPerSet: productData.piecesPerSet || 1,
-        isFeatured: productData.isFeatured || false,
-        isAvailable: productData.isAvailable !== false,
+        piecesPerSet,
+        isFeatured,
+        isAvailable,
         variants: productData.variants && Array.isArray(productData.variants)
           ? productData.variants.map((v: any) => ({
               hsnCode: v.hsnCode || v.hsn_code || '',
@@ -260,8 +285,8 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
                 hsnCode: '',
                 setPieces: '',
                 weight: '',
-                mrp: Number(productData.mrp || 0),
-                specialPrice: Number(productData.sellingPrice || 0),
+                mrp,
+                specialPrice: sellingPrice,
                 freeItem: '',
               },
             ],
@@ -270,9 +295,13 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
         metaTitle: productData.metaTitle || '',
         metaDescription: productData.metaDescription || '',
       });
-      setSelectedCompany(productData.company?.id || '');
+      setSelectedCompany(companyId || '');
       if (productData.images) {
-        setImagePreviews(productData.images.map((img: any) => img.url));
+        setImagePreviews(
+          productData.images
+            .map((img: any) => img.url || img.imageUrl || img.image_url)
+            .filter(Boolean)
+        );
       }
     } else if (!productId && open) {
       reset({
