@@ -1007,6 +1007,45 @@ export const settingsAPI = {
   },
 };
 
+// Notifications API (user inbox: KYC and order status notifications from backend)
+export interface NotificationItem {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  read: boolean;
+  created_at: string;
+  data?: Record<string, unknown>;
+}
+
+export interface NotificationsListResponse {
+  notifications: NotificationItem[];
+  unreadCount: number;
+  pagination: { page: number; limit: number; total: number };
+}
+
+export const notificationsAPI = {
+  getList: async (params?: { page?: number; limit?: number; unread?: boolean }) => {
+    const response = await apiClient.get<ApiResponse<NotificationsListResponse>>('/v1/notifications', { params });
+    return response.data;
+  },
+
+  markAllRead: async () => {
+    const response = await apiClient.put<ApiResponse<{ message: string }>>('/v1/notifications/read-all');
+    return response.data;
+  },
+
+  markRead: async (id: string) => {
+    const response = await apiClient.put<ApiResponse<{ message: string }>>(`/v1/notifications/${id}/read`);
+    return response.data;
+  },
+
+  delete: async (id: string) => {
+    const response = await apiClient.delete<ApiResponse<{ message: string }>>(`/v1/notifications/${id}`);
+    return response.data;
+  },
+};
+
 // File Upload API
 export const uploadAPI = {
   uploadImage: async (file: File, type: 'product' | 'company' | 'brand' | 'offer' | 'category', entityId?: string) => {
