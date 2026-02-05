@@ -596,6 +596,7 @@ export default function Products() {
               <tbody>
                     {products.map((product: any) => {
                       // Handle both camelCase and snake_case field names
+                      const productId = product.id || product._id || product.product_id;
                       const primaryImage = product.images?.find((img: any) => img.isPrimary || img.is_primary) || product.images?.[0];
                       const imageUrl = primaryImage?.image_url || primaryImage?.imageUrl || primaryImage?.url;
                       const sellingPrice = product.sellingPrice || product.selling_price || 0;
@@ -608,13 +609,13 @@ export default function Products() {
                       
                       return (
                         <tr
-                          key={product.id}
+                          key={productId}
                           className="border-b border-border last:border-0 hover:bg-secondary/30 transition-colors"
                         >
                     <td className="py-4 px-4">
                       <Checkbox
-                        checked={selectedProducts.includes(product.id)}
-                        onCheckedChange={() => toggleSelectProduct(product.id)}
+                        checked={selectedProducts.includes(productId)}
+                        onCheckedChange={() => toggleSelectProduct(productId)}
                       />
                     </td>
                     <td className="py-4 px-4">
@@ -728,14 +729,14 @@ export default function Products() {
                             <Eye className="h-4 w-4 mr-2" />
                             View Details
                           </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleEdit(product.id)}>
+                                <DropdownMenuItem onClick={() => handleEdit(productId)}>
                             <Edit className="h-4 w-4 mr-2" />
                             Edit Product
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                                 <DropdownMenuItem
                                   className="text-destructive focus:text-destructive"
-                                  onClick={() => handleDelete(product.id)}
+                                  onClick={() => handleDelete(productId)}
                                 >
                             <Trash2 className="h-4 w-4 mr-2" />
                             Delete Product
