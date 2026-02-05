@@ -271,7 +271,7 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
         piecesPerSet,
         isFeatured,
         isAvailable,
-        variants: productData.variants && Array.isArray(productData.variants)
+        variants: (productData.variants && Array.isArray(productData.variants) && productData.variants.length > 0)
           ? productData.variants.map((v: any) => ({
               hsnCode: v.hsnCode || v.hsn_code || '',
               setPieces: v.setPieces?.toString() || v.set_pcs?.toString() || '',
@@ -282,7 +282,7 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
             }))
           : [
               {
-                hsnCode: '',
+                hsnCode: productData.hsnCode || productData.hsn_code || '',
                 setPieces: '',
                 weight: '',
                 mrp,
