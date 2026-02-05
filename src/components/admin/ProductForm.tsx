@@ -492,6 +492,19 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
     productMutation.mutate(data);
   };
 
+  const onSubmitInvalid = (errors: any) => {
+    const firstError = Object.values(errors)?.[0] as any;
+    const message =
+      firstError?.message ||
+      firstError?.[0]?.message ||
+      'Please fill all required fields';
+    toast({
+      title: 'Validation error',
+      description: message,
+      variant: 'destructive',
+    });
+  };
+
   const discount = watch('mrp') && watch('sellingPrice')
     ? ((watch('mrp') - watch('sellingPrice')) / watch('mrp')) * 100
     : 0;
@@ -508,7 +521,7 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={handleSubmit(onSubmit, onSubmitInvalid)} className="space-y-6">
           {/* Basic Information */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Basic Information</h3>
