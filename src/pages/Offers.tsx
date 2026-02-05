@@ -166,6 +166,31 @@ export default function Offers() {
     },
   });
 
+  const exportMutation = useMutation({
+    mutationFn: () =>
+      offersAPI.exportOffers({
+        type: filterType !== 'all' ? filterType : undefined,
+        status: filterStatus !== 'all' ? filterStatus : undefined,
+        format: 'csv',
+      }),
+    onSuccess: (blob) => {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'offers.csv';
+      a.click();
+      window.URL.revokeObjectURL(url);
+      toast({ title: 'Export ready', description: 'Offers have been exported.' });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to export offers',
+        variant: 'destructive',
+      });
+    },
+  });
+
   const resetForm = () => {
     setFormTitle('');
     setFormDescription('');
@@ -245,8 +270,16 @@ export default function Offers() {
           <p className="text-muted-foreground">Manage promotional offers and campaigns</p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline">
-            <Download className="h-4 w-4 mr-2" />
+          <Button
+            variant="outline"
+            onClick={() => exportMutation.mutate()}
+            disabled={exportMutation.isPending}
+          >
+            {exportMutation.isPending ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4 mr-2" />
+            )}
             Export
           </Button>
           <Dialog open={isDialogOpen} onOpenChange={(open) => { if (!open) { setIsDialogOpen(false); resetForm(); } else setIsDialogOpen(open); }}>

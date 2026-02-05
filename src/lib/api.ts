@@ -760,6 +760,14 @@ export const offersAPI = {
     return response.data;
   },
 
+  exportOffers: async (params?: { type?: string; status?: string; format?: 'csv' | 'xlsx' }) => {
+    const response = await apiClient.get('/admin/offers/export', {
+      params,
+      responseType: 'blob',
+    });
+    return response.data as Blob;
+  },
+
   createOffer: async (offerData: FormData) => {
     // Don't set Content-Type - let axios set it automatically with boundary
     const response = await apiClient.post<ApiResponse<any>>('/admin/offers', offerData);
