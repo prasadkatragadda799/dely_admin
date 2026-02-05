@@ -202,25 +202,6 @@ export default function Orders() {
     totalPages: 1,
   };
 
-  // Dummy order to always have at least one example with invoice
-  const dummyOrder = {
-    id: 'DUMMY-ORDER-001',
-    orderNumber: 'ODAG79ZY2WMXK7',
-    customerName: 'MANISH JAISWAL',
-    businessName: 'Granary Wholesale Private Limited',
-    itemsCount: 1,
-    totalAmount: 2197.32,
-    paymentMethod: 'Credit',
-    status: 'delivered',
-    createdAt: '2024-04-01T00:00:00.000Z',
-    deliveryDate: '2024-04-01T00:00:00.000Z',
-    isDummy: true,
-  };
-
-  const showDummyOrder = true;
-  const isUsingDummyOrder = showDummyOrder && (!orders || orders.length === 0);
-  const displayedOrders = isUsingDummyOrder ? [dummyOrder] : orders;
-
   // Update order status mutation
   const updateStatusMutation = useMutation({
     mutationFn: ({ orderId, status, notes }: { orderId: string; status: string; notes?: string }) =>
@@ -268,33 +249,33 @@ export default function Orders() {
     },
   });
 
-  // Calculate stats from orders data
+  // Calculate stats: total from pagination, status counts from current page orders
   const stats = useMemo(() => {
-    const sourceOrders = displayedOrders;
-    const all = sourceOrders.length || pagination.total || 0;
-    const pending = sourceOrders.filter((o: any) => {
+    const all = pagination.total ?? 0;
+    const list = orders ?? [];
+    const pending = list.filter((o: any) => {
       const status = o.status || o.order_status || 'pending';
       return status === 'pending';
     }).length;
-    const confirmed = sourceOrders.filter((o: any) => {
+    const confirmed = list.filter((o: any) => {
       const status = o.status || o.order_status || 'pending';
       return status === 'confirmed' || status === 'processing';
     }).length;
-    const shipped = sourceOrders.filter((o: any) => {
+    const shipped = list.filter((o: any) => {
       const status = o.status || o.order_status || 'pending';
       return status === 'shipped' || status === 'out_for_delivery';
     }).length;
-    const delivered = sourceOrders.filter((o: any) => {
+    const delivered = list.filter((o: any) => {
       const status = o.status || o.order_status || 'pending';
       return status === 'delivered' || status === 'completed';
     }).length;
-    const cancelled = sourceOrders.filter((o: any) => {
+    const cancelled = list.filter((o: any) => {
       const status = o.status || o.order_status || 'pending';
       return status === 'cancelled' || status === 'canceled';
     }).length;
 
     return { all, pending, confirmed, shipped, delivered, cancelled };
-  }, [displayedOrders, pagination]);
+  }, [orders, pagination.total]);
 
 const orderStats = [
     { label: 'All Orders', value: stats.all, icon: Package, color: 'bg-blue-100 text-blue-600' },
@@ -449,20 +430,18 @@ const orderStats = [
   };
 
   const handleViewInvoice = async (order: any) => {
-    // Always fetch invoice JSON from backend when available so every invoice follows the same format.
-    if (order?.isDummy) {
-      setInvoiceOrder(order);
-      return;
-    }
-    const orderId = order?.id;
+    const orderId = order?.id || order?.order_id;
     if (!orderId) {
-      setInvoiceOrder(order);
+      toast({
+        title: 'Error',
+        description: 'Order ID is required to view invoice',
+        variant: 'destructive',
+      });
       return;
     }
     try {
       setIsInvoiceLoading(true);
       const response = await ordersAPI.getInvoiceData(orderId);
-      // backend returns { success, data }, we want the invoice data object in state
       setInvoiceOrder(response?.data || order);
     } catch (error: any) {
       toast({
@@ -470,7 +449,6 @@ const orderStats = [
         description: error.response?.data?.message || 'Failed to load invoice data',
         variant: 'destructive',
       });
-      // fallback to what we have so UI still opens
       setInvoiceOrder(order);
     } finally {
       setIsInvoiceLoading(false);
@@ -676,8 +654,7 @@ const orderStats = [
                   </tr>
                 </thead>
                 <tbody>
-                      {displayedOrders.map((order: any) => {
-                        // Handle both camelCase and snake_case field names
+                      {(orders ?? []).map((order: any) => {
                         const orderId = order.id || order.orderId || order.order_id;
                         const orderNumber = order.orderNumber || order.order_number || orderId;
                         const customerName = order.customer?.name || order.customerName || order.customer_name || 'Unknown';
@@ -688,7 +665,6 @@ const orderStats = [
                         const status = order.status || order.order_status || 'pending';
                         const orderDate = order.createdAt || order.created_at || order.orderDate || order.order_date;
                         const deliveryDate = order.deliveryDate || order.delivery_date || order.expectedDeliveryDate || order.expected_delivery_date;
-                        const isDummy = order.isDummy;
 
                         return (
                           <tr key={orderId} className="border-b border-border last:border-0 hover:bg-secondary/30 transition-colors">
@@ -731,18 +707,14 @@ const orderStats = [
                               <Printer className="h-4 w-4 mr-2" />
                                     View Invoice
                                   </DropdownMenuItem>
-                                  {!isDummy && (
-                                    <DropdownMenuItem onClick={() => handlePrintInvoice(orderId)}>
-                                      <Download className="h-4 w-4 mr-2" />
-                                      Download Invoice PDF
-                            </DropdownMenuItem>
-                                  )}
-                                  {!isDummy && (
-                                    <DropdownMenuItem onClick={() => openAssignDialog(orderId)}>
-                                      <Truck className="h-4 w-4 mr-2" />
-                                      Assign Delivery Person
-                                    </DropdownMenuItem>
-                                  )}
+                                  <DropdownMenuItem onClick={() => handlePrintInvoice(orderId)}>
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Download Invoice PDF
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => openAssignDialog(orderId)}>
+                                    <Truck className="h-4 w-4 mr-2" />
+                                    Assign Delivery Person
+                                  </DropdownMenuItem>
                                   {status !== 'cancelled' && status !== 'canceled' && status !== 'delivered' && status !== 'completed' && (
                                     <>
                             <DropdownMenuSeparator />

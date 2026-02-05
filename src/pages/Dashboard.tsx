@@ -1,78 +1,64 @@
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
-  ShoppingCart, 
-  Users, 
-  Package, 
+import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
+import {
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  ShoppingCart,
+  Users,
+  Package,
   FileCheck,
   ArrowUpRight,
   MoreHorizontal,
   Clock,
-  CheckCircle2,
-  XCircle,
-  AlertCircle
+  Loader2,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { 
-  AreaChart, 
-  Area, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
   ResponsiveContainer,
-  BarChart,
-  Bar,
   PieChart,
   Pie,
-  Cell
+  Cell,
 } from 'recharts';
+import { analyticsAPI, ordersAPI } from '@/lib/api';
+import { Skeleton } from '@/components/ui/skeleton';
 
-// Mock data
-const revenueData = [
-  { name: 'Mon', revenue: 42000 },
-  { name: 'Tue', revenue: 58000 },
-  { name: 'Wed', revenue: 35000 },
-  { name: 'Thu', revenue: 72000 },
-  { name: 'Fri', revenue: 68000 },
-  { name: 'Sat', revenue: 89000 },
-  { name: 'Sun', revenue: 53000 },
-];
+const ORDER_STATUS_COLORS: Record<string, string> = {
+  pending: '#f59e0b',
+  confirmed: '#3b82f6',
+  processing: '#3b82f6',
+  shipped: '#06b6d4',
+  out_for_delivery: '#06b6d4',
+  delivered: '#10b981',
+  completed: '#10b981',
+  cancelled: '#ef4444',
+  canceled: '#ef4444',
+};
 
-const topProducts = [
-  { name: 'Basmati Rice 25kg', sales: 245, amount: 122500 },
-  { name: 'Sunflower Oil 15L', sales: 189, amount: 151200 },
-  { name: 'Wheat Flour 50kg', sales: 156, amount: 78000 },
-  { name: 'Sugar 25kg', sales: 134, amount: 53600 },
-  { name: 'Toor Dal 10kg', sales: 112, amount: 67200 },
-];
-
-const orderStatusData = [
-  { name: 'Pending', value: 23, color: '#f59e0b' },
-  { name: 'Confirmed', value: 45, color: '#3b82f6' },
-  { name: 'Shipped', value: 67, color: '#06b6d4' },
-  { name: 'Delivered', value: 156, color: '#10b981' },
-  { name: 'Cancelled', value: 12, color: '#ef4444' },
-];
-
-const recentOrders = [
-  { id: 'ORD-2024-0156', customer: 'Sharma Traders', amount: 24500, status: 'pending', time: '5 min ago' },
-  { id: 'ORD-2024-0155', customer: 'Kumar Enterprises', amount: 18900, status: 'confirmed', time: '15 min ago' },
-  { id: 'ORD-2024-0154', customer: 'Patel & Sons', amount: 32100, status: 'shipped', time: '1 hour ago' },
-  { id: 'ORD-2024-0153', customer: 'Gupta Store', amount: 15600, status: 'delivered', time: '2 hours ago' },
-  { id: 'ORD-2024-0152', customer: 'Singh Retail', amount: 28700, status: 'pending', time: '3 hours ago' },
-];
-
-const recentActivities = [
-  { type: 'order', message: 'New order #ORD-2024-0156 received', time: '5 min ago', icon: ShoppingCart },
-  { type: 'user', message: 'New user registered: Mehta Trading Co.', time: '20 min ago', icon: Users },
-  { type: 'kyc', message: 'KYC approved for Sharma Traders', time: '1 hour ago', icon: CheckCircle2 },
-  { type: 'stock', message: 'Low stock alert: Basmati Rice 25kg', time: '2 hours ago', icon: AlertCircle },
-  { type: 'order', message: 'Order #ORD-2024-0150 delivered', time: '3 hours ago', icon: CheckCircle2 },
-];
+function formatTimeAgo(dateString: string) {
+  try {
+    const d = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} min ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours} hour ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays} day ago`;
+  } catch {
+    return '';
+  }
+}
 
 export default function Dashboard() {
   const formatCurrency = (value: number) => {
@@ -83,48 +69,128 @@ export default function Dashboard() {
     }).format(value);
   };
 
+  const { data: dashboardMetrics, isLoading: loadingMetrics } = useQuery({
+    queryKey: ['dashboard', 'metrics'],
+    queryFn: async () => {
+      const res = await analyticsAPI.getDashboardMetrics({ period: 'month' });
+      return res.data;
+    },
+  });
+
+  const { data: revenueList = [], isLoading: loadingRevenue } = useQuery({
+    queryKey: ['dashboard', 'revenue'],
+    queryFn: async () => {
+      const res = await analyticsAPI.getRevenueData({ period: 'week' });
+      return Array.isArray(res.data) ? res.data : [];
+    },
+  });
+
+  const { data: orderAnalytics, isLoading: loadingOrderStats } = useQuery({
+    queryKey: ['dashboard', 'orderAnalytics'],
+    queryFn: async () => {
+      const res = await analyticsAPI.getOrderAnalytics({ period: 'month' });
+      return res.data || {};
+    },
+  });
+
+  const { data: productList = [], isLoading: loadingProducts } = useQuery({
+    queryKey: ['dashboard', 'products'],
+    queryFn: async () => {
+      const res = await analyticsAPI.getProductAnalytics({ period: 'month', limit: 5 });
+      const raw = res.data;
+      return Array.isArray(raw) ? raw : (raw?.products ? raw.products : []);
+    },
+  });
+
+  const { data: ordersResponse, isLoading: loadingOrders } = useQuery({
+    queryKey: ['dashboard', 'recentOrders'],
+    queryFn: () => ordersAPI.getOrders({ page: 1, limit: 5, sort: 'createdAt', order: 'desc' }),
+  });
+
+  const revenueData = revenueList.map((item: any) => ({
+    name: item.period || item.name || '',
+    revenue: item.revenue ?? 0,
+  }));
+
+  const orderStatusData = Array.isArray(orderAnalytics?.statusDistribution)
+    ? orderAnalytics.statusDistribution.map((item: any) => ({
+        name: item.name || '',
+        value: item.value ?? 0,
+        color: item.color || ORDER_STATUS_COLORS[String(item.name).toLowerCase()] || '#1E6DD8',
+      }))
+    : [];
+
+  const topProducts = productList.map((item: any) => ({
+    name: item.name || 'Unknown',
+    sales: item.sales ?? 0,
+    amount: item.revenue ?? item.amount ?? 0,
+  }));
+
+  const recentOrders = ordersResponse?.data?.items ?? [];
+  const recentActivities = recentOrders.slice(0, 5).map((o: any) => {
+    const id = o.orderNumber || o.order_number || o.id;
+    const status = o.status || o.order_status || 'pending';
+    return {
+      type: 'order',
+      message: `Order #${id} - ${status}`,
+      time: formatTimeAgo(o.createdAt || o.created_at || ''),
+      icon: ShoppingCart,
+    };
+  });
+
+  const totalRevenue = dashboardMetrics?.totalRevenue ?? 0;
+  const totalOrders = dashboardMetrics?.totalOrders ?? 0;
+  const activeUsers = dashboardMetrics?.activeUsers ?? 0;
+  const productCount = dashboardMetrics?.totalProducts ?? dashboardMetrics?.products ?? 0;
+  const kycPending = dashboardMetrics?.kycPending ?? dashboardMetrics?.pendingKyc ?? 0;
+  const revenueChange = dashboardMetrics?.revenueChange ?? 0;
+  const ordersChange = dashboardMetrics?.ordersChange ?? 0;
+  const usersChange = dashboardMetrics?.usersChange ?? 0;
+
   const metrics = [
     {
       title: 'Total Revenue',
-      value: '₹8,45,230',
-      change: '+12.5%',
-      trend: 'up',
+      value: formatCurrency(totalRevenue),
+      change: revenueChange != null ? `${revenueChange >= 0 ? '+' : ''}${revenueChange}%` : '',
+      trend: revenueChange > 0 ? 'up' : revenueChange < 0 ? 'down' : 'neutral',
       subtitle: 'vs last month',
       icon: DollarSign,
     },
     {
       title: 'Total Orders',
-      value: '1,234',
-      change: '+8.2%',
-      trend: 'up',
+      value: String(totalOrders),
+      change: ordersChange != null ? `${ordersChange >= 0 ? '+' : ''}${ordersChange}%` : '',
+      trend: ordersChange > 0 ? 'up' : ordersChange < 0 ? 'down' : 'neutral',
       subtitle: 'vs last month',
       icon: ShoppingCart,
     },
     {
       title: 'Active Users',
-      value: '456',
-      change: '+15.3%',
-      trend: 'up',
+      value: String(activeUsers),
+      change: usersChange != null ? `${usersChange >= 0 ? '+' : ''}${usersChange}%` : '',
+      trend: usersChange > 0 ? 'up' : usersChange < 0 ? 'down' : 'neutral',
       subtitle: 'registered users',
       icon: Users,
     },
     {
       title: 'Products',
-      value: '892',
-      change: '-2.4%',
-      trend: 'down',
-      subtitle: '12 low stock',
+      value: String(productCount),
+      change: '',
+      trend: 'neutral' as const,
+      subtitle: 'in catalog',
       icon: Package,
     },
     {
       title: 'KYC Pending',
-      value: '23',
+      value: String(kycPending),
       change: '',
-      trend: 'neutral',
+      trend: 'neutral' as const,
       subtitle: 'awaiting verification',
       icon: FileCheck,
     },
   ];
+
+  const isLoading = loadingMetrics || loadingRevenue || loadingOrderStats || loadingProducts || loadingOrders;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -145,31 +211,41 @@ export default function Dashboard() {
 
       {/* Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        {metrics.map((metric, index) => (
-          <Card key={index} className="shadow-card hover:shadow-card-hover transition-shadow duration-200">
-            <CardContent className="p-5">
-              <div className="flex items-start justify-between">
-                <div className="p-2 rounded-lg bg-secondary">
-                  <metric.icon className="h-5 w-5 text-primary" />
-                </div>
-                {metric.change && (
-                  <div className={`flex items-center gap-1 text-xs font-medium ${
-                    metric.trend === 'up' ? 'text-emerald-600' : 
-                    metric.trend === 'down' ? 'text-red-500' : 'text-muted-foreground'
-                  }`}>
-                    {metric.trend === 'up' && <TrendingUp className="h-3 w-3" />}
-                    {metric.trend === 'down' && <TrendingDown className="h-3 w-3" />}
-                    {metric.change}
+        {loadingMetrics ? (
+          Array.from({ length: 5 }).map((_, i) => (
+            <Card key={i} className="shadow-card">
+              <CardContent className="p-5">
+                <Skeleton className="h-20 w-full" />
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          metrics.map((metric, index) => (
+            <Card key={index} className="shadow-card hover:shadow-card-hover transition-shadow duration-200">
+              <CardContent className="p-5">
+                <div className="flex items-start justify-between">
+                  <div className="p-2 rounded-lg bg-secondary">
+                    <metric.icon className="h-5 w-5 text-primary" />
                   </div>
-                )}
-              </div>
-              <div className="mt-3">
-                <p className="text-2xl font-bold text-foreground">{metric.value}</p>
-                <p className="text-xs text-muted-foreground mt-1">{metric.title}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                  {metric.change && (
+                    <div className={`flex items-center gap-1 text-xs font-medium ${
+                      metric.trend === 'up' ? 'text-emerald-600' :
+                      metric.trend === 'down' ? 'text-red-500' : 'text-muted-foreground'
+                    }`}>
+                      {metric.trend === 'up' && <TrendingUp className="h-3 w-3" />}
+                      {metric.trend === 'down' && <TrendingDown className="h-3 w-3" />}
+                      {metric.change}
+                    </div>
+                  )}
+                </div>
+                <div className="mt-3">
+                  <p className="text-2xl font-bold text-foreground">{metric.value}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{metric.title}</p>
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
 
       {/* Charts Row */}
@@ -187,8 +263,13 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="h-[280px]">
+              {loadingRevenue ? (
+                <div className="h-full flex items-center justify-center text-muted-foreground">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+              ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={revenueData}>
+                <AreaChart data={revenueData.length ? revenueData : [{ name: '-', revenue: 0 }]}>
                   <defs>
                     <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
@@ -225,6 +306,7 @@ export default function Dashboard() {
                   />
                 </AreaChart>
               </ResponsiveContainer>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -237,10 +319,15 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="h-[200px]">
+              {loadingOrderStats ? (
+                <div className="h-full flex items-center justify-center text-muted-foreground">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+              ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={orderStatusData}
+                    data={orderStatusData.length ? orderStatusData : [{ name: 'No data', value: 1, color: '#e5e7eb' }]}
                     cx="50%"
                     cy="50%"
                     innerRadius={50}
@@ -261,9 +348,10 @@ export default function Dashboard() {
                   />
                 </PieChart>
               </ResponsiveContainer>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-2 mt-4">
-              {orderStatusData.map((item) => (
+              {(orderStatusData.length ? orderStatusData : []).map((item) => (
                 <div key={item.name} className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
                   <span className="text-xs text-muted-foreground">{item.name}: {item.value}</span>
@@ -283,14 +371,26 @@ export default function Dashboard() {
               <CardTitle className="text-lg font-semibold">Top Selling Products</CardTitle>
               <CardDescription>Best performers this month</CardDescription>
             </div>
-            <Button variant="ghost" size="sm">
-              View All
-              <ArrowUpRight className="h-4 w-4 ml-1" />
+            <Button variant="ghost" size="sm" asChild>
+              <Link to="/analytics">
+                View All
+                <ArrowUpRight className="h-4 w-4 ml-1" />
+              </Link>
             </Button>
           </CardHeader>
           <CardContent>
+            {loadingProducts ? (
+              <div className="space-y-4">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-14 w-full" />
+                ))}
+              </div>
+            ) : (
             <div className="space-y-4">
-              {topProducts.map((product, index) => (
+              {topProducts.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4">No product data for this period.</p>
+              ) : (
+              topProducts.map((product, index) => (
                 <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors">
                   <div className="flex items-center gap-4">
                     <div className="h-10 w-10 rounded-lg bg-secondary flex items-center justify-center text-primary font-semibold">
@@ -303,8 +403,10 @@ export default function Dashboard() {
                   </div>
                   <p className="font-semibold text-foreground">{formatCurrency(product.amount)}</p>
                 </div>
-              ))}
+              ))
+              )}
             </div>
+            )}
           </CardContent>
         </Card>
 
@@ -334,7 +436,8 @@ export default function Dashboard() {
                     </p>
                   </div>
                 </div>
-              ))}
+              ))
+              )}
             </div>
           </CardContent>
         </Card>
@@ -347,12 +450,19 @@ export default function Dashboard() {
             <CardTitle className="text-lg font-semibold">Recent Orders</CardTitle>
             <CardDescription>Latest orders received</CardDescription>
           </div>
-          <Button variant="ghost" size="sm">
-            View All Orders
-            <ArrowUpRight className="h-4 w-4 ml-1" />
+          <Button variant="ghost" size="sm" asChild>
+            <Link to="/orders">
+              View All Orders
+              <ArrowUpRight className="h-4 w-4 ml-1" />
+            </Link>
           </Button>
         </CardHeader>
         <CardContent>
+          {loadingOrders ? (
+            <div className="flex items-center justify-center py-12 text-muted-foreground">
+              <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+          ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -366,25 +476,44 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {recentOrders.map((order) => (
-                  <tr key={order.id} className="border-b border-border last:border-0 hover:bg-secondary/30 transition-colors">
-                    <td className="py-3 px-4">
-                      <span className="font-medium text-primary">{order.id}</span>
-                    </td>
-                    <td className="py-3 px-4 text-foreground">{order.customer}</td>
-                    <td className="py-3 px-4 font-medium text-foreground">{formatCurrency(order.amount)}</td>
-                    <td className="py-3 px-4">
-                      <Badge variant={order.status as any}>{order.status}</Badge>
-                    </td>
-                    <td className="py-3 px-4 text-muted-foreground text-sm">{order.time}</td>
-                    <td className="py-3 px-4">
-                      <Button variant="ghost" size="sm">View</Button>
+                {recentOrders.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-muted-foreground text-sm">
+                      No recent orders.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                recentOrders.map((order: any) => {
+                  const orderId = order.id || order.order_id;
+                  const orderNumber = order.orderNumber || order.order_number || orderId;
+                  const customer = order.customer?.name || order.customerName || order.customer_name || 'Unknown';
+                  const amount = order.totalAmount ?? order.total_amount ?? order.total ?? order.amount ?? 0;
+                  const status = order.status || order.order_status || 'pending';
+                  const time = formatTimeAgo(order.createdAt || order.created_at || '');
+                  return (
+                  <tr key={orderId} className="border-b border-border last:border-0 hover:bg-secondary/30 transition-colors">
+                    <td className="py-3 px-4">
+                      <span className="font-medium text-primary">{orderNumber}</span>
+                    </td>
+                    <td className="py-3 px-4 text-foreground">{customer}</td>
+                    <td className="py-3 px-4 font-medium text-foreground">{formatCurrency(Number(amount))}</td>
+                    <td className="py-3 px-4">
+                      <Badge variant={status === 'cancelled' || status === 'canceled' ? 'cancelled' : status === 'delivered' || status === 'completed' ? 'delivered' : 'pending'}>{status}</Badge>
+                    </td>
+                    <td className="py-3 px-4 text-muted-foreground text-sm">{time}</td>
+                    <td className="py-3 px-4">
+                      <Button variant="ghost" size="sm" asChild>
+                        <Link to={`/orders`}>View</Link>
+                      </Button>
+                    </td>
+                  </tr>
+                  );
+                })
+                )}
               </tbody>
             </table>
           </div>
+          )}
         </CardContent>
       </Card>
     </div>

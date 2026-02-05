@@ -43,82 +43,6 @@ import { analyticsAPI } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 
-// Dummy data generator - will be replaced with API calls when backend is ready
-const generateDummyData = (dateRange: string) => {
-  const now = new Date();
-  let periods: string[] = [];
-  let periodLabel = '';
-
-  switch (dateRange) {
-    case 'week':
-      periodLabel = 'Day';
-      periods = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-      break;
-    case 'month':
-      periodLabel = 'Week';
-      periods = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
-      break;
-    case 'quarter':
-      periodLabel = 'Month';
-      periods = ['Month 1', 'Month 2', 'Month 3'];
-      break;
-    case 'year':
-      periodLabel = 'Month';
-      periods = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      break;
-    default:
-      periodLabel = 'Month';
-      periods = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-  }
-
-  return {
-    revenueData: periods.map((period, i) => ({
-      period,
-      revenue: Math.floor(Math.random() * 500000) + 200000,
-      orders: Math.floor(Math.random() * 300) + 100,
-    })),
-    productPerformance: [
-      { name: 'Basmati Rice 25kg', sales: 245, revenue: 269500 },
-      { name: 'Sunflower Oil 15L', sales: 189, revenue: 31185 },
-      { name: 'Wheat Flour 50kg', sales: 156, revenue: 65520 },
-      { name: 'Sugar 25kg', sales: 134, revenue: 6432 },
-      { name: 'Toor Dal 10kg', sales: 112, revenue: 18480 },
-    ],
-    categoryPerformance: [
-      { name: 'Rice & Grains', sales: 1245, revenue: 1245000 },
-      { name: 'Cooking Oil', sales: 890, revenue: 146850 },
-      { name: 'Flour & Atta', sales: 567, revenue: 238140 },
-      { name: 'Pulses & Lentils', sales: 456, revenue: 75240 },
-      { name: 'Sugar & Sweeteners', sales: 234, revenue: 11232 },
-      { name: 'Beverages', sales: 189, revenue: 91665 },
-    ],
-    companyPerformance: [
-      { name: 'KRBL Limited', revenue: 495000, orders: 234 },
-      { name: 'Adani Wilmar', revenue: 412000, orders: 189 },
-      { name: 'ITC Limited', revenue: 378000, orders: 156 },
-      { name: 'Tata Consumer', revenue: 345000, orders: 134 },
-    ],
-    paymentMethodData: [
-      { name: 'Credit', value: 45, color: '#1E6DD8' },
-      { name: 'UPI', value: 30, color: '#10B981' },
-      { name: 'Bank Transfer', value: 15, color: '#F59E0B' },
-      { name: 'Cash', value: 10, color: '#EF4444' },
-    ],
-    orderStatusData: [
-      { name: 'Delivered', value: 1087, color: '#10B981' },
-      { name: 'Shipped', value: 67, color: '#06b6d4' },
-      { name: 'Confirmed', value: 45, color: '#3b82f6' },
-      { name: 'Pending', value: 23, color: '#F59E0B' },
-      { name: 'Cancelled', value: 12, color: '#EF4444' },
-    ],
-    userGrowthData: periods.map((period, i) => ({
-      period,
-      users: 120 + i * 25 + Math.floor(Math.random() * 20),
-      newUsers: 15 + Math.floor(Math.random() * 15),
-    })),
-  };
-};
-
 export default function Analytics() {
   const [dateRange, setDateRange] = useState('month');
   const { toast } = useToast();
@@ -304,86 +228,73 @@ export default function Analytics() {
     avgOrderValueChange: dashboardMetricsResponse?.avgOrderValueChange ?? 0,
   };
 
-  // Prepare chart data from API responses with fallback to dummy data
-  const data = useMemo(() => {
-    const dummyData = generateDummyData(dateRange);
-    
-    try {
-      // Map revenue data to chart format
-      const revenueData = Array.isArray(revenueDataResponse) 
-        ? revenueDataResponse.map((item: any) => ({
-            period: item.period || '',
-            revenue: item.revenue || 0,
-            orders: item.orders || 0,
-          }))
-        : [];
+  // Prepare chart data from API responses only; empty arrays when no data
+  const chartData = useMemo(() => {
+    const revenueData = Array.isArray(revenueDataResponse)
+      ? revenueDataResponse.map((item: any) => ({
+          period: item.period || '',
+          revenue: item.revenue || 0,
+          orders: item.orders || 0,
+        }))
+      : [];
 
-      // Map product data
-      const productPerformance = Array.isArray(productDataResponse)
-        ? productDataResponse.map((item: any) => ({
-            name: item.name || 'Unknown',
-            sales: item.sales || 0,
-            revenue: item.revenue || 0,
-          }))
-        : [];
+    const productPerformance = Array.isArray(productDataResponse)
+      ? productDataResponse.map((item: any) => ({
+          name: item.name || 'Unknown',
+          sales: item.sales || 0,
+          revenue: item.revenue || 0,
+        }))
+      : [];
 
-      // Map category data
-      const categoryPerformance = Array.isArray(categoryDataResponse)
-        ? categoryDataResponse.map((item: any) => ({
-            name: item.name || 'Unknown',
-            sales: item.sales || 0,
-            revenue: item.revenue || 0,
-          }))
-        : [];
+    const categoryPerformance = Array.isArray(categoryDataResponse)
+      ? categoryDataResponse.map((item: any) => ({
+          name: item.name || 'Unknown',
+          sales: item.sales || 0,
+          revenue: item.revenue || 0,
+        }))
+      : [];
 
-      // Map company data
-      const companyPerformance = Array.isArray(companyDataResponse)
-        ? companyDataResponse.map((item: any) => ({
-            name: item.name || 'Unknown',
-            revenue: item.revenue || 0,
-            orders: item.orders || 0,
-          }))
-        : [];
+    const companyPerformance = Array.isArray(companyDataResponse)
+      ? companyDataResponse.map((item: any) => ({
+          name: item.name || 'Unknown',
+          revenue: item.revenue || 0,
+          orders: item.orders || 0,
+        }))
+      : [];
 
-      // Map user growth data
-      const userGrowthData = Array.isArray(userDataResponse)
-        ? userDataResponse.map((item: any) => ({
-            period: item.period || '',
-            users: item.users || 0,
-            newUsers: item.newUsers || 0,
-          }))
-        : [];
+    const userGrowthData = Array.isArray(userDataResponse)
+      ? userDataResponse.map((item: any) => ({
+          period: item.period || '',
+          users: item.users || 0,
+          newUsers: item.newUsers || 0,
+        }))
+      : [];
 
-      // Extract order analytics
-      const orderAnalytics = orderDataResponse || {};
-      const orderStatusData = Array.isArray(orderAnalytics.statusDistribution)
-        ? orderAnalytics.statusDistribution.map((item: any) => ({
-            name: item.name || '',
-            value: item.value || 0,
-            color: item.color || '#1E6DD8',
-          }))
-        : [];
-      const paymentMethodData = Array.isArray(orderAnalytics.paymentMethodDistribution)
-        ? orderAnalytics.paymentMethodDistribution.map((item: any) => ({
-            name: item.name || '',
-            value: item.value || 0,
-            color: item.color || '#1E6DD8',
-          }))
-        : [];
+    const orderAnalytics = orderDataResponse || {};
+    const orderStatusData = Array.isArray(orderAnalytics.statusDistribution)
+      ? orderAnalytics.statusDistribution.map((item: any) => ({
+          name: item.name || '',
+          value: item.value || 0,
+          color: item.color || '#1E6DD8',
+        }))
+      : [];
+    const paymentMethodData = Array.isArray(orderAnalytics.paymentMethodDistribution)
+      ? orderAnalytics.paymentMethodDistribution.map((item: any) => ({
+          name: item.name || '',
+          value: item.value || 0,
+          color: item.color || '#1E6DD8',
+        }))
+      : [];
 
-      return {
-        revenueData: revenueData.length > 0 ? revenueData : dummyData.revenueData,
-        productPerformance: productPerformance.length > 0 ? productPerformance : dummyData.productPerformance,
-        categoryPerformance: categoryPerformance.length > 0 ? categoryPerformance : dummyData.categoryPerformance,
-        companyPerformance: companyPerformance.length > 0 ? companyPerformance : dummyData.companyPerformance,
-        userGrowthData: userGrowthData.length > 0 ? userGrowthData : dummyData.userGrowthData,
-        orderStatusData: orderStatusData.length > 0 ? orderStatusData : dummyData.orderStatusData,
-        paymentMethodData: paymentMethodData.length > 0 ? paymentMethodData : dummyData.paymentMethodData,
-      };
-    } catch (error) {
-      console.error('Error preparing chart data:', error);
-      return dummyData;
-    }
+    return {
+      revenueData,
+      productPerformance,
+      categoryPerformance,
+      companyPerformance,
+      userGrowthData,
+      orderStatusData,
+      paymentMethodData,
+    };
   }, [
     revenueDataResponse,
     productDataResponse,
@@ -391,14 +302,10 @@ export default function Analytics() {
     companyDataResponse,
     userDataResponse,
     orderDataResponse,
-    dateRange,
   ]);
 
-  const isLoadingData = isLoadingRevenue || isLoadingProducts || isLoadingCategories || 
-                        isLoadingCompanies || isLoadingUsers || isLoadingOrders;
-
-  // Ensure data is always defined - use dummy data as fallback if API fails or returns empty
-  const chartData = data || generateDummyData(dateRange);
+  const isLoadingData = isLoadingRevenue || isLoadingProducts || isLoadingCategories ||
+    isLoadingCompanies || isLoadingUsers || isLoadingOrders;
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-IN', {
