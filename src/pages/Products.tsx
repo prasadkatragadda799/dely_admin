@@ -64,7 +64,7 @@ export default function Products() {
   const [editingProductId, setEditingProductId] = useState<string | undefined>();
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const limit = 20;
+  const [limit, setLimit] = useState(50); // Admin API supports up to 10000; seller up to 100
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -471,6 +471,28 @@ export default function Products() {
                   <SelectItem value="available">Available</SelectItem>
                   <SelectItem value="low_stock">Low Stock</SelectItem>
                   <SelectItem value="out_of_stock">Out of Stock</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select
+                value={String(limit)}
+                onValueChange={(value) => {
+                  setLimit(Number(value));
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-[120px]" title="Products per page">
+                  <SelectValue placeholder="Per page" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="20">20 per page</SelectItem>
+                  <SelectItem value="50">50 per page</SelectItem>
+                  <SelectItem value="100">100 per page</SelectItem>
+                  {!isSeller && (
+                    <>
+                      <SelectItem value="250">250 per page</SelectItem>
+                      <SelectItem value="500">500 per page</SelectItem>
+                    </>
+                  )}
                 </SelectContent>
               </Select>
               <Button
