@@ -562,6 +562,11 @@ export const usersAPI = {
     return response.data;
   },
 
+  createUser: async (userData: { name: string; email: string; phone: string; password: string }) => {
+    const response = await apiClient.post<ApiResponse<any>>('/admin/users', userData);
+    return response.data;
+  },
+
   updateUser: async (id: string, userData: any) => {
     const response = await apiClient.put<ApiResponse<any>>(`/admin/users/${id}`, userData);
     return response.data;

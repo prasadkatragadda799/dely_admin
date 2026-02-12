@@ -71,6 +71,8 @@ export default function UsersPage() {
   const [viewingUserId, setViewingUserId] = useState<string | null>(null);
   const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState<{ title: string; url: string } | null>(null);
+  const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+  const [addUserForm, setAddUserForm] = useState({ name: '', email: '', phone: '', password: '' });
   const limit = 20;
 
   const { toast } = useToast();
@@ -197,6 +199,34 @@ export default function UsersPage() {
       setBlockingUserId(null);
     },
   });
+
+  const createUserMutation = useMutation({
+    mutationFn: (data: { name: string; email: string; phone: string; password: string }) =>
+      usersAPI.createUser(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      toast({ title: 'User created', description: 'User has been added successfully.' });
+      setIsAddUserOpen(false);
+      setAddUserForm({ name: '', email: '', phone: '', password: '' });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.error?.message || error.response?.data?.message || 'Failed to create user',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const handleAddUserSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const { name, email, phone, password } = addUserForm;
+    if (!name.trim() || !email.trim() || !phone.trim() || !password) {
+      toast({ title: 'Validation', description: 'Please fill all fields.', variant: 'destructive' });
+      return;
+    }
+    createUserMutation.mutate({ name: name.trim(), email: email.trim(), phone: phone.trim(), password });
+  };
 
   // Calculate stats from users data
   const stats = useMemo(() => {
@@ -475,11 +505,7 @@ export default function UsersPage() {
           <p className="text-muted-foreground">Manage registered users and KYC verifications</p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
-          <Button variant="gradient">
+          <Button variant="gradient" onClick={() => setIsAddUserOpen(true)}>
             <UserPlus className="h-4 w-4 mr-2" />
             Add User
           </Button>
@@ -765,6 +791,82 @@ export default function UsersPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Add User Dialog */}
+      <Dialog open={isAddUserOpen} onOpenChange={(open) => {
+        if (!createUserMutation.isPending) {
+          setIsAddUserOpen(open);
+          if (!open) setAddUserForm({ name: '', email: '', phone: '', password: '' });
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add User</DialogTitle>
+            <DialogDescription>Create a new user account. They can sign in with email and password.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleAddUserSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="add-user-name">Name</Label>
+              <Input
+                id="add-user-name"
+                placeholder="Full name"
+                value={addUserForm.name}
+                onChange={(e) => setAddUserForm((p) => ({ ...p, name: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-user-email">Email</Label>
+              <Input
+                id="add-user-email"
+                type="email"
+                placeholder="email@example.com"
+                value={addUserForm.email}
+                onChange={(e) => setAddUserForm((p) => ({ ...p, email: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-user-phone">Phone</Label>
+              <Input
+                id="add-user-phone"
+                type="tel"
+                placeholder="Phone number"
+                value={addUserForm.phone}
+                onChange={(e) => setAddUserForm((p) => ({ ...p, phone: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-user-password">Password</Label>
+              <Input
+                id="add-user-password"
+                type="password"
+                placeholder="Password"
+                value={addUserForm.password}
+                onChange={(e) => setAddUserForm((p) => ({ ...p, password: e.target.value }))}
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsAddUserOpen(false)}
+                disabled={createUserMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={createUserMutation.isPending}>
+                {createUserMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  'Create User'
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Block User Confirmation Dialog */}
       <AlertDialog open={!!blockingUserId && blockUserMutation.isPending === false} onOpenChange={() => {

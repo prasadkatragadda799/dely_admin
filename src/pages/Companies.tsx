@@ -8,8 +8,6 @@ import {
   Eye,
   Building2,
   Tag,
-  Download,
-  Upload,
   Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -202,14 +200,6 @@ export default function Companies() {
           <p className="text-muted-foreground">Manage companies and their brands</p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline">
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
-          <Button variant="outline">
-            <Upload className="h-4 w-4 mr-2" />
-            Import
-          </Button>
           <Button 
             variant="gradient"
             onClick={activeTab === 'companies' ? handleAddCompany : handleAddBrand}

@@ -79,6 +79,7 @@ export default function Orders() {
   const [assignOrderId, setAssignOrderId] = useState<string | null>(null);
   const [selectedDeliveryPersonId, setSelectedDeliveryPersonId] = useState<string>('');
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const limit = 20;
 
   const { toast } = useToast();
@@ -455,6 +456,103 @@ const orderStats = [
     }
   };
 
+  const escapeCsv = (val: string | number): string => {
+    const s = String(val ?? '');
+    if (s.includes('"') || s.includes(',') || s.includes('\n') || s.includes('\r')) {
+      return `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
+  };
+
+  const buildExportFilters = (): Record<string, any> => {
+    const params: any = { page: 1, limit: 5000 };
+    if (searchQuery) params.search = searchQuery;
+    if (activeTab !== 'all') params.status = activeTab;
+    if (selectedPaymentMethod && selectedPaymentMethod !== 'all') {
+      params.paymentMethod = selectedPaymentMethod;
+    }
+    if (selectedDateRange !== 'all') {
+      const now = new Date();
+      let dateFrom: Date;
+      switch (selectedDateRange) {
+        case 'today':
+          dateFrom = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          break;
+        case 'week':
+          dateFrom = new Date(now);
+          dateFrom.setDate(dateFrom.getDate() - 7);
+          break;
+        case 'month':
+          dateFrom = new Date(now);
+          dateFrom.setMonth(dateFrom.getMonth() - 1);
+          break;
+        default:
+          dateFrom = new Date(0);
+      }
+      params.dateFrom = dateFrom.toISOString().split('T')[0];
+      params.dateTo = new Date().toISOString().split('T')[0];
+    }
+    return params;
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const exportParams = buildExportFilters();
+      const response = await ordersAPI.getOrders(exportParams);
+      const responseData = (response as any)?.data ?? response;
+      let items: any[] = [];
+      if (responseData?.items && Array.isArray(responseData.items)) items = responseData.items;
+      else if (Array.isArray(responseData)) items = responseData;
+      else if (responseData?.orders && Array.isArray(responseData.orders)) items = responseData.orders;
+
+      const headers = ['Order ID', 'Customer', 'Business', 'Items', 'Amount (₹)', 'Payment', 'Status', 'Order Date', 'Delivery Date'];
+      const rows = items.map((order: any) => {
+        const orderNumber = order.orderNumber || order.order_number || order.id || order.order_id || '';
+        const customerName = order.customer?.name || order.customerName || order.customer_name || 'Unknown';
+        const businessName = order.customer?.businessName || order.businessName || order.business_name || order.customer?.companyName || '-';
+        const itemsCount = order.itemsCount ?? order.items_count ?? order.items?.length ?? 0;
+        const totalAmount = order.totalAmount ?? order.total_amount ?? order.total ?? order.amount ?? 0;
+        const paymentMethod = order.paymentMethod || order.payment_method || order.payment?.method || 'Unknown';
+        const status = order.status || order.order_status || 'pending';
+        const orderDate = order.createdAt || order.created_at || order.orderDate || order.order_date || '';
+        const deliveryDate = order.deliveryDate || order.delivery_date || order.expectedDeliveryDate || order.expected_delivery_date || '';
+        const orderDateStr = orderDate ? new Date(orderDate).toLocaleDateString('en-CA') : '';
+        const deliveryDateStr = deliveryDate ? new Date(deliveryDate).toLocaleDateString('en-CA') : '';
+        return [
+          escapeCsv(orderNumber),
+          escapeCsv(customerName),
+          escapeCsv(businessName),
+          escapeCsv(itemsCount),
+          escapeCsv(totalAmount),
+          escapeCsv(paymentMethod),
+          escapeCsv(status),
+          escapeCsv(orderDateStr),
+          escapeCsv(deliveryDateStr),
+        ].join(',');
+      });
+      const csv = [headers.join(','), ...rows].join('\r\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `orders-export-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast({ title: 'Export done', description: `${items.length} orders exported.` });
+    } catch (err: any) {
+      toast({
+        title: 'Export failed',
+        description: err?.response?.data?.message || err?.message || 'Could not export orders.',
+        variant: 'destructive',
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Page Header */}
@@ -464,8 +562,16 @@ const orderStats = [
           <p className="text-muted-foreground">Manage and track customer orders</p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline">
-            <Download className="h-4 w-4 mr-2" />
+          <Button
+            variant="outline"
+            onClick={handleExport}
+            disabled={exporting}
+          >
+            {exporting ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4 mr-2" />
+            )}
             Export
           </Button>
         </div>

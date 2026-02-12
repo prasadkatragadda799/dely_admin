@@ -8,7 +8,6 @@ import {
   Trash2, 
   Eye,
   Download,
-  Upload,
   Package,
   Loader2
 } from 'lucide-react';
@@ -65,6 +64,7 @@ export default function Products() {
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(50); // Admin API supports up to 10000; seller up to 100
+  const [exporting, setExporting] = useState(false);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -314,6 +314,88 @@ export default function Products() {
     setEditingProductId(undefined);
   };
 
+  const escapeCsv = (val: string | number): string => {
+    const s = String(val ?? '');
+    if (s.includes('"') || s.includes(',') || s.includes('\n') || s.includes('\r')) {
+      return `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const exportLimit = isSeller ? 100 : 5000;
+      const params: any = { page: 1, limit: exportLimit };
+      if (searchQuery) params.search = searchQuery;
+      if (selectedCategory && selectedCategory !== 'all') params.category = selectedCategory;
+      if (selectedStatus === 'available') params.status = 'available';
+      if (selectedStatus === 'low_stock') params.stock_status = 'low_stock';
+      if (selectedStatus === 'out_of_stock') params.stock_status = 'out_of_stock';
+
+      const response = isSeller
+        ? await sellerProductsAPI.getProducts({
+            page: 1,
+            limit: exportLimit,
+            search: params.search,
+            category_id: params.category,
+            is_available: params.status === 'available' ? true : undefined,
+          })
+        : await productsAPI.getProducts(params);
+
+      const payload = (response as any)?.data ?? response;
+      let items: any[] = [];
+      if (payload?.items && Array.isArray(payload.items)) items = payload.items;
+      else if (Array.isArray(payload)) items = payload;
+      else if (payload?.products && Array.isArray(payload.products)) items = payload.products;
+
+      const headers = ['Name', 'HSN Code', 'Brand', 'Company', 'Category', 'MRP', 'Selling Price', 'Stock', 'Expiry', 'Status'];
+      const rows = items.map((p: any) => {
+        const mrp = p.mrp ?? 0;
+        const sellingPrice = p.sellingPrice ?? p.selling_price ?? 0;
+        const stock = p.stockQuantity ?? p.stock_quantity ?? 0;
+        const isAvailable = p.isAvailable !== undefined ? p.isAvailable : (p.is_available !== undefined ? p.is_available : true);
+        let status = 'Available';
+        if (!isAvailable) status = 'Unavailable';
+        else if (stock === 0) status = 'Out of Stock';
+        else if (stock < 50) status = 'Low Stock';
+        const expiry = p.expiryDate ?? p.expiry_date ?? '';
+        const expiryStr = expiry ? new Date(expiry).toLocaleDateString('en-CA') : '';
+        return [
+          escapeCsv(p.name ?? ''),
+          escapeCsv(p.hsnCode ?? p.hsn_code ?? ''),
+          escapeCsv(p.brand?.name ?? ''),
+          escapeCsv(p.company?.name ?? ''),
+          escapeCsv(p.category?.name ?? ''),
+          escapeCsv(mrp),
+          escapeCsv(sellingPrice),
+          escapeCsv(stock),
+          escapeCsv(expiryStr),
+          escapeCsv(status),
+        ].join(',');
+      });
+      const csv = [headers.join(','), ...rows].join('\r\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `products-export-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast({ title: 'Export done', description: `${items.length} products exported.` });
+    } catch (err: any) {
+      toast({
+        title: 'Export failed',
+        description: err?.response?.data?.message || err?.message || 'Could not export products.',
+        variant: 'destructive',
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   // Calculate stats from products
   const stats = useMemo(() => {
     const total = pagination.total || products.length;
@@ -342,12 +424,16 @@ export default function Products() {
           <p className="text-muted-foreground">Manage your product catalog</p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline">
-            <Upload className="h-4 w-4 mr-2" />
-            Import
-          </Button>
-          <Button variant="outline">
-            <Download className="h-4 w-4 mr-2" />
+          <Button
+            variant="outline"
+            onClick={handleExport}
+            disabled={exporting}
+          >
+            {exporting ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4 mr-2" />
+            )}
             Export
           </Button>
           <Button variant="gradient" onClick={handleAddProduct}>

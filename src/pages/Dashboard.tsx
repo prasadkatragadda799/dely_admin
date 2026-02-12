@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import {
@@ -12,6 +13,7 @@ import {
   MoreHorizontal,
   Clock,
   Loader2,
+  Download,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,6 +32,7 @@ import {
 } from 'recharts';
 import { analyticsAPI, ordersAPI } from '@/lib/api';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/hooks/use-toast';
 
 const ORDER_STATUS_COLORS: Record<string, string> = {
   pending: '#f59e0b',
@@ -61,6 +64,9 @@ function formatTimeAgo(dateString: string) {
 }
 
 export default function Dashboard() {
+  const { toast } = useToast();
+  const [downloadingReport, setDownloadingReport] = useState(false);
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -192,6 +198,30 @@ export default function Dashboard() {
 
   const isLoading = loadingMetrics || loadingRevenue || loadingOrderStats || loadingProducts || loadingOrders;
 
+  const handleDownloadReport = async () => {
+    setDownloadingReport(true);
+    try {
+      const blob = await analyticsAPI.exportAnalyticsReport({ period: 'month', format: 'csv' });
+      const url = URL.createObjectURL(blob as Blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `dashboard-report-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast({ title: 'Report downloaded', description: 'Dashboard report has been downloaded.' });
+    } catch (err: any) {
+      toast({
+        title: 'Download failed',
+        description: err?.response?.data?.message || err?.message || 'Could not download report.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDownloadingReport(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Page Header */}
@@ -201,10 +231,17 @@ export default function Dashboard() {
           <p className="text-muted-foreground">Welcome back! Here's what's happening today.</p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline">Download Report</Button>
-          <Button variant="gradient">
-            <ShoppingCart className="h-4 w-4 mr-2" />
-            New Order
+          <Button
+            variant="outline"
+            onClick={handleDownloadReport}
+            disabled={downloadingReport}
+          >
+            {downloadingReport ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4 mr-2" />
+            )}
+            Download Report
           </Button>
         </div>
       </div>
