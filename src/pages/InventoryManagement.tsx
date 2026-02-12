@@ -36,9 +36,10 @@ import {
 export default function InventoryManagement() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [expiryWithinMonths, setExpiryWithinMonths] = useState<number>(2);
   const { toast } = useToast();
 
-  // Fetch all products
+  // Fetch products expiring within the selected period (backend filters)
   const {
     data: productsResponse,
     isLoading,
@@ -46,9 +47,12 @@ export default function InventoryManagement() {
     error,
     refetch,
   } = useQuery({
-    queryKey: ['products', 'inventory'],
+    queryKey: ['products', 'inventory', expiryWithinMonths],
     queryFn: async () => {
-      const response = await productsAPI.getProducts({ limit: 1000 });
+      const response = await productsAPI.getProducts({
+        limit: 1000,
+        expiry_within_months: expiryWithinMonths,
+      });
       return response.data;
     },
     staleTime: 0,
@@ -57,7 +61,7 @@ export default function InventoryManagement() {
 
   const products = useMemo(() => {
     if (!productsResponse) return [];
-    const responseData = (productsResponse as any).data;
+    const responseData = (productsResponse as any)?.data ?? productsResponse;
     
     if (responseData?.items && Array.isArray(responseData.items)) {
       return responseData.items;
@@ -71,16 +75,14 @@ export default function InventoryManagement() {
     return [];
   }, [productsResponse]);
 
-  // Filter products with expiry dates and calculate alerts
+  // Enrich with days-until-expiry and status (backend already filtered by expiry_within_months)
   const inventoryData = useMemo(() => {
     const today = new Date();
-    const twoMonthsFromNow = new Date();
-    twoMonthsFromNow.setMonth(today.getMonth() + 2);
 
     return products
       .map((product: any) => {
         const expiryDate = product.expiryDate || product.expiry_date;
-        if (!expiryDate) return null;
+        if (!expiryDate) return { ...product, expiryDate: null, daysUntilExpiry: 0, status: 'ok' as const };
 
         const expiry = new Date(expiryDate);
         const daysUntilExpiry = Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
@@ -99,7 +101,6 @@ export default function InventoryManagement() {
           status,
         };
       })
-      .filter((item: any) => item !== null)
       .filter((item: any) => {
         if (filterStatus === 'all') return true;
         if (filterStatus === 'expired') return item.status === 'expired';
@@ -252,6 +253,19 @@ export default function InventoryManagement() {
               />
             </div>
             <div className="flex gap-3">
+              <Select
+                value={String(expiryWithinMonths)}
+                onValueChange={(v) => setExpiryWithinMonths(Number(v))}
+              >
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Expiring within" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">Expiring within 1 month</SelectItem>
+                  <SelectItem value="2">Expiring within 2 months</SelectItem>
+                  <SelectItem value="3">Expiring within 3 months</SelectItem>
+                </SelectContent>
+              </Select>
               <Select value={filterStatus} onValueChange={setFilterStatus}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Filter by status" />
@@ -282,7 +296,7 @@ export default function InventoryManagement() {
         <CardHeader>
           <CardTitle>Product Expiry Status</CardTitle>
           <CardDescription>
-            Products with expiry dates. Alerts shown for items expiring within 2 months.
+            Products with expiry dates within the selected period. Use the filter above to change the period (1–3 months).
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -333,7 +347,7 @@ export default function InventoryManagement() {
                       <TableCell className="font-medium">{item.name}</TableCell>
                       <TableCell>{item.hsnCode || item.hsn_code || '-'}</TableCell>
                       <TableCell>{item.stockQuantity || item.stock_quantity || 0}</TableCell>
-                      <TableCell>{formatDate(item.expiryDate)}</TableCell>
+                      <TableCell>{formatDate(item.expiryDate || item.expiry_date)}</TableCell>
                       <TableCell>
                         {item.daysUntilExpiry < 0 ? (
                           <span className="text-red-600 font-semibold">

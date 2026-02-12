@@ -135,6 +135,23 @@ export default function Products() {
     return filterParams;
   }, [searchQuery, selectedCategory, selectedStatus, page, limit]);
 
+  // Normalize pagination from various backend shapes to { page, limit, total, totalPages }
+  const normalizePagination = (data: any, fallback: { page: number; limit: number }) => {
+    const page = fallback.page || 1;
+    const limit = fallback.limit || 20;
+    const pag = data?.pagination ?? data;
+    const total = pag?.total ?? pag?.totalCount ?? pag?.total_count ?? 0;
+    const currentPage = Number(pag?.page ?? pag?.currentPage ?? pag?.current_page ?? page);
+    const limitVal = Number(pag?.limit ?? pag?.per_page ?? limit);
+    const totalPages = Number((pag?.totalPages ?? pag?.total_pages ?? Math.ceil((total || 0) / limitVal)) || 1);
+    return {
+      page: currentPage,
+      limit: limitVal,
+      total: Number(total) || 0,
+      totalPages: totalPages >= 1 ? totalPages : 1,
+    };
+  };
+
   // Fetch products
   const {
     data: productsResponse,
@@ -156,56 +173,34 @@ export default function Products() {
             })
           : await productsAPI.getProducts(filters);
         
-        // Handle different response structures
-        // Backend might return: { success: true, data: { items: [], pagination: {} } }
-        // Or: { success: true, data: [] } (array directly)
-        // Or: { success: true, data: { products: [], total: 10, page: 1 } }
-        if (response) {
-          const responseData = response.data as any;
-          
-          // Case 1: Response has data.items (paginated structure)
-          if (responseData && responseData.items && Array.isArray(responseData.items)) {
-            return responseData;
-          }
-          
-          // Case 2: Response.data is an array directly
-          if (responseData && Array.isArray(responseData)) {
-            return {
-              items: responseData,
-              pagination: {
-                page: filters.page || 1,
-                limit: filters.limit || 20,
-                total: responseData.length,
-                totalPages: Math.ceil(responseData.length / (filters.limit || 20)),
-              },
-            };
-          }
-          
-          // Case 3: Response has products array
-          if (responseData && responseData.products && Array.isArray(responseData.products)) {
-            return {
-              items: responseData.products,
-              pagination: {
-                page: responseData.page || filters.page || 1,
-                limit: responseData.limit || filters.limit || 20,
-                total: responseData.total || responseData.products.length,
-                totalPages: responseData.totalPages || Math.ceil((responseData.total || responseData.products.length) / (responseData.limit || filters.limit || 20)),
-  },
-            };
-          }
+        const fallback = { page: filters.page || 1, limit: filters.limit || 20 };
+        // response may be axios response.data: either { data: { items, pagination } } or { items, pagination } at top level
+        const payload = (response as any)?.data ?? response;
+        if (!payload) {
+          return { items: [], pagination: { ...fallback, total: 0, totalPages: 1 } };
         }
-        
-        // Fallback
-        if (import.meta.env.DEV) {
-          console.warn('[Products] Unexpected response structure:', response);
+
+        let items: any[] = [];
+        let paginationSource: any = payload;
+
+        if (payload.items && Array.isArray(payload.items)) {
+          items = payload.items;
+          paginationSource = payload;
+        } else if (Array.isArray(payload)) {
+          items = payload;
+          paginationSource = { total: payload.length };
+        } else if (payload.products && Array.isArray(payload.products)) {
+          items = payload.products;
+          paginationSource = payload;
         }
+
+        const pagination = normalizePagination(paginationSource, fallback);
+
         return {
-          items: [],
+          items,
           pagination: {
-            page: filters.page || 1,
-            limit: filters.limit || 20,
-            total: 0,
-            totalPages: 1,
+            ...pagination,
+            totalPages: Math.max(1, Math.ceil((pagination.total || 0) / pagination.limit)),
           },
         };
       } catch (error) {
@@ -259,6 +254,14 @@ export default function Products() {
       currency: 'INR',
       maximumFractionDigits: 0,
     }).format(value);
+  };
+
+  const formatExpiry = (product: any) => {
+    const raw = product?.expiryDate ?? product?.expiry_date ?? null;
+    if (!raw) return '—';
+    const d = new Date(raw);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
   const getStatusBadge = (product: any) => {
@@ -608,6 +611,9 @@ export default function Products() {
                         Stock
                       </th>
                       <th className="py-4 px-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Expiry
+                      </th>
+                      <th className="py-4 px-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                         Status
                       </th>
                       <th className="py-4 px-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -738,6 +744,9 @@ export default function Products() {
                               {stockQuantity}
                       </span>
                     </td>
+                    <td className="py-4 px-4 text-muted-foreground text-sm">
+                      {formatExpiry(product)}
+                    </td>
                           <td className="py-4 px-4">{getStatusBadge(product)}</td>
                     <td className="py-4 px-4">
                       <DropdownMenu>
@@ -776,40 +785,53 @@ export default function Products() {
           {/* Pagination */}
           <div className="flex items-center justify-between px-4 py-3 border-t border-border">
             <p className="text-sm text-muted-foreground">
-                  Showing <strong>{(page - 1) * limit + 1}</strong> to{' '}
+              {pagination.total === 0 ? (
+                'No products'
+              ) : (
+                <>
+                  Showing <strong>{Math.min((page - 1) * limit + 1, pagination.total)}</strong> to{' '}
                   <strong>{Math.min(page * limit, pagination.total)}</strong> of{' '}
                   <strong>{pagination.total}</strong> products
+                </>
+              )}
             </p>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 1 || pagination.totalPages <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </Button>
+              {pagination.totalPages > 0 && (() => {
+                const totalP = pagination.totalPages;
+                const windowSize = 5;
+                const half = Math.floor(windowSize / 2);
+                let start = Math.max(1, page - half);
+                let end = Math.min(totalP, start + windowSize - 1);
+                if (end - start + 1 < windowSize) start = Math.max(1, end - windowSize + 1);
+                const pages: number[] = [];
+                for (let i = start; i <= end; i++) pages.push(i);
+                return pages.map((pageNum) => (
                   <Button
-                    variant="outline"
+                    key={pageNum}
+                    variant={page === pageNum ? 'secondary' : 'outline'}
                     size="sm"
-                    disabled={page === 1}
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    onClick={() => setPage(pageNum)}
                   >
-                    Previous
+                    {pageNum}
                   </Button>
-                  {[...Array(Math.min(5, pagination.totalPages))].map((_, i) => {
-                    const pageNum = i + 1;
-                    return (
-                      <Button
-                        key={pageNum}
-                        variant={page === pageNum ? 'secondary' : 'outline'}
-                        size="sm"
-                        onClick={() => setPage(pageNum)}
-                      >
-                        {pageNum}
-                      </Button>
-                    );
-                  })}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={page >= pagination.totalPages}
-                    onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
-                  >
-                    Next
-                  </Button>
+                ));
+              })()}
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page >= pagination.totalPages || pagination.totalPages <= 1}
+                onClick={() => setPage((p) => Math.min(pagination.totalPages, p + 1))}
+              >
+                Next
+              </Button>
             </div>
           </div>
             </>

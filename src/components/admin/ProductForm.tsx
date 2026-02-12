@@ -416,9 +416,11 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
         formData.append('hsnCode', data.hsnCode);
       }
 
-      // Add expiry date if provided
-      if (data.expiryDate) {
-        formData.append('expiryDate', data.expiryDate);
+      // Add expiry date: on create only if provided; on update always so backend can clear when empty
+      if (productId) {
+        formData.append('expiryDate', data.expiryDate && data.expiryDate.trim() ? data.expiryDate.trim() : '');
+      } else if (data.expiryDate && data.expiryDate.trim()) {
+        formData.append('expiryDate', data.expiryDate.trim());
       }
       
       // Add SEO fields if provided
@@ -701,12 +703,24 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="expiryDate">Expiry Date</Label>
-                <Input
-                  id="expiryDate"
-                  type="date"
-                  {...register('expiryDate')}
-                />
+                <Label htmlFor="expiryDate">Expiry Date (optional)</Label>
+                <div className="flex gap-2 items-center">
+                  <Input
+                    id="expiryDate"
+                    type="date"
+                    {...register('expiryDate')}
+                  />
+                  {productId && (watch('expiryDate') || productData?.expiryDate || productData?.expiry_date) && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setValue('expiryDate', '')}
+                    >
+                      Clear expiry
+                    </Button>
+                  )}
+                </div>
                 {watch('expiryDate') && (() => {
                   const expiry = new Date(watch('expiryDate'));
                   const today = new Date();

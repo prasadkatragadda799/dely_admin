@@ -320,6 +320,7 @@ export const productsAPI = {
     stock_status?: string;
     sort?: string;
     order?: 'asc' | 'desc';
+    expiry_within_months?: number;
   }) => {
     const response = await apiClient.get<ApiResponse<PaginatedResponse<any>>>('/admin/products', {
       params,
