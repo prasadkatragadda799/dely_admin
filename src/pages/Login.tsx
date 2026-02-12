@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { ROUTES } from '@/constants';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,7 +27,7 @@ export default function Login() {
     const result = await login(email, password);
     
     if (result.success) {
-      navigate('/dashboard');
+      navigate(ROUTES.DASHBOARD);
     } else {
       setError(result.error || 'Login failed');
     }

@@ -18,6 +18,10 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { ROUTES, type RoutePath } from '@/constants';
+
+type NavItem = { title: string; url: RoutePath; icon: React.ElementType };
+
 import {
   Sidebar,
   SidebarContent,
@@ -38,27 +42,27 @@ import {
 } from '@/components/ui/collapsible';
 import { useState } from 'react';
 
-const mainNavItems = [
-  { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
-  { title: 'Products', url: '/products', icon: Package },
-  { title: 'Orders', url: '/orders', icon: ShoppingCart },
-  { title: 'Users', url: '/users', icon: Users },
+const mainNavItems: NavItem[] = [
+  { title: 'Dashboard', url: ROUTES.DASHBOARD, icon: LayoutDashboard },
+  { title: 'Products', url: ROUTES.PRODUCTS, icon: Package },
+  { title: 'Orders', url: ROUTES.ORDERS, icon: ShoppingCart },
+  { title: 'Users', url: ROUTES.USERS, icon: Users },
 ];
 
-const managementItems = [
-  { title: 'Delivery Persons', url: '/delivery/persons', icon: Truck },
-  { title: 'Delivery Tracking', url: '/delivery/tracking', icon: MapPin },
-  { title: 'Companies & Brands', url: '/companies', icon: Building2 },
-  { title: 'Categories', url: '/categories', icon: FolderTree },
-  { title: 'Offers', url: '/offers', icon: Tag },
-  { title: 'KYC Verification', url: '/kyc', icon: FileCheck },
-  { title: 'Inventory Management', url: '/inventory', icon: Package },
+const managementItems: NavItem[] = [
+  { title: 'Delivery Persons', url: ROUTES.DELIVERY_PERSONS, icon: Truck },
+  { title: 'Delivery Tracking', url: ROUTES.DELIVERY_TRACKING, icon: MapPin },
+  { title: 'Companies & Brands', url: ROUTES.COMPANIES, icon: Building2 },
+  { title: 'Categories', url: ROUTES.CATEGORIES, icon: FolderTree },
+  { title: 'Offers', url: ROUTES.OFFERS, icon: Tag },
+  { title: 'KYC Verification', url: ROUTES.KYC, icon: FileCheck },
+  { title: 'Inventory Management', url: ROUTES.INVENTORY, icon: Package },
 ];
 
-const systemItems = [
-  { title: 'Analytics', url: '/analytics', icon: BarChart3 },
-  { title: 'Weekly Reports', url: '/reports', icon: FileText },
-  { title: 'Settings', url: '/settings', icon: Settings },
+const systemItems: NavItem[] = [
+  { title: 'Analytics', url: ROUTES.ANALYTICS, icon: BarChart3 },
+  { title: 'Weekly Reports', url: ROUTES.REPORTS, icon: FileText },
+  { title: 'Settings', url: ROUTES.SETTINGS, icon: Settings },
 ];
 
 export function AdminSidebar() {
@@ -80,16 +84,16 @@ export function AdminSidebar() {
   const visibleMainItems = (() => {
     if (isSeller) {
       return [
-        { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
-        { title: 'Products', url: '/products', icon: Package },
-        { title: 'Profile', url: '/profile', icon: Settings },
+        { title: 'Dashboard', url: ROUTES.DASHBOARD, icon: LayoutDashboard },
+        { title: 'Products', url: ROUTES.PRODUCTS, icon: Package },
+        { title: 'Profile', url: ROUTES.PROFILE, icon: Settings },
       ];
     }
     if (isManager) {
       return [
-        { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
-        { title: 'Analytics', url: '/analytics', icon: BarChart3 },
-        { title: 'Weekly Reports', url: '/reports', icon: FileText },
+        { title: 'Dashboard', url: ROUTES.DASHBOARD, icon: LayoutDashboard },
+        { title: 'Analytics', url: ROUTES.ANALYTICS, icon: BarChart3 },
+        { title: 'Weekly Reports', url: ROUTES.REPORTS, icon: FileText },
       ];
     }
     if (isSupport) {
@@ -103,7 +107,7 @@ export function AdminSidebar() {
     if (isSeller || isManager) return [];
     const items = [...managementItems];
     if (isAdmin) {
-      items.unshift({ title: 'Sellers', url: '/sellers', icon: Users });
+      items.unshift({ title: 'Sellers', url: ROUTES.SELLERS, icon: Users });
     }
     return items;
   })();
@@ -121,7 +125,7 @@ export function AdminSidebar() {
     }
   };
 
-  const NavItem = ({ item }: { item: { title: string; url: string; icon: React.ElementType } }) => (
+  const NavItemLink = ({ item }: { item: NavItem }) => (
     <SidebarMenuItem>
       <SidebarMenuButton asChild>
         <NavLink
@@ -167,7 +171,7 @@ export function AdminSidebar() {
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1">
               {visibleMainItems.map((item) => (
-                <NavItem key={item.url} item={item} />
+                <NavItemLink key={item.url} item={item} />
               ))}
             </SidebarMenu>
           </SidebarGroupContent>
@@ -194,7 +198,7 @@ export function AdminSidebar() {
               <SidebarGroupContent>
                 <SidebarMenu className="space-y-1">
                   {visibleManagementItems.map((item) => (
-                    <NavItem key={item.url} item={item} />
+                    <NavItemLink key={item.url} item={item} />
                   ))}
                 </SidebarMenu>
               </SidebarGroupContent>
@@ -224,7 +228,7 @@ export function AdminSidebar() {
               <SidebarGroupContent>
                 <SidebarMenu className="space-y-1">
                   {visibleSystemItems.map((item) => (
-                    <NavItem key={item.url} item={item} />
+                    <NavItemLink key={item.url} item={item} />
                   ))}
                 </SidebarMenu>
               </SidebarGroupContent>

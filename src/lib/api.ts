@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
+import { config } from '@/config';
 
 // Helper function to ensure UUID is properly formatted with dashes
 function formatUUID(uuid: string): string {
@@ -45,7 +46,7 @@ const apiClient: AxiosInstance = axios.create({
 // Request interceptor - Add auth token and handle FormData
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('dely_admin_token');
+    const token = localStorage.getItem(config.storageKeys.token);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -74,8 +75,8 @@ apiClient.interceptors.response.use(
       switch (error.response.status) {
         case 401:
           // Unauthorized - Clear token and redirect to login
-          localStorage.removeItem('dely_admin_token');
-          localStorage.removeItem('dely_admin_user');
+          localStorage.removeItem(config.storageKeys.token);
+          localStorage.removeItem(config.storageKeys.user);
           window.location.href = '/login';
           break;
         case 403:
