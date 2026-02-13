@@ -45,21 +45,21 @@ const apiClient: AxiosInstance = axios.create({
 
 // Request interceptor - Add auth token and handle FormData
 apiClient.interceptors.request.use(
-  (config) => {
+  (requestConfig) => {
     const token = localStorage.getItem(config.storageKeys.token);
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      requestConfig.headers.Authorization = `Bearer ${token}`;
     }
     
     // If data is FormData, remove Content-Type header to let axios set it with boundary
-    if (config.data instanceof FormData) {
+    if (requestConfig.data instanceof FormData) {
       // Remove Content-Type header so axios can set it automatically with boundary
-      if (config.headers && 'Content-Type' in config.headers) {
-        delete config.headers['Content-Type'];
+      if (requestConfig.headers && 'Content-Type' in requestConfig.headers) {
+        delete requestConfig.headers['Content-Type'];
       }
     }
     
-    return config;
+    return requestConfig;
   },
   (error) => {
     return Promise.reject(error);
@@ -157,7 +157,18 @@ export const adminAuthAPI = {
         avatar?: string;
       };
     }>>('/admin/auth/login', { email, password });
-    return response.data;
+    const body = response?.data as unknown as Record<string, unknown> | undefined;
+    if (!body || typeof body !== 'object') {
+      return { success: false };
+    }
+    // Normalize: backend may send { success, data: { token, admin } } or { success, token, admin }
+    const data = (body.data as Record<string, unknown>) ?? body;
+    const token = data?.token as string | undefined;
+    const admin = data?.admin as Record<string, unknown> | undefined;
+    if (body.success && token && admin) {
+      return { success: true, data: { token, refreshToken: (data.refreshToken as string) ?? '', admin } };
+    }
+    return { success: false };
   },
 
   logout: async () => {

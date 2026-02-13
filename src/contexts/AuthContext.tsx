@@ -62,13 +62,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await adminAuthAPI.login(email, password);
 
-      if (response.success) {
-        // Backend may return { success, data: { token, admin } } or { success, token, admin }
-        type LoginPayload = { token: string; admin: { id: string; email: string; name: string; role: string; companyId?: string | null; avatar?: string } };
-        const payload: LoginPayload | undefined = response.data ?? (response as unknown as LoginPayload);
-        const token = payload?.token;
-        const admin = payload?.admin;
-
+      if (response.success && 'data' in response && response.data) {
+        const { token, admin } = response.data;
         if (!token || !admin) {
           return { success: false, error: 'Invalid response from server' };
         }
@@ -76,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const normalizedUser: AuthUser = {
           ...admin,
           role: admin.role as AuthUser['role'],
-        };
+        } as AuthUser;
 
         localStorage.setItem(tokenKey, token);
         localStorage.setItem(userKey, JSON.stringify(normalizedUser));
