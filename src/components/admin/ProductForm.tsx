@@ -214,15 +214,7 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
     enabled: !!productId && open,
   });
 
-  // If seller, lock companyId to assigned company
-  useEffect(() => {
-    if (!open) return;
-    if (!isSeller) return;
-    const assignedCompanyId = user?.companyId || '';
-    if (!assignedCompanyId) return;
-    setSelectedCompany(assignedCompanyId);
-    setValue('companyId', assignedCompanyId);
-  }, [open, isSeller, user?.companyId, setValue]);
+  // Sellers can now choose any company (backend no longer restricts by assigned company)
 
   // Flatten categories for dropdown
   const flattenCategories = (cats: Category[]): Category[] => {
@@ -410,7 +402,12 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
       }
       
       // Add company (optional) - backend expects 'company_id'
-      if (data.companyId && data.companyId !== 'none' && data.companyId !== '') {
+      if (isSeller) {
+        if (!data.companyId || data.companyId === 'none' || data.companyId === '') {
+          throw new Error('Company is required for seller products');
+        }
+        formData.append('company_id', data.companyId);
+      } else if (data.companyId && data.companyId !== 'none' && data.companyId !== '') {
         formData.append('company_id', data.companyId);
       }
       
@@ -634,17 +631,18 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
             
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="companyId">Company</Label>
+                <Label htmlFor="companyId">
+                  Company {isSeller && <span className="text-destructive">*</span>}
+                </Label>
                 <Select
                   value={watch('companyId') || 'none'}
                   onValueChange={(value) => handleCompanyChange(value === 'none' ? '' : value)}
-                  disabled={isSeller}
                 >
                   <SelectTrigger id="companyId">
-                    <SelectValue placeholder={isSeller ? 'Assigned company' : 'Select company (optional)'} />
+                    <SelectValue placeholder={isSeller ? 'Select company' : 'Select company (optional)'} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
+                    {!isSeller && <SelectItem value="none">None</SelectItem>}
                     {companies.map((company) => (
                       <SelectItem key={company.id} value={company.id}>
                         {company.name}
@@ -652,8 +650,10 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
                     ))}
                   </SelectContent>
                 </Select>
-                {isSeller && !user?.companyId && (
-                  <p className="text-sm text-destructive">Seller account is missing company assignment.</p>
+                {isSeller && (
+                  <p className="text-xs text-muted-foreground">
+                    Sellers can now create products for any company.
+                  </p>
                 )}
               </div>
 
