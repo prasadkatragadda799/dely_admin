@@ -62,21 +62,13 @@ export default function Categories() {
   const queryClient = useQueryClient();
 
   // Fetch categories
-  const { data: categoriesData, isLoading, isError, error } = useQuery({
+  const { data: categoriesData, isLoading, isError, error } = useQuery<Category[]>({
     queryKey: ['categories'],
     queryFn: async () => {
       const response = await categoriesAPI.getCategories();
       return response.data || [];
     },
     retry: 1, // Only retry once
-    onError: (error: any) => {
-      console.error('Failed to fetch categories:', error);
-      toast({
-        title: 'Error loading categories',
-        description: error.response?.data?.error?.message || error.message || 'Failed to load categories. Please check your connection and try again.',
-        variant: 'destructive',
-      });
-    },
   });
 
   // Delete category mutation
@@ -99,15 +91,34 @@ export default function Categories() {
     },
   });
 
+  // Ensure stable ordering by displayOrder for UI rendering
+  const sortedCategoriesData = useMemo(() => {
+    const sortTree = (cats: Category[]): Category[] => {
+      if (!Array.isArray(cats)) return [];
+      const sorted = [...cats].sort((a, b) => {
+        const ao = Number(a.displayOrder ?? 0);
+        const bo = Number(b.displayOrder ?? 0);
+        if (ao !== bo) return ao - bo;
+        return (a.name || '').localeCompare(b.name || '');
+      });
+      return sorted.map((c) => ({
+        ...c,
+        children: c.children ? sortTree(c.children) : c.children,
+      }));
+    };
+    return sortTree(categoriesData || []);
+  }, [categoriesData]);
+
   // Filter categories based on search
   const filteredCategories = useMemo(() => {
-    if (!categoriesData) return [];
-    if (!searchQuery) return categoriesData;
+    if (!sortedCategoriesData) return [];
+    if (!searchQuery) return sortedCategoriesData;
 
     const searchLower = searchQuery.toLowerCase();
+    const isNotNull = (x: Category | null): x is Category => x !== null;
     const filterRecursive = (cats: Category[]): Category[] => {
       return cats
-        .map(cat => {
+        .map((cat): Category | null => {
           const matchesSearch = 
             cat.name.toLowerCase().includes(searchLower) ||
             cat.description?.toLowerCase().includes(searchLower);
@@ -118,15 +129,15 @@ export default function Categories() {
             return {
               ...cat,
               children: filteredChildren.length > 0 ? filteredChildren : cat.children,
-            };
+            } as Category;
           }
           return null;
         })
-        .filter((cat): cat is Category => cat !== null);
+        .filter(isNotNull);
     };
 
-    return filterRecursive(categoriesData);
-  }, [categoriesData, searchQuery]);
+    return filterRecursive(sortedCategoriesData);
+  }, [sortedCategoriesData, searchQuery]);
 
   const toggleCategory = (id: string) => {
     if (expandedCategories.includes(id)) {
@@ -166,7 +177,7 @@ export default function Categories() {
 
   // Calculate stats
   const stats = useMemo(() => {
-    if (!categoriesData) return { totalCategories: 0, totalSubcategories: 0, totalProducts: 0 };
+    if (!sortedCategoriesData) return { totalCategories: 0, totalSubcategories: 0, totalProducts: 0 };
     
     const countRecursive = (cats: Category[]) => {
       let categories = 0;
@@ -190,8 +201,13 @@ export default function Categories() {
       return { categories, subcategories, products };
     };
     
-    return countRecursive(categoriesData);
-  }, [categoriesData]);
+    const totals = countRecursive(sortedCategoriesData);
+    return {
+      totalCategories: totals.categories,
+      totalSubcategories: totals.subcategories,
+      totalProducts: totals.products,
+    };
+  }, [sortedCategoriesData]);
 
   // Render category tree recursively
   const renderCategoryTree = (categories: Category[], level = 0) => {

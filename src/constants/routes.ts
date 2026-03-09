@@ -10,6 +10,7 @@ export const ROUTES = {
   ORDERS: '/orders',
   USERS: '/users',
   CATEGORIES: '/categories',
+  DIVISIONS: '/divisions',
   COMPANIES: '/companies',
   OFFERS: '/offers',
   KYC: '/kyc',

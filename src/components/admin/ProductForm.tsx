@@ -6,10 +6,12 @@ import {
   categoriesAPI,
   companiesAPI,
   brandsAPI,
+  divisionsAPI,
   productsAPI,
   sellerProductsAPI,
   sellerResourcesAPI,
   uploadAPI,
+  type Division,
 } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -73,6 +75,7 @@ const productSchema = z.object({
   name: z.string().min(1, 'Product name is required'),
   description: z.string().optional(),
   categoryId: z.string().min(1, 'Category is required'),
+  divisionId: z.string().optional(),
   companyId: z.string().optional(),
   brandId: z.string().optional(),
   hsnCode: z.string().optional(),
@@ -124,6 +127,7 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
       isFeatured: false,
       isAvailable: true,
       unit: 'piece',
+      divisionId: 'default',
       variants: [
         {
           hsnCode: '',
@@ -156,6 +160,15 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
       return response.data || [];
     },
     enabled: open,
+  });
+
+  const { data: divisionsData } = useQuery({
+    queryKey: ['divisions'],
+    queryFn: async () => {
+      const response = await divisionsAPI.getDivisions();
+      return (response.data || []) as Division[];
+    },
+    enabled: open && !isSeller,
   });
 
   // Fetch companies
@@ -247,6 +260,11 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
         productData.brandId ||
         productData.brand_id ||
         '';
+      const divisionId =
+        productData.division?.id ||
+        productData.divisionId ||
+        productData.division_id ||
+        'default';
       const mrp = Number(productData.mrp ?? 0);
       const sellingPrice = Number(productData.sellingPrice ?? productData.selling_price ?? 0);
       const stockQuantity = Number(productData.stockQuantity ?? productData.stock_quantity ?? 0);
@@ -261,6 +279,7 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
         name: productData.name || '',
         description: productData.description || '',
         categoryId,
+        divisionId: divisionId || 'default',
         companyId: companyId || 'none',
         brandId: brandId || 'none',
         mrp,
@@ -379,6 +398,16 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
       // Add category (required)
       if (data.categoryId && data.categoryId !== 'none') {
         formData.append('categoryId', data.categoryId);
+      }
+
+      // Add division (optional): "default" means NULL on backend (Grocery)
+      if (!isSeller) {
+        if (data.divisionId && data.divisionId !== 'default') {
+          formData.append('division_id', data.divisionId);
+        } else {
+          // Ensure updates can clear division back to default
+          if (productId) formData.append('division_id', '');
+        }
       }
       
       // Add company (optional) - backend expects 'company_id'
@@ -575,6 +604,31 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
                 <p className="text-sm text-destructive">{errors.categoryId.message}</p>
               )}
             </div>
+
+            {!isSeller && (
+              <div className="space-y-2">
+                <Label htmlFor="divisionId">Division</Label>
+                <Select
+                  value={watch('divisionId') || 'default'}
+                  onValueChange={(value) => setValue('divisionId', value)}
+                >
+                  <SelectTrigger id="divisionId">
+                    <SelectValue placeholder="Select division" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="default">Grocery (default)</SelectItem>
+                    {(divisionsData || []).map((d) => (
+                      <SelectItem key={d.id} value={d.id}>
+                        {d.icon ? `${d.icon} ` : ''}{d.name} ({d.slug})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Grocery is used when division is empty. Pick Kitchen to keep products/cart/orders in that vertical.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Company & Brand */}

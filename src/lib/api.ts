@@ -719,27 +719,70 @@ export const brandsAPI = {
 // Categories API
 export const categoriesAPI = {
   getCategories: async () => {
+    const normalizeCategoryNode = (c: any): any => {
+      if (!c || typeof c !== 'object') return c;
+      const childrenRaw = c.children ?? c.subcategories ?? c.items;
+      const children = Array.isArray(childrenRaw) ? childrenRaw.map(normalizeCategoryNode) : undefined;
+      return {
+        ...c,
+        parentId: c.parentId ?? c.parent_id ?? undefined,
+        displayOrder: c.displayOrder ?? c.display_order ?? 0,
+        isActive: c.isActive ?? c.is_active ?? true,
+        productCount: c.productCount ?? c.product_count ?? undefined,
+        metaTitle: c.metaTitle ?? c.meta_title ?? undefined,
+        metaDescription: c.metaDescription ?? c.meta_description ?? undefined,
+        divisionId: c.divisionId ?? c.division_id ?? undefined,
+        image: c.image ?? c.image_url ?? c.imageUrl ?? undefined,
+        children,
+      };
+    };
+
+    const sortCategoryTree = (cats: any[]): any[] => {
+      if (!Array.isArray(cats)) return [];
+      const sorted = [...cats].sort((a, b) => {
+        const ao = Number(a?.displayOrder ?? a?.display_order ?? 0);
+        const bo = Number(b?.displayOrder ?? b?.display_order ?? 0);
+        if (ao !== bo) return ao - bo;
+        const an = String(a?.name ?? '');
+        const bn = String(b?.name ?? '');
+        if (an !== bn) return an.localeCompare(bn);
+        return String(a?.id ?? '').localeCompare(String(b?.id ?? ''));
+      });
+      return sorted.map((c) => ({
+        ...c,
+        children: Array.isArray(c?.children) ? sortCategoryTree(c.children) : c?.children,
+      }));
+    };
+
     // Admin endpoint first, fallback to seller/public endpoints for seller/mobile-like access
     try {
       const response = await apiClient.get<ApiResponse<any[]>>('/admin/categories');
-      return response.data;
+      const normalized = Array.isArray(response.data?.data)
+        ? sortCategoryTree(response.data.data.map(normalizeCategoryNode))
+        : [];
+      return { ...response.data, data: normalized };
     } catch (error: any) {
       const status = error?.response?.status;
       if (status === 401 || status === 403) {
         // Seller fallback (preferred when logged-in as seller)
         try {
           const response = await apiClient.get<ApiResponse<any[]>>('/seller/categories');
-          return response.data;
+          const normalized = Array.isArray(response.data?.data)
+            ? sortCategoryTree(response.data.data.map(normalizeCategoryNode))
+            : [];
+          return { ...response.data, data: normalized };
         } catch (sellerErr: any) {
           // Public fallback (as per backend): /api/v1/categories
           // Backend may return either `data: Category[]` or `data: { categories: Category[] }`
           const response = await apiClient.get<ApiResponse<any>>('/api/v1/categories');
           const data = response.data?.data as any;
           if (Array.isArray(data)) {
-            return { ...response.data, data };
+            const normalized = sortCategoryTree(data.map(normalizeCategoryNode));
+            return { ...response.data, data: normalized };
           }
           if (data && Array.isArray(data.categories)) {
-            return { ...response.data, data: data.categories };
+            const normalized = sortCategoryTree(data.categories.map(normalizeCategoryNode));
+            return { ...response.data, data: normalized };
           }
           return { ...response.data, data: [] };
         }
@@ -749,12 +792,64 @@ export const categoriesAPI = {
   },
 
   createCategory: async (categoryData: any) => {
-    const response = await apiClient.post<ApiResponse<any>>('/admin/categories', categoryData);
+    const payload: any = { ...(categoryData ?? {}) };
+    if ('parentId' in payload) {
+      payload.parent_id = payload.parentId;
+      delete payload.parentId;
+    }
+    if ('displayOrder' in payload) {
+      payload.display_order = payload.displayOrder;
+      delete payload.displayOrder;
+    }
+    if ('isActive' in payload) {
+      payload.is_active = payload.isActive;
+      delete payload.isActive;
+    }
+    if ('divisionId' in payload) {
+      payload.division_id = payload.divisionId;
+      delete payload.divisionId;
+    }
+    if ('metaTitle' in payload) {
+      payload.meta_title = payload.metaTitle;
+      delete payload.metaTitle;
+    }
+    if ('metaDescription' in payload) {
+      payload.meta_description = payload.metaDescription;
+      delete payload.metaDescription;
+    }
+
+    const response = await apiClient.post<ApiResponse<any>>('/admin/categories', payload);
     return response.data;
   },
 
   updateCategory: async (id: string, categoryData: any) => {
-    const response = await apiClient.put<ApiResponse<any>>(`/admin/categories/${id}`, categoryData);
+    const payload: any = { ...(categoryData ?? {}) };
+    if ('parentId' in payload) {
+      payload.parent_id = payload.parentId;
+      delete payload.parentId;
+    }
+    if ('displayOrder' in payload) {
+      payload.display_order = payload.displayOrder;
+      delete payload.displayOrder;
+    }
+    if ('isActive' in payload) {
+      payload.is_active = payload.isActive;
+      delete payload.isActive;
+    }
+    if ('divisionId' in payload) {
+      payload.division_id = payload.divisionId;
+      delete payload.divisionId;
+    }
+    if ('metaTitle' in payload) {
+      payload.meta_title = payload.metaTitle;
+      delete payload.metaTitle;
+    }
+    if ('metaDescription' in payload) {
+      payload.meta_description = payload.metaDescription;
+      delete payload.metaDescription;
+    }
+
+    const response = await apiClient.put<ApiResponse<any>>(`/admin/categories/${id}`, payload);
     return response.data;
   },
 
@@ -767,6 +862,90 @@ export const categoriesAPI = {
     const response = await apiClient.put<ApiResponse<void>>('/admin/categories/reorder', {
       categories,
     });
+    return response.data;
+  },
+};
+
+export interface Division {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  icon?: string;
+  imageUrl?: string;
+  displayOrder?: number;
+  isActive?: boolean;
+}
+
+const normalizeDivision = (d: any): Division => ({
+  id: d?.id,
+  name: d?.name ?? '',
+  slug: d?.slug ?? '',
+  description: d?.description ?? undefined,
+  icon: d?.icon ?? undefined,
+  imageUrl: d?.imageUrl ?? d?.image_url ?? undefined,
+  displayOrder: d?.displayOrder ?? d?.display_order ?? 0,
+  isActive: d?.isActive ?? d?.is_active ?? true,
+});
+
+export const divisionsAPI = {
+  // Public app tabs (active only)
+  getActiveDivisions: async () => {
+    const response = await apiClient.get<ApiResponse<any[]>>('/api/v1/divisions');
+    const raw = response.data?.data;
+    const normalized = Array.isArray(raw) ? raw.map(normalizeDivision) : [];
+    normalized.sort((a, b) => Number(a.displayOrder ?? 0) - Number(b.displayOrder ?? 0));
+    return { ...response.data, data: normalized };
+  },
+
+  // Admin CRUD
+  getDivisions: async () => {
+    const response = await apiClient.get<ApiResponse<any[]>>('/admin/divisions');
+    const raw = response.data?.data;
+    const normalized = Array.isArray(raw) ? raw.map(normalizeDivision) : [];
+    normalized.sort((a, b) => Number(a.displayOrder ?? 0) - Number(b.displayOrder ?? 0));
+    return { ...response.data, data: normalized };
+  },
+
+  getDivision: async (id: string) => {
+    const response = await apiClient.get<ApiResponse<any>>(`/admin/divisions/${formatUUID(id)}`);
+    const raw = response.data?.data ?? response.data;
+    return { ...response.data, data: raw ? normalizeDivision(raw) : (raw as any) };
+  },
+
+  createDivision: async (data: Partial<Division>) => {
+    const payload: any = { ...(data ?? {}) };
+    if ('imageUrl' in payload) {
+      payload.image_url = payload.imageUrl;
+      delete payload.imageUrl;
+    }
+    if ('displayOrder' in payload) {
+      payload.display_order = payload.displayOrder;
+      delete payload.displayOrder;
+    }
+    if ('isActive' in payload) {
+      payload.is_active = payload.isActive;
+      delete payload.isActive;
+    }
+    const response = await apiClient.post<ApiResponse<any>>('/admin/divisions', payload);
+    return response.data;
+  },
+
+  updateDivision: async (id: string, data: Partial<Division>) => {
+    const payload: any = { ...(data ?? {}) };
+    if ('imageUrl' in payload) {
+      payload.image_url = payload.imageUrl;
+      delete payload.imageUrl;
+    }
+    if ('displayOrder' in payload) {
+      payload.display_order = payload.displayOrder;
+      delete payload.displayOrder;
+    }
+    if ('isActive' in payload) {
+      payload.is_active = payload.isActive;
+      delete payload.isActive;
+    }
+    const response = await apiClient.patch<ApiResponse<any>>(`/admin/divisions/${formatUUID(id)}`, payload);
     return response.data;
   },
 };

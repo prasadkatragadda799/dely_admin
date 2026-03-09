@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { categoriesAPI, uploadAPI } from '@/lib/api';
+import { categoriesAPI, divisionsAPI, type Division, uploadAPI } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,6 +30,7 @@ const categoryFormSchema = z.object({
   name: z.string().min(1, 'Category name is required').max(100, 'Name must be less than 100 characters'),
   description: z.string().optional(),
   parentId: z.string().optional(),
+  divisionId: z.string().optional(),
   icon: z.string().optional(),
   color: z.string().regex(/^#[0-9A-F]{6}$/i, 'Color must be a valid hex code').optional(),
   displayOrder: z.number().int().min(0, 'Display order must be non-negative').optional(),
@@ -47,6 +48,7 @@ interface Category {
   icon?: string;
   color?: string;
   parentId?: string;
+  divisionId?: string;
   displayOrder?: number;
   isActive?: boolean;
   image?: string;
@@ -91,6 +93,15 @@ export function CategoryForm({
       const response = await categoriesAPI.getCategories();
       return response.data || [];
     },
+  });
+
+  const { data: divisionsData } = useQuery({
+    queryKey: ['divisions'],
+    queryFn: async () => {
+      const response = await divisionsAPI.getDivisions();
+      return (response.data || []) as Division[];
+    },
+    enabled: open,
   });
 
   // Fetch category data if editing
@@ -144,6 +155,7 @@ export function CategoryForm({
           name: categoryData.name || '',
           description: categoryData.description || '',
           parentId: categoryData.parentId || 'none',
+          divisionId: categoryData.divisionId || 'default',
           icon: categoryData.icon || '',
           color: categoryData.color || '#1E6DD8',
           displayOrder: categoryData.displayOrder || 0,
@@ -160,6 +172,7 @@ export function CategoryForm({
           name: '',
           description: '',
           parentId: parentId || 'none',
+          divisionId: 'default',
           icon: '',
           color: '#1E6DD8',
           displayOrder: 0,
@@ -212,8 +225,13 @@ export function CategoryForm({
     mutationFn: async (data: CategoryFormData) => {
       // Clean data
       const cleanData: any = { ...data };
+      // Explicitly set root division/category when "None" selected
       if (cleanData.parentId === 'none') {
-        delete cleanData.parentId;
+        cleanData.parentId = null;
+      }
+      // Division: "default" means NULL on backend (Grocery)
+      if (cleanData.divisionId === 'default') {
+        cleanData.divisionId = null;
       }
       if (!cleanData.icon) {
         delete cleanData.icon;
@@ -278,6 +296,7 @@ export function CategoryForm({
   };
 
   const currentParentId = watch('parentId');
+  const currentDivisionId = watch('divisionId');
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -338,6 +357,32 @@ export function CategoryForm({
             </Select>
             <p className="text-xs text-muted-foreground">
               Leave as "None" to create a main category, or select a parent to create a subcategory
+            </p>
+          </div>
+
+          {/* Division */}
+          <div className="space-y-2">
+            <Label htmlFor="divisionId">Division</Label>
+            <Select
+              value={currentDivisionId || 'default'}
+              onValueChange={(value) => setValue('divisionId', value)}
+            >
+              <SelectTrigger id="divisionId">
+                <SelectValue placeholder="Select division" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">
+                  Grocery (default)
+                </SelectItem>
+                {(divisionsData || []).map((d) => (
+                  <SelectItem key={d.id} value={d.id}>
+                    {d.icon ? `${d.icon} ` : ''}{d.name} ({d.slug})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Grocery is the default when division is empty. Choose Kitchen to show this category under the Kitchen tab.
             </p>
           </div>
 

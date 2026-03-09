@@ -8,6 +8,7 @@ import Products from '@/pages/Products';
 import Orders from '@/pages/Orders';
 import UsersPage from '@/pages/UsersPage';
 import Categories from '@/pages/Categories';
+import Divisions from '@/pages/Divisions';
 import Companies from '@/pages/Companies';
 import Offers from '@/pages/Offers';
 import KYC from '@/pages/KYC';
@@ -81,6 +82,17 @@ export function AppRoutes() {
           <ProtectedRoute>
             <BlockSellerRoute>
               <Categories />
+            </BlockSellerRoute>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path={ROUTES.DIVISIONS}
+        element={
+          <ProtectedRoute>
+            <BlockSellerRoute>
+              <Divisions />
             </BlockSellerRoute>
           </ProtectedRoute>
         }
