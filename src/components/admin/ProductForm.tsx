@@ -168,7 +168,8 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
       const response = await divisionsAPI.getDivisions();
       return (response.data || []) as Division[];
     },
-    enabled: open && !isSeller,
+    // Sellers can now read divisions via /admin/divisions
+    enabled: open,
   });
 
   // Fetch companies
@@ -401,13 +402,11 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
       }
 
       // Add division (optional): "default" means NULL on backend (Grocery)
-      if (!isSeller) {
-        if (data.divisionId && data.divisionId !== 'default') {
-          formData.append('division_id', data.divisionId);
-        } else {
-          // Ensure updates can clear division back to default
-          if (productId) formData.append('division_id', '');
-        }
+      if (data.divisionId && data.divisionId !== 'default') {
+        formData.append('division_id', data.divisionId);
+      } else {
+        // Ensure updates can clear division back to default
+        if (productId) formData.append('division_id', '');
       }
       
       // Add company (optional) - backend expects 'company_id'
@@ -605,30 +604,28 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
               )}
             </div>
 
-            {!isSeller && (
-              <div className="space-y-2">
-                <Label htmlFor="divisionId">Division</Label>
-                <Select
-                  value={watch('divisionId') || 'default'}
-                  onValueChange={(value) => setValue('divisionId', value)}
-                >
-                  <SelectTrigger id="divisionId">
-                    <SelectValue placeholder="Select division" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="default">Grocery (default)</SelectItem>
-                    {(divisionsData || []).map((d) => (
-                      <SelectItem key={d.id} value={d.id}>
-                        {d.icon ? `${d.icon} ` : ''}{d.name} ({d.slug})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  Grocery is used when division is empty. Pick Kitchen to keep products/cart/orders in that vertical.
-                </p>
-              </div>
-            )}
+            <div className="space-y-2">
+              <Label htmlFor="divisionId">Division</Label>
+              <Select
+                value={watch('divisionId') || 'default'}
+                onValueChange={(value) => setValue('divisionId', value)}
+              >
+                <SelectTrigger id="divisionId">
+                  <SelectValue placeholder="Select division" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Grocery (default)</SelectItem>
+                  {(divisionsData || []).map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.icon ? `${d.icon} ` : ''}{d.name} ({d.slug})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Grocery is used when division is empty. Pick Kitchen to keep products/cart/orders in that vertical.
+              </p>
+            </div>
           </div>
 
           {/* Company & Brand */}

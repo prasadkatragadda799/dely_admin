@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { productsAPI, categoriesAPI, sellerProductsAPI } from '@/lib/api';
+import { productsAPI, categoriesAPI, divisionsAPI, type Division, sellerProductsAPI } from '@/lib/api';
 import { ProductForm } from '@/components/admin/ProductForm';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -85,6 +85,47 @@ export default function Products() {
       return response.data || [];
     },
   });
+
+  const { data: divisionsData } = useQuery({
+    queryKey: ['divisions'],
+    queryFn: async () => {
+      const response = await divisionsAPI.getDivisions();
+      return (response.data || []) as Division[];
+    },
+  });
+
+  const divisionById = useMemo(() => {
+    const map = new Map<string, Division>();
+    (divisionsData || []).forEach((d) => map.set(d.id, d));
+    return map;
+  }, [divisionsData]);
+
+  const getDivisionBadge = (product: any) => {
+    const divisionId = product?.division?.id ?? product?.divisionId ?? product?.division_id ?? null;
+    const slug = product?.division?.slug ?? divisionById.get(divisionId || '')?.slug ?? null;
+    const name = product?.division?.name ?? divisionById.get(divisionId || '')?.name ?? null;
+    if (!divisionId) return <Badge variant="secondary">Grocery</Badge>;
+    if (slug === 'kitchen') return <Badge className="bg-amber-500/15 text-amber-700 border border-amber-500/30">Kitchen</Badge>;
+    return <Badge variant="secondary">{name || 'Division'}</Badge>;
+  };
+
+  const getHsnCode = (product: any) => {
+    const variants =
+      (Array.isArray(product?.variants) && product.variants) ||
+      (Array.isArray(product?.product_variants) && product.product_variants) ||
+      (Array.isArray(product?.productVariants) && product.productVariants) ||
+      [];
+    const v0 = variants[0];
+    const hsn =
+      product?.hsnCode ??
+      product?.hsn_code ??
+      v0?.hsnCode ??
+      v0?.hsn_code ??
+      v0?.hsn ??
+      null;
+    const s = String(hsn ?? '').trim();
+    return s ? s : '—';
+  };
 
   // Flatten categories for dropdown
   const flattenCategories = (cats: Category[]): Category[] => {
@@ -349,7 +390,7 @@ export default function Products() {
       else if (Array.isArray(payload)) items = payload;
       else if (payload?.products && Array.isArray(payload.products)) items = payload.products;
 
-      const headers = ['Name', 'HSN Code', 'Brand', 'Company', 'Category', 'MRP', 'Selling Price', 'Stock', 'Expiry', 'Status'];
+      const headers = ['Name', 'Division', 'HSN Code', 'Brand', 'Company', 'Category', 'MRP', 'Selling Price', 'Stock', 'Expiry', 'Status'];
       const rows = items.map((p: any) => {
         const mrp = p.mrp ?? 0;
         const sellingPrice = p.sellingPrice ?? p.selling_price ?? 0;
@@ -361,9 +402,23 @@ export default function Products() {
         else if (stock < 50) status = 'Low Stock';
         const expiry = p.expiryDate ?? p.expiry_date ?? '';
         const expiryStr = expiry ? new Date(expiry).toLocaleDateString('en-CA') : '';
+        const divId = p?.division?.id ?? p?.divisionId ?? p?.division_id ?? null;
+        const divSlug = p?.division?.slug ?? divisionById.get(divId || '')?.slug ?? '';
+        const divName = p?.division?.name ?? divisionById.get(divId || '')?.name ?? '';
+        const divisionLabel = divId ? (divSlug || divName || 'Division') : 'Grocery';
+
+        const variants =
+          (Array.isArray(p?.variants) && p.variants) ||
+          (Array.isArray(p?.product_variants) && p.product_variants) ||
+          (Array.isArray(p?.productVariants) && p.productVariants) ||
+          [];
+        const v0 = variants[0];
+        const hsn = p?.hsnCode ?? p?.hsn_code ?? v0?.hsnCode ?? v0?.hsn_code ?? v0?.hsn ?? '';
+
         return [
           escapeCsv(p.name ?? ''),
-          escapeCsv(p.hsnCode ?? p.hsn_code ?? ''),
+          escapeCsv(divisionLabel),
+          escapeCsv(hsn ?? ''),
           escapeCsv(p.brand?.name ?? ''),
           escapeCsv(p.company?.name ?? ''),
           escapeCsv(p.category?.name ?? ''),
@@ -679,6 +734,9 @@ export default function Products() {
                         Product
                       </th>
                       <th className="py-4 px-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Division
+                      </th>
+                      <th className="py-4 px-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                         HSN Code
                       </th>
                       <th className="py-4 px-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -718,7 +776,11 @@ export default function Products() {
                       const stockQuantity = product.stockQuantity || product.stock_quantity || 0;
                       const isFeatured = product.isFeatured || product.is_featured || false;
                       const isAvailable = product.isAvailable !== undefined ? product.isAvailable : (product.is_available !== undefined ? product.is_available : true);
-                      const variants = Array.isArray(product.variants) ? product.variants : [];
+                      const variants =
+                        (Array.isArray(product.variants) && product.variants) ||
+                        (Array.isArray(product.product_variants) && product.product_variants) ||
+                        (Array.isArray(product.productVariants) && product.productVariants) ||
+                        [];
                       const primaryVariant = variants[0];
                       
                       return (
@@ -777,8 +839,11 @@ export default function Products() {
                       </div>
                     </td>
                     <td className="py-4 px-4">
+                      {getDivisionBadge(product)}
+                    </td>
+                    <td className="py-4 px-4">
                             <span className="text-sm text-muted-foreground">
-                              {product.hsnCode || product.hsn_code || primaryVariant?.hsnCode || primaryVariant?.hsn_code || '-'}
+                              {getHsnCode(product)}
                             </span>
                     </td>
                     <td className="py-4 px-4">
