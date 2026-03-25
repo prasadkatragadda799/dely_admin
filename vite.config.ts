@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => {
       port: 8080,
       proxy: {
         '/api': {
-          target: env.VITE_API_URL || 'https://dely-backend.onrender.com',
+          target: env.VITE_API_URL || 'https://api.delycart.in',
           changeOrigin: true,
           secure: true, // Set to true for HTTPS backend
           rewrite: (path) => path.replace(/^\/api/, ''),

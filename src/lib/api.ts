@@ -27,7 +27,7 @@ if (isDevelopment) {
   API_BASE_URL = '/api';
 } else {
   // In production, use direct backend URL (ensure it doesn't include /api)
-  const prodUrl = import.meta.env.VITE_API_URL || 'https://dely-backend.onrender.com';
+  const prodUrl = import.meta.env.VITE_API_URL || 'https://api.delycart.in';
   // Remove trailing /api if present
   API_BASE_URL = prodUrl.replace(/\/api\/?$/, '');
 }

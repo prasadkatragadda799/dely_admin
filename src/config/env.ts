@@ -9,7 +9,7 @@ export const config = {
   api: {
     baseUrl: isDev
       ? '/api'
-      : (import.meta.env.VITE_API_URL || 'https://dely-backend.onrender.com').replace(/\/api\/?$/, ''),
+      : (import.meta.env.VITE_API_URL || 'https://api.delycart.in').replace(/\/api\/?$/, ''),
     timeout: 30_000,
   },
   storageKeys: {

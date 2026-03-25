@@ -4,9 +4,9 @@
 
 The admin panel is configured to use the production backend service:
 
-**Base URL:** `https://dely-backend.onrender.com`
+**Base URL:** `https://api.delycart.in`
 
-**API Endpoint:** `https://dely-backend.onrender.com/admin`
+**API Endpoint:** `https://api.delycart.in/admin`
 
 **Note:** All admin endpoints are directly under `/admin/*` path (not `/api/v1/admin/*`)
 
@@ -17,7 +17,7 @@ The admin panel is configured to use the production backend service:
 Create a `.env` file in the root directory:
 
 ```env
-VITE_API_URL=https://dely-backend.onrender.com
+VITE_API_URL=https://api.delycart.in
 VITE_ENV=production
 ```
 
@@ -27,7 +27,7 @@ The API client will automatically use this URL. If not set, it defaults to the p
 
 The API client is configured in `src/lib/api.ts` with:
 
-- **Base URL:** `https://dely-backend.onrender.com/api/v1`
+- **Base URL:** `https://api.delycart.in`
 - **Timeout:** 30 seconds
 - **Authentication:** JWT Bearer token (stored in localStorage)
 - **Error Handling:** Automatic token refresh and logout on 401
