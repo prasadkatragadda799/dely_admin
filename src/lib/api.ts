@@ -333,6 +333,10 @@ export const productsAPI = {
     sort?: string;
     order?: 'asc' | 'desc';
     expiry_within_months?: number;
+    /** Admin UUID — list only products created by this user (e.g. a seller). */
+    created_by?: string;
+    /** seller | platform — marketplace seller listings vs platform-only catalog. */
+    listing_scope?: 'seller' | 'platform';
   }) => {
     const response = await apiClient.get<ApiResponse<PaginatedResponse<any>>>('/admin/products', {
       params,

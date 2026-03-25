@@ -443,7 +443,14 @@ const orderStats = [
     try {
       setIsInvoiceLoading(true);
       const response = await ordersAPI.getInvoiceData(orderId);
-      setInvoiceOrder(response?.data || order);
+      const raw = response as { data?: any; seller?: any } | null | undefined;
+      const payload =
+        raw && typeof raw === 'object' && raw.data && typeof raw.data === 'object' && raw.data.seller
+          ? raw.data
+          : raw && typeof raw === 'object' && 'seller' in raw && raw.seller
+            ? raw
+            : raw?.data ?? raw;
+      setInvoiceOrder(payload || order);
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -1006,7 +1013,11 @@ const orderStats = [
             {/* Extract order data - Standardized format handler */}
             {(() => {
               const order = invoiceOrder || {};
-              
+              const inv =
+                order && typeof order === 'object' && (order as any).data?.seller
+                  ? (order as any).data
+                  : order;
+
               // Helper function to safely extract nested values with fallbacks
               const getValue = (obj: any, ...paths: string[]) => {
                 for (const path of paths) {
@@ -1024,81 +1035,161 @@ const orderStats = [
                 }
                 return undefined;
               };
-              
-              // Extract order metadata
-              const orderNumber = order.orderNumber || order.order_number || order.id || 'ODAG79ZY2WMXK7';
-              const shipmentNumber = order.shipmentNumber || order.shipment_number || order.trackingNumber || order.tracking_number || 'SGHA175KPR4FYJ';
-              const invoiceDate = order.invoiceDate 
-                ? new Date(order.invoiceDate).toISOString().split('T')[0]
-                : order.invoice_date
-                ? new Date(order.invoice_date).toISOString().split('T')[0]
-                : order.createdAt 
-                ? new Date(order.createdAt).toISOString().split('T')[0]
-                : order.created_at
-                ? new Date(order.created_at).toISOString().split('T')[0]
-                : order.deliveryDate 
-                ? new Date(order.deliveryDate).toISOString().split('T')[0]
-                : '2024-04-01';
-              
-              // Extract customer info with multiple fallback paths
-              const customerName = getValue(order, 'customerName', 'customer.name', 'user.name', 'customerName') || 'MANISH JAISWAL';
-              const customerAddress = getValue(order, 'customerAddress', 'customer.address', 'shippingAddress.address', 'shipping_address.address') || 'mudarkpur, Purani basti Road ways';
-              const customerCity = getValue(order, 'customerCity', 'customer.city', 'shippingCity', 'shipping_city', 'shippingAddress.city', 'shipping_address.city') || 'Azamgarh';
-              const customerState = getValue(order, 'customerState', 'customer.state', 'shippingState', 'shipping_state', 'shippingAddress.state', 'shipping_address.state') || 'Uttar Pradesh';
-              const customerPincode = getValue(order, 'customerPincode', 'customer.pincode', 'shippingPincode', 'shipping_pincode', 'shippingAddress.pincode', 'shipping_address.pincode') || '276404';
-              const customerMobile = getValue(order, 'customerMobile', 'customer.mobile', 'customer.phone', 'shippingPhone', 'shipping_phone', 'shippingAddress.phone', 'shipping_address.phone') || '+91 9876543210';
-              const customerStateCode = getValue(order, 'customerStateCode', 'customer.stateCode', 'customer.state_code', 'stateCode', 'state_code', 'shippingAddress.stateCode', 'shipping_address.state_code') || '09';
-              
-              // Extract order items - support multiple array names
-              const orderItems = order.items || order.orderItems || order.products || [];
+
+              const seller = inv.seller as Record<string, string | undefined> | undefined;
+              const buyer = inv.buyer as Record<string, string | undefined> | undefined;
+
+              // Extract order metadata (canonical invoice API + legacy list-order fallbacks)
+              const orderNumber =
+                inv.order_number || inv.orderNumber || inv.id || order.orderNumber || order.order_number || order.id || '—';
+              const shipmentNumber =
+                inv.shipment_number ||
+                inv.shipmentNumber ||
+                inv.tracking_number ||
+                inv.trackingNumber ||
+                '—';
+              const rawInvoiceDate =
+                inv.invoice_date ||
+                inv.invoiceDate ||
+                inv.created_at ||
+                inv.createdAt ||
+                order.created_at ||
+                order.createdAt;
+              let invoiceDate = '—';
+              if (rawInvoiceDate) {
+                try {
+                  invoiceDate = new Date(rawInvoiceDate as string).toISOString().split('T')[0];
+                } catch {
+                  invoiceDate = String(rawInvoiceDate);
+                }
+              }
+              const placeOfSupply =
+                (inv.place_of_supply as string) ||
+                (buyer?.state as string) ||
+                (getValue(order, 'customerState', 'customer.state', 'shipping_state') as string) ||
+                '—';
+              const supplyType =
+                (inv.supply_type as string) ||
+                (inv.supplyType as string) ||
+                'INTRASTATE';
+              const pageNumber = (inv.page_number as string) || (inv.pageNumber as string) || '1/1';
+
+              // Bill From: backend invoice.seller (env SELLER_* / defaults)
+              const billFromName =
+                seller?.company_name || seller?.name || seller?.companyName || 'Seller not configured';
+              const billFromLine1 = seller?.address_line1 || seller?.addressLine1 || '';
+              const billFromLine2 = seller?.address_line2 || seller?.addressLine2 || '';
+              const billFromCityLine = [seller?.city, seller?.state, seller?.pincode].filter(Boolean).join(', ');
+              const billFromGst = seller?.gstin || seller?.gst_number || '—';
+              const billFromFssai = seller?.fssai || '—';
+              const billFromFssaiLink = seller?.fssai_link || seller?.fssaiLink || '';
+
+              // Bill To: canonical buyer from API, else legacy order shape
+              const customerName =
+                buyer?.name ||
+                (getValue(order, 'customerName', 'customer.name', 'user.name') as string) ||
+                '—';
+              const customerAddress =
+                buyer?.address_line1 ||
+                buyer?.addressLine1 ||
+                (getValue(order, 'customerAddress', 'customer.address', 'shipping_address.address') as string) ||
+                '—';
+              const customerAddress2 =
+                buyer?.address_line2 || buyer?.addressLine2 || '';
+              const customerCity =
+                buyer?.city ||
+                (getValue(order, 'customerCity', 'customer.city', 'shipping_city') as string) ||
+                '';
+              const customerState =
+                buyer?.state ||
+                (getValue(order, 'customerState', 'customer.state', 'shipping_state') as string) ||
+                '';
+              const customerPincode =
+                buyer?.pincode ||
+                (getValue(order, 'customerPincode', 'customer.pincode', 'shipping_pincode') as string) ||
+                '';
+              const customerMobile =
+                buyer?.phone ||
+                (getValue(order, 'customerMobile', 'customer.phone', 'shipping_phone') as string) ||
+                '—';
+              const customerGstin = buyer?.gstin || buyer?.gst_number || '';
+              const customerStateCode =
+                (getValue(order, 'customerStateCode', 'state_code') as string) || '—';
+
+              const orderItems = inv.items || order.items || order.orderItems || order.products || [];
               const hasItems = orderItems.length > 0;
-              
-              // Calculate totals with fallbacks
-              const totalAmount = order.totalAmount || order.total_amount || order.total || order.grandTotal || order.grand_total || 2197.32;
-              const totalQty = hasItems 
-                ? orderItems.reduce((sum: number, item: any) => sum + (item.quantity || item.qty || 1), 0)
-                : 1;
-              
+
+              const totalAmount = Number(
+                inv.grand_total ??
+                  inv.grandTotal ??
+                  inv.total ??
+                  order.totalAmount ??
+                  order.total_amount ??
+                  order.total ??
+                  0,
+              );
+              const totalQty = hasItems
+                ? orderItems.reduce((sum: number, item: any) => sum + Number(item.quantity || item.qty || 1), 0)
+                : 0;
+
+              const isCanonicalItem = (item: any) =>
+                item &&
+                typeof item === 'object' &&
+                item.product &&
+                typeof item.product === 'object' &&
+                (item.taxable_amount !== undefined || item.taxableAmount !== undefined);
+
               return (
                 <>
                   {/* Top section with QR + meta */}
                   <div className="flex justify-between gap-6">
                     <div className="w-32 h-32 border border-gray-300 flex items-center justify-center bg-white p-1">
-                      <img 
-                        src="/qr.png" 
-                        alt="QR Code" 
-                        className="w-full h-full object-contain"
-                      />
+                      <img src="/qr.png" alt="QR Code" className="w-full h-full object-contain" />
                     </div>
                     <div className="flex-1 grid grid-cols-2 gap-x-6 gap-y-1 text-[11px]">
-                      <div>
+                      <div className="flex gap-2.5">
+                        <img
+                          src="/dely-logo.png"
+                          alt="Delycart"
+                          className="h-[42px] w-[42px] shrink-0 rounded-lg object-contain"
+                        />
+                        <div>
                         <p className="font-semibold uppercase">Bill of Supply</p>
+                        <p>Invoice No : {(inv.invoice_number as string) || (inv.reference_number as string) || '—'}</p>
                         <p>Order No : {orderNumber}</p>
                         <p>Shipment No : {shipmentNumber}</p>
                         <p>Invoice Date : {invoiceDate}</p>
-                        <p>Place of Supply : {customerState.toUpperCase()}</p>
-                        <p>Supply Type : INTRASTATE</p>
-                        <p>Page No : 1 / 1</p>
+                        <p>Place of Supply : {String(placeOfSupply).toUpperCase()}</p>
+                        <p>Supply Type : {supplyType}</p>
+                        <p>Page No : {pageNumber}</p>
+                        </div>
                       </div>
                       <div>
                         <p className="font-semibold">Bill From:</p>
-                        <p>GRANARY WHOLESALE PRIVATE LIMITED</p>
-                        <p>No 331, Sarai Jagarnath, pargana - Nizamabad, Tehsil</p>
-                        <p>- Sadar, Janpad & Dist - Azamgarh, purwanchal</p>
-                        <p>paudhshala</p>
-                        <p>Azamgarh, Uttar Pradesh - 276207</p>
-                        <p>GSTIN: 09AAHCG7552R1ZP</p>
-                        <p>FSSAI: 10019043002791</p>
-                        <p className="text-[10px]">https://foscos.fssai.gov.in/</p>
+                        <p>{billFromName}</p>
+                        {billFromLine1 ? <p>{billFromLine1}</p> : null}
+                        {billFromLine2 ? <p>{billFromLine2}</p> : null}
+                        {billFromCityLine ? <p>{billFromCityLine}</p> : null}
+                        <p>GSTIN: {billFromGst}</p>
+                        <p>FSSAI: {billFromFssai}</p>
+                        {billFromFssaiLink ? (
+                          <p className="text-[10px] break-all">{billFromFssaiLink}</p>
+                        ) : null}
+                        {seller?.phone ? <p>Phone: {seller.phone}</p> : null}
+                        {seller?.email ? <p className="break-all">{seller.email}</p> : null}
                       </div>
                     </div>
                     <div className="w-60 text-[11px]">
                       <p className="font-semibold">Bill To:</p>
-                      <p>{customerName.toUpperCase()}</p>
+                      <p>{String(customerName).toUpperCase()}</p>
                       <p>{customerAddress}</p>
-                      <p>{customerCity}</p>
-                      <p>{customerCity}, {customerState} - {customerPincode}</p>
+                      {customerAddress2 ? <p>{customerAddress2}</p> : null}
+                      <p>
+                        {[customerCity, customerState].filter(Boolean).join(', ')}
+                        {customerPincode ? ` - ${customerPincode}` : ''}
+                      </p>
                       <p className="mt-1">Mobile: {customerMobile}</p>
+                      {customerGstin ? <p>GSTIN: {customerGstin}</p> : null}
                       <p>State Code: {customerStateCode}</p>
                     </div>
                   </div>
@@ -1121,52 +1212,163 @@ const orderStats = [
                     </div>
                     {hasItems ? (
                       orderItems.map((item: any, index: number) => {
-                        // Extract product information with comprehensive fallbacks
-                        const productName = item.productName || item.product_name || item.product?.name || item.name || 'Product';
-                        const productDescription = item.productDescription || item.product_description || item.product?.description || '';
-                        
-                        // HSN Code extraction - CRITICAL: Must be present (priority order)
-                        const hsnCode = item.hsnCode || item.hsn_code || 
-                                       item.product?.hsnCode || item.product?.hsn_code || 
-                                       item.variant?.hsnCode || item.variant?.hsn_code || 
-                                       '07139090'; // Fallback only if absolutely not found
-                        
-                        // Pricing information
+                        if (isCanonicalItem(item)) {
+                          const productName = item.product?.name || 'Product';
+                          const productDescription = item.product?.description || '';
+                          const hsnCode = item.product?.hsn || item.product?.hsnCode || '07139090';
+                          const variantLabel = item.product?.variant || item.product?.unit || '';
+                          const mrp = Number(item.mrp ?? item.original_rate ?? item.originalPrice ?? 0);
+                          const sellingPrice = Number(item.rate ?? item.selling_price ?? item.sellingPrice ?? item.price ?? 0);
+                          const unitDiscount = Number(item.unit_discount ?? 0);
+                          const discountTotal = Number(item.discount ?? unitDiscount * Number(item.quantity ?? 1));
+                          const quantity = Number(item.quantity ?? item.qty ?? 1);
+                          const taxableAmount = Number(item.taxable_amount ?? item.taxableAmount ?? sellingPrice * quantity);
+                          const sgstAmount = Number(item.sgst ?? item.tax_details?.sgst ?? 0);
+                          const cgstAmount = Number(item.cgst ?? item.tax_details?.cgst ?? 0);
+                          const igstAmount = Number(item.tax_details?.igst ?? item.igst ?? 0);
+                          const taxRate = Number(item.tax_details?.rate ?? 0);
+                          const halfRate = taxRate > 0 ? taxRate / 2 : 0;
+                          const itemTotalAmount = Number(
+                            item.total_amount ?? item.totalAmount ?? taxableAmount + sgstAmount + cgstAmount + igstAmount,
+                          );
+                          const taxLabel =
+                            supplyType === 'INTERSTATE' && igstAmount > 0
+                              ? `IGST@ ${taxRate.toFixed(1)}%`
+                              : `CGST@ ${halfRate.toFixed(1)}%, SGST@ ${halfRate.toFixed(1)}%`;
+                          return (
+                            <div
+                              key={item.id || index}
+                              className="grid grid-cols-[2fr,0.7fr,0.7fr,0.7fr,0.4fr,0.8fr,0.5fr,0.5fr,0.8fr] text-[10px] border-b border-black">
+                              <div className="px-2 py-2 border-r border-black">
+                                {productName}
+                                {productDescription ? `: ${productDescription}` : ''}
+                                <br />
+                                {variantLabel ? `${variantLabel}, ` : ''}HSN: {hsnCode}, {taxLabel}
+                                <br />
+                                <span className="font-semibold">HSN Code: {hsnCode}</span>
+                              </div>
+                              <div className="px-2 py-2 border-r border-black text-right">
+                                {mrp.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </div>
+                              <div className="px-2 py-2 border-r border-black text-right">
+                                {discountTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </div>
+                              <div className="px-2 py-2 border-r border-black text-right">
+                                {sellingPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </div>
+                              <div className="px-2 py-2 border-r border-black text-right">{quantity.toFixed(1)}</div>
+                              <div className="px-2 py-2 border-r border-black text-right">
+                                {taxableAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </div>
+                              <div className="px-2 py-2 border-r border-black text-right">
+                                {sgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </div>
+                              <div className="px-2 py-2 border-r border-black text-right">
+                                {cgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </div>
+                              <div className="px-2 py-2 text-right">
+                                {itemTotalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </div>
+                            </div>
+                          );
+                        }
+
+                        const productName =
+                          item.productName || item.product_name || item.product?.name || item.name || 'Product';
+                        const productDescription =
+                          item.productDescription || item.product_description || item.product?.description || '';
+
+                        const hsnCode =
+                          item.hsnCode ||
+                          item.hsn_code ||
+                          item.product?.hsnCode ||
+                          item.product?.hsn_code ||
+                          item.variant?.hsnCode ||
+                          item.variant?.hsn_code ||
+                          '07139090';
+
                         const mrp = item.mrp || item.originalPrice || item.original_price || item.product?.mrp || 0;
-                        const sellingPrice = item.sellingPrice || item.selling_price || item.price || item.product?.sellingPrice || item.product?.selling_price || 0;
-                        const discount = Math.max(0, mrp - sellingPrice);
-                        
-                        // Quantity and unit information
+                        const sellingPrice =
+                          item.sellingPrice ||
+                          item.selling_price ||
+                          item.price ||
+                          item.product?.sellingPrice ||
+                          item.product?.selling_price ||
+                          0;
+                        const discount = Math.max(0, Number(mrp) - Number(sellingPrice));
+
                         const quantity = item.quantity || item.qty || 1;
                         const unit = item.unit || item.product?.unit || 'EACH';
-                        const setPieces = item.setPieces || item.set_pieces || item.variant?.setPieces || item.variant?.set_pieces || item.product?.piecesPerSet || item.product?.pieces_per_set || 1;
-                        
-                        // Tax calculation (use provided amounts or calculate)
-                        const taxableAmount = item.taxableAmount || item.taxable_amount || (sellingPrice * quantity);
-                        const cgstRate = item.cgstRate || item.cgst_rate || item.product?.cgstRate || item.product?.cgst_rate || 0;
-                        const sgstRate = item.sgstRate || item.sgst_rate || item.product?.sgstRate || item.product?.sgst_rate || 0;
+                        const setPieces =
+                          item.setPieces ||
+                          item.set_pieces ||
+                          item.variant?.setPieces ||
+                          item.variant?.set_pieces ||
+                          item.product?.piecesPerSet ||
+                          item.product?.pieces_per_set ||
+                          1;
+
+                        const taxableAmount =
+                          item.taxableAmount || item.taxable_amount || Number(sellingPrice) * Number(quantity);
+                        const cgstRate =
+                          item.cgstRate || item.cgst_rate || item.product?.cgstRate || item.product?.cgst_rate || 0;
+                        const sgstRate =
+                          item.sgstRate || item.sgst_rate || item.product?.sgstRate || item.product?.sgst_rate || 0;
                         const cgstAmount = item.cgstAmount || item.cgst_amount || (taxableAmount * cgstRate) / 100;
                         const sgstAmount = item.sgstAmount || item.sgst_amount || (taxableAmount * sgstRate) / 100;
-                        const itemTotalAmount = item.totalAmount || item.total_amount || (taxableAmount + cgstAmount + sgstAmount);
-                        
+                        const itemTotalAmount =
+                          item.totalAmount || item.total_amount || taxableAmount + cgstAmount + sgstAmount;
+
                         return (
-                          <div key={index} className="grid grid-cols-[2fr,0.7fr,0.7fr,0.7fr,0.4fr,0.8fr,0.5fr,0.5fr,0.8fr] text-[10px] border-b border-black">
+                          <div
+                            key={index}
+                            className="grid grid-cols-[2fr,0.7fr,0.7fr,0.7fr,0.4fr,0.8fr,0.5fr,0.5fr,0.8fr] text-[10px] border-b border-black">
                             <div className="px-2 py-2 border-r border-black">
                               {productName}
                               {productDescription && `: ${productDescription}`}
                               <br />
-                              {unit} (Set of {setPieces}), HSN: {hsnCode}, CGST@ {cgstRate.toFixed(1)}%, SGST@ {sgstRate.toFixed(1)}%
+                              {unit} (Set of {setPieces}), HSN: {hsnCode}, CGST@ {Number(cgstRate).toFixed(1)}%, SGST@{' '}
+                              {Number(sgstRate).toFixed(1)}%
                               <br />
                               <span className="font-semibold">HSN Code: {hsnCode}</span>
                             </div>
-                            <div className="px-2 py-2 border-r border-black text-right">{mrp.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                            <div className="px-2 py-2 border-r border-black text-right">{discount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                            <div className="px-2 py-2 border-r border-black text-right">{sellingPrice.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                            <div className="px-2 py-2 border-r border-black text-right">{quantity.toFixed(1)}</div>
-                            <div className="px-2 py-2 border-r border-black text-right">{taxableAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                            <div className="px-2 py-2 border-r border-black text-right">{sgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                            <div className="px-2 py-2 border-r border-black text-right">{cgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                            <div className="px-2 py-2 text-right">{itemTotalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                            <div className="px-2 py-2 border-r border-black text-right">
+                              {Number(mrp).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                            <div className="px-2 py-2 border-r border-black text-right">
+                              {Number(discount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                            <div className="px-2 py-2 border-r border-black text-right">
+                              {Number(sellingPrice).toLocaleString('en-IN', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </div>
+                            <div className="px-2 py-2 border-r border-black text-right">{Number(quantity).toFixed(1)}</div>
+                            <div className="px-2 py-2 border-r border-black text-right">
+                              {Number(taxableAmount).toLocaleString('en-IN', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </div>
+                            <div className="px-2 py-2 border-r border-black text-right">
+                              {Number(sgstAmount).toLocaleString('en-IN', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </div>
+                            <div className="px-2 py-2 border-r border-black text-right">
+                              {Number(cgstAmount).toLocaleString('en-IN', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </div>
+                            <div className="px-2 py-2 text-right">
+                              {Number(itemTotalAmount).toLocaleString('en-IN', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                              })}
+                            </div>
                           </div>
                         );
                       })
@@ -1198,7 +1400,7 @@ const orderStats = [
                   {/* Grand total section */}
                   <div className="flex justify-between items-center mt-2 text-[11px]">
                     <div>
-                      <p className="font-semibold">FOR GRANARY WHOLESALE PRIVATE LIMITED</p>
+                      <p className="font-semibold">FOR {billFromName.toUpperCase()}</p>
                     </div>
                     <div className="text-right">
                       <p>Grand Total:</p>
@@ -1209,40 +1411,44 @@ const orderStats = [
                       <p className="font-bold text-xl">₹ {totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     </div>
                   </div>
+
+                  {/* Footer */}
+                  <div className="mt-6 flex justify-between items-start text-[9px]">
+                    <div className="max-w-md">
+                      <p className="font-semibold mb-1">Authorised Signatory</p>
+                      <div className="mb-2 mt-1">
+                        <img src="/sign.png" alt="Signature" className="h-12 object-contain" />
+                      </div>
+                      <p className="mt-1">
+                        Is tax payable on reverse charge basis -{' '}
+                        {inv.tax_payable_reverse_charge === true ? 'YES' : 'NO'}
+                      </p>
+                      <p className="mt-1">
+                        DECLARATION: We declare that the invoice shows the actual price of the goods described and that the
+                        particulars are true and correct.
+                      </p>
+                      <p className="mt-1">
+                        {inv.terms ||
+                          'Note:- This transaction/sale is subject to TDS U/s 194-O hence TDS U/s 194Q is not applicable. This is a computer-generated invoice.'}
+                      </p>
+                      <p className="mt-1">
+                        For any issues, please contact DelyCart Customer Care team at 08045744101 or go to Your Biz &gt;
+                        Support section on Delycart app.
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-center space-y-2 mr-4">
+                      <img
+                        src="/dely-logo.png"
+                        alt="Delycart"
+                        className="h-11 w-11 rounded-lg object-contain"
+                      />
+                      <p className="text-[10px] font-semibold">Ordered Through</p>
+                      <p className="text-[11px] font-bold text-red-600">Delycart</p>
+                    </div>
+                  </div>
                 </>
               );
             })()}
-
-            {/* Footer */}
-            <div className="mt-6 flex justify-between items-start text-[9px]">
-              <div className="max-w-md">
-                <p className="font-semibold mb-1">Authorised Signatory</p>
-                <div className="mb-2 mt-1">
-                  <img 
-                    src="/sign.png" 
-                    alt="Signature" 
-                    className="h-12 object-contain"
-                  />
-                </div>
-                <p className="mt-1">Is tax payable on reverse charge basis - NO</p>
-                <p className="mt-1">
-                  DECLARATION: We declare that the invoice shows the actual price of the goods described and that the particulars are true and correct.
-                </p>
-                <p className="mt-1">
-                  Note:- This transaction/sale is subject to TDS U/s 194-O hence TDS U/s 194Q is not applicable. This is a computer-generated invoice.
-                </p>
-                <p className="mt-1">
-                  For any issues, please contact DelyCart Customer Care team at 08045744101 or go to Your Biz &gt; Support section on Delycart app.
-                </p>
-              </div>
-              <div className="flex flex-col items-center space-y-2 mr-4">
-                <div className="w-10 h-10 rounded-full border border-red-500 flex items-center justify-center text-[10px] text-red-600">
-                  logo
-                </div>
-                <p className="text-[10px] font-semibold">Ordered Through</p>
-                <p className="text-[11px] font-bold text-red-600">Delycart</p>
-              </div>
-            </div>
           </div>
         </DialogContent>
       </Dialog>

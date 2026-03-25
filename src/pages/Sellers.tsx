@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Loader2, Edit, Trash2, KeyRound } from 'lucide-react';
+import { Plus, Search, Loader2, Edit, Trash2, KeyRound, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,6 +42,7 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { companiesAPI, sellersAPI } from '@/lib/api';
+import { ROUTES } from '@/constants';
 
 type SellerFormMode = 'create' | 'edit';
 
@@ -267,13 +269,14 @@ export default function Sellers() {
                     <TableHead>Company</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Last Login</TableHead>
+                    <TableHead>Catalog</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {sellers.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                         No sellers found
                       </TableCell>
                     </TableRow>
@@ -290,6 +293,17 @@ export default function Sellers() {
                         </TableCell>
                         <TableCell className="text-muted-foreground text-sm">
                           {formatDate(seller.last_login || seller.lastLogin)}
+                        </TableCell>
+                        <TableCell>
+                          <Button variant="outline" size="sm" className="h-8" asChild>
+                            <Link
+                              to={`${ROUTES.PRODUCTS}?created_by=${encodeURIComponent(seller.id)}`}
+                              title="View products this seller listed"
+                            >
+                              <Package className="h-4 w-4 mr-1" />
+                              Products
+                            </Link>
+                          </Button>
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-2">

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { 
   Plus, 
   Search, 
@@ -65,11 +66,22 @@ export default function Products() {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(50); // Admin API supports up to 10000; seller up to 100
   const [exporting, setExporting] = useState(false);
+  /** all | seller | platform — staff-only; seller role uses seller API. */
+  const [listingScope, setListingScope] = useState<'all' | 'seller' | 'platform'>('all');
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const createdByFromUrl = (searchParams.get('created_by') || '').trim();
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const isSeller = user?.role === 'seller';
+
+  useEffect(() => {
+    if (isSeller || !createdByFromUrl) return;
+    setListingScope('all');
+    setPage(1);
+  }, [createdByFromUrl, isSeller]);
 
   // Ensure query runs when component mounts
   useEffect(() => {
@@ -169,12 +181,29 @@ export default function Products() {
       filterParams.status = 'available';
     } else if (selectedStatus === 'low_stock') {
       filterParams.stock_status = 'low_stock';
-    } else if (selectedStatus === 'out_of_stock') {
+    } else     if (selectedStatus === 'out_of_stock') {
       filterParams.stock_status = 'out_of_stock';
     }
 
+    if (!isSeller) {
+      if (createdByFromUrl) {
+        filterParams.created_by = createdByFromUrl;
+      } else if (listingScope === 'seller' || listingScope === 'platform') {
+        filterParams.listing_scope = listingScope;
+      }
+    }
+
     return filterParams;
-  }, [searchQuery, selectedCategory, selectedStatus, page, limit]);
+  }, [
+    searchQuery,
+    selectedCategory,
+    selectedStatus,
+    page,
+    limit,
+    isSeller,
+    createdByFromUrl,
+    listingScope,
+  ]);
 
   // Normalize pagination from various backend shapes to { page, limit, total, totalPages }
   const normalizePagination = (data: any, fallback: { page: number; limit: number }) => {
@@ -373,6 +402,12 @@ export default function Products() {
       if (selectedStatus === 'available') params.status = 'available';
       if (selectedStatus === 'low_stock') params.stock_status = 'low_stock';
       if (selectedStatus === 'out_of_stock') params.stock_status = 'out_of_stock';
+      if (!isSeller) {
+        if (createdByFromUrl) params.created_by = createdByFromUrl;
+        else if (listingScope === 'seller' || listingScope === 'platform') {
+          params.listing_scope = listingScope;
+        }
+      }
 
       const response = isSeller
         ? await sellerProductsAPI.getProducts({
@@ -390,7 +425,20 @@ export default function Products() {
       else if (Array.isArray(payload)) items = payload;
       else if (payload?.products && Array.isArray(payload.products)) items = payload.products;
 
-      const headers = ['Name', 'Division', 'HSN Code', 'Brand', 'Company', 'Category', 'MRP', 'Selling Price', 'Stock', 'Expiry', 'Status'];
+      const headers = [
+        'Name',
+        'Division',
+        'HSN Code',
+        'Brand',
+        'Company',
+        'Category',
+        ...(isSeller ? [] : ['Listed by', 'Creator role']),
+        'MRP',
+        'Selling Price',
+        'Stock',
+        'Expiry',
+        'Status',
+      ];
       const rows = items.map((p: any) => {
         const mrp = p.mrp ?? 0;
         const sellingPrice = p.sellingPrice ?? p.selling_price ?? 0;
@@ -415,19 +463,25 @@ export default function Products() {
         const v0 = variants[0];
         const hsn = p?.hsnCode ?? p?.hsn_code ?? v0?.hsnCode ?? v0?.hsn_code ?? v0?.hsn ?? '';
 
-        return [
+        const cells = [
           escapeCsv(p.name ?? ''),
           escapeCsv(divisionLabel),
           escapeCsv(hsn ?? ''),
           escapeCsv(p.brand?.name ?? ''),
           escapeCsv(p.company?.name ?? ''),
           escapeCsv(p.category?.name ?? ''),
+        ];
+        if (!isSeller) {
+          cells.push(escapeCsv(p.creator?.name ?? ''), escapeCsv(p.creator?.role ?? ''));
+        }
+        cells.push(
           escapeCsv(mrp),
           escapeCsv(sellingPrice),
           escapeCsv(stock),
           escapeCsv(expiryStr),
           escapeCsv(status),
-        ].join(',');
+        );
+        return cells.join(',');
       });
       const csv = [headers.join(','), ...rows].join('\r\n');
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -570,6 +624,29 @@ export default function Products() {
         </Card>
       </div>
 
+      {!isSeller && createdByFromUrl && (
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-lg border border-border bg-secondary/30 px-4 py-3 text-sm">
+          <p className="text-foreground">
+            Showing products created by this seller (admin id filter). Use{' '}
+            <span className="font-mono text-xs">{createdByFromUrl}</span>
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setSearchParams((prev) => {
+                const p = new URLSearchParams(prev);
+                p.delete('created_by');
+                return p;
+              });
+              setPage(1);
+            }}
+          >
+            Clear seller filter
+          </Button>
+        </div>
+      )}
+
       {/* Filters */}
       <Card className="shadow-card">
         <CardContent className="p-4">
@@ -617,6 +694,24 @@ export default function Products() {
                   <SelectItem value="out_of_stock">Out of Stock</SelectItem>
                 </SelectContent>
               </Select>
+              {!isSeller && !createdByFromUrl && (
+                <Select
+                  value={listingScope}
+                  onValueChange={(value: 'all' | 'seller' | 'platform') => {
+                    setListingScope(value);
+                    setPage(1);
+                  }}
+                >
+                  <SelectTrigger className="w-[200px]" title="Catalog scope">
+                    <SelectValue placeholder="Catalog scope" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All listings</SelectItem>
+                    <SelectItem value="seller">Seller listings only</SelectItem>
+                    <SelectItem value="platform">Platform catalog only</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
               <Select
                 value={String(limit)}
                 onValueChange={(value) => {
@@ -646,7 +741,13 @@ export default function Products() {
                   setSearchQuery('');
                   setSelectedCategory('all');
                   setSelectedStatus('all');
+                  setListingScope('all');
                   setPage(1);
+                  setSearchParams((prev) => {
+                    const p = new URLSearchParams(prev);
+                    p.delete('created_by');
+                    return p;
+                  });
                 }}
               >
                 <Filter className="h-4 w-4" />
@@ -745,6 +846,11 @@ export default function Products() {
                       <th className="py-4 px-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                         Category
                       </th>
+                      {!isSeller && (
+                        <th className="py-4 px-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                          Listed by
+                        </th>
+                      )}
                       <th className="py-4 px-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                         Price
                       </th>
@@ -857,6 +963,23 @@ export default function Products() {
                           <td className="py-4 px-4 text-foreground">
                             {product.category?.name || '-'}
                     </td>
+                    {!isSeller && (
+                      <td className="py-4 px-4 text-sm">
+                        {product.creator?.name ? (
+                          <div className="space-y-1">
+                            <p className="font-medium text-foreground">{product.creator.name}</p>
+                            <p className="text-xs text-muted-foreground">{product.creator.email || '—'}</p>
+                            {product.creator.role === 'seller' && (
+                              <Badge variant="outline" className="text-[10px]">
+                                Seller
+                              </Badge>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">Platform</span>
+                        )}
+                      </td>
+                    )}
                     <td className="py-4 px-4">
                             <p className="font-medium text-foreground">
                               {formatCurrency(parseFloat(sellingPrice.toString()))}
