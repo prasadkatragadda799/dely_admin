@@ -151,7 +151,11 @@ export function AdminSidebar() {
       <SidebarHeader className="p-4 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-blue">
-            <span className="text-primary-foreground font-bold text-lg">D</span>
+            <img
+              src="/logo.png"
+              alt="Dely logo"
+              className="h-6 w-6 object-contain"
+            />
           </div>
           {!isCollapsed && (
             <div>
