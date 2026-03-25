@@ -469,9 +469,29 @@ export default function UsersPage() {
       setVerifyComments('');
     },
     onError: (error: any) => {
+      const detail: string | undefined =
+        error?.response?.data?.detail ||
+        error?.response?.data?.message ||
+        error?.response?.data?.error?.message ||
+        error?.message;
+
+      // Backend returns 400 when KYC is already verified; treat it as a non-error UX.
+      if (typeof detail === 'string' && detail.toLowerCase().includes('already verified')) {
+        toast({
+          title: 'KYC already verified',
+          description: detail,
+        });
+        queryClient.invalidateQueries({ queryKey: ['users'] });
+        queryClient.invalidateQueries({ queryKey: ['kyc'] });
+        queryClient.invalidateQueries({ queryKey: ['user-kyc'] });
+        setVerifyingUserId(null);
+        setVerifyComments('');
+        return;
+      }
+
       toast({
         title: 'Error',
-        description: error.response?.data?.error?.message || 'Failed to verify KYC',
+        description: detail || 'Failed to verify KYC',
         variant: 'destructive',
       });
     },
@@ -958,6 +978,62 @@ export default function UsersPage() {
                     </p>
                   </div>
                 </div>
+
+                <div className="space-y-2">
+                  <Label>Documents</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {(() => {
+                      const shopUrl: string | undefined =
+                        userKYCSubmission.shopImageUrl ||
+                        userKYCSubmission.shop_image_url ||
+                        undefined;
+                      return (
+                        <div className="border rounded-md p-2">
+                          <p className="text-xs text-muted-foreground mb-2">Shop Image</p>
+                          {shopUrl ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="w-full"
+                              onClick={() => openImagePreview('Shop Image', shopUrl)}
+                            >
+                              View
+                            </Button>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">Not uploaded</p>
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    {(() => {
+                      const fssaiUrl: string | undefined =
+                        userKYCSubmission.fssaiLicenseImageUrl ||
+                        userKYCSubmission.fssai_license_image_url ||
+                        undefined;
+                      return (
+                        <div className="border rounded-md p-2">
+                          <p className="text-xs text-muted-foreground mb-2">FSSAI License Image</p>
+                          {fssaiUrl ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="w-full"
+                              onClick={() => openImagePreview('FSSAI License Image', fssaiUrl)}
+                            >
+                              View
+                            </Button>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">Not uploaded</p>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="verify-comments">Comments (Optional)</Label>
                   <Textarea 

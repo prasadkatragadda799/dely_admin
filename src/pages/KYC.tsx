@@ -177,7 +177,7 @@ export default function KYC() {
       const response = await kycAPI.getKYCDocuments(selectedKYC.id);
       return response.data;
     },
-    enabled: !!selectedKYC?.id && isViewDialogOpen,
+    enabled: !!selectedKYC?.id && (isViewDialogOpen || isVerifyDialogOpen),
   });
 
   // Verify KYC mutation
@@ -196,9 +196,29 @@ export default function KYC() {
       setSelectedKYC(null);
     },
     onError: (error: any) => {
+      const detail: string | undefined =
+        error?.response?.data?.detail ||
+        error?.response?.data?.message ||
+        error?.response?.data?.error?.message ||
+        error?.message;
+
+      // Backend returns 400 when KYC is already verified; treat it as a non-error UX.
+      if (typeof detail === 'string' && detail.toLowerCase().includes('already verified')) {
+        toast({
+          title: 'KYC already verified',
+          description: detail,
+        });
+        queryClient.invalidateQueries({ queryKey: ['kyc'] });
+        setIsVerifyDialogOpen(false);
+        setIsViewDialogOpen(false);
+        setVerifyComments('');
+        setSelectedKYC(null);
+        return;
+      }
+
       toast({
         title: 'Error',
-        description: error.response?.data?.error?.message || 'Failed to verify KYC',
+        description: detail || 'Failed to verify KYC',
         variant: 'destructive',
       });
     },
@@ -1084,11 +1104,61 @@ export default function KYC() {
               Confirm verification for {selectedKYC?.businessName || selectedKYC?.business_name || 'this business'}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+
+          <div className="space-y-3 py-4">
+            <div className="space-y-2">
+              <Label>Documents</Label>
+              <div className="grid grid-cols-2 gap-3">
+                {(() => {
+                  const shopUrl = getShopImageUrl(selectedKYC, kycDocuments);
+                  return (
+                    <div className="border rounded-md p-2">
+                      <p className="text-xs text-muted-foreground mb-2">Shop Image</p>
+                      {shopUrl ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => openImagePreview('Shop Image', shopUrl)}
+                        >
+                          View
+                        </Button>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">Not uploaded</p>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {(() => {
+                  const fssaiUrl = getFssaiLicenseImageUrl(selectedKYC, kycDocuments);
+                  return (
+                    <div className="border rounded-md p-2">
+                      <p className="text-xs text-muted-foreground mb-2">FSSAI License Image</p>
+                      {fssaiUrl ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => openImagePreview('FSSAI License Image', fssaiUrl)}
+                        >
+                          View
+                        </Button>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">Not uploaded</p>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="verify-comments">Comments (Optional)</Label>
-              <Textarea 
-                id="verify-comments" 
+              <Textarea
+                id="verify-comments"
                 placeholder="Add any comments about this verification"
                 rows={3}
                 value={verifyComments}
