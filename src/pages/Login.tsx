@@ -41,7 +41,11 @@ export default function Login() {
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
           <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-blue mb-4">
-            <span className="text-primary-foreground font-bold text-3xl">D</span>
+              <img
+                src="/logo.png"
+                alt="Dely logo"
+                className="h-10 w-10 object-contain"
+              />
           </div>
           <h1 className="text-2xl font-bold text-foreground">Dely Admin</h1>
           <p className="text-muted-foreground mt-1">B2B Grocery Management</p>
