@@ -57,6 +57,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { format } from 'date-fns';
 import { offersAPI } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const offerTypes = [
   { value: 'banner', label: 'Banner Offer', icon: ImageIcon },
@@ -79,7 +80,12 @@ export default function Offers() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: offersResponse, isLoading: loadingOffers } = useQuery({
+  const {
+    data: offersResponse,
+    isLoading: loadingOffers,
+    isError: offersLoadError,
+    error: offersLoadErrorDetail,
+  } = useQuery({
     queryKey: ['offers', filterType, filterStatus],
     queryFn: async () => {
       const params: { type?: string; status?: string } = {};
@@ -88,6 +94,17 @@ export default function Offers() {
       return offersAPI.getOffers(params);
     },
   });
+
+  let offersErrorMessage = '';
+  if (offersLoadError) {
+    const err = offersLoadErrorDetail;
+    if (err && typeof err === 'object' && 'response' in err) {
+      const msg = (err as { response?: { data?: { message?: string } } }).response?.data?.message;
+      offersErrorMessage = msg != null && msg !== '' ? String(msg) : '';
+    }
+    if (!offersErrorMessage && err instanceof Error) offersErrorMessage = err.message;
+    if (!offersErrorMessage) offersErrorMessage = 'Could not load offers from the API.';
+  }
 
   const offersList = Array.isArray(offersResponse?.data) ? offersResponse.data : [];
   const filteredOffers = useMemo(() => {
@@ -263,6 +280,20 @@ export default function Offers() {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {offersLoadError && (
+        <Alert variant="destructive">
+          <AlertTitle>Offers API error (admin: GET /admin/offers)</AlertTitle>
+          <AlertDescription className="space-y-1">
+            <p>{offersErrorMessage}</p>
+            <p className="text-xs text-muted-foreground">
+              For the public mobile endpoint, open the same API host in a browser or curl:{' '}
+              <code className="rounded bg-muted px-1">GET /api/v1/offers/ping</code> then{' '}
+              <code className="rounded bg-muted px-1">GET /api/v1/offers</code>. Check server logs:
+              journalctl -u dely-backend -n 100 | grep -i offers
+            </p>
+          </AlertDescription>
+        </Alert>
+      )}
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -562,6 +593,12 @@ export default function Offers() {
                     <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
                       <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
                       Loading offers…
+                    </TableCell>
+                  </TableRow>
+                ) : offersLoadError ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-12 text-center text-destructive">
+                      Failed to load offers. {offersErrorMessage}
                     </TableCell>
                   </TableRow>
                 ) : filteredOffers.length === 0 ? (
