@@ -878,6 +878,8 @@ export default function Products() {
                       const primaryImage = product.images?.find((img: any) => img.isPrimary || img.is_primary) || product.images?.[0];
                       const imageUrl = primaryImage?.image_url || primaryImage?.imageUrl || primaryImage?.url;
                       const sellingPrice = product.sellingPrice || product.selling_price || 0;
+                      const commissionCost = product.commissionCost ?? product.commission_cost ?? 0;
+                      const finalSellingPrice = product.finalSellingPrice ?? product.final_selling_price ?? (Number(sellingPrice) + Number(commissionCost));
                       const mrp = product.mrp || product.mrp || 0;
                       const stockQuantity = product.stockQuantity || product.stock_quantity || 0;
                       const isFeatured = product.isFeatured || product.is_featured || false;
@@ -982,8 +984,13 @@ export default function Products() {
                     )}
                     <td className="py-4 px-4">
                             <p className="font-medium text-foreground">
-                              {formatCurrency(parseFloat(sellingPrice.toString()))}
+                              {formatCurrency(parseFloat(finalSellingPrice.toString()))}
                             </p>
+                            {!isSeller && Number(commissionCost) > 0 && (
+                              <p className="text-xs text-muted-foreground">
+                                Base: {formatCurrency(parseFloat(sellingPrice.toString()))} + Commission: {formatCurrency(parseFloat(commissionCost.toString()))}
+                              </p>
+                            )}
                             {parseFloat(mrp.toString()) > parseFloat(sellingPrice.toString()) && (
                               <p className="text-xs text-muted-foreground line-through">
                                 {formatCurrency(parseFloat(mrp.toString()))}

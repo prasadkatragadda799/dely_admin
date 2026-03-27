@@ -81,6 +81,7 @@ const productSchema = z.object({
   hsnCode: z.string().optional(),
   mrp: z.number().min(0, 'MRP must be greater than 0'),
   sellingPrice: z.number().min(0, 'Selling price must be greater than 0'),
+  commissionCost: z.number().min(0, 'Commission cost must be 0 or greater').default(0),
   stockQuantity: z.number().int().min(0, 'Stock quantity must be 0 or greater'),
   minOrderQuantity: z.number().int().min(1, 'Minimum order quantity must be at least 1'),
   unit: z.string().min(1, 'Unit is required'),
@@ -124,6 +125,7 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
     defaultValues: {
       minOrderQuantity: 1,
       piecesPerSet: 1,
+      commissionCost: 0,
       isFeatured: false,
       isAvailable: true,
       unit: 'piece',
@@ -260,6 +262,7 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
         'default';
       const mrp = Number(productData.mrp ?? 0);
       const sellingPrice = Number(productData.sellingPrice ?? productData.selling_price ?? 0);
+      const commissionCost = Number(productData.commissionCost ?? productData.commission_cost ?? 0);
       const stockQuantity = Number(productData.stockQuantity ?? productData.stock_quantity ?? 0);
       const minOrderQuantity = Number(productData.minOrderQuantity ?? productData.min_order_quantity ?? 1);
       const piecesPerSet = Number(productData.piecesPerSet ?? productData.pieces_per_set ?? 1);
@@ -277,6 +280,7 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
         brandId: brandId || 'none',
         mrp,
         sellingPrice,
+        commissionCost,
         stockQuantity,
         minOrderQuantity,
         unit: productData.unit || 'piece',
@@ -319,6 +323,7 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
       reset({
         minOrderQuantity: 1,
         piecesPerSet: 1,
+        commissionCost: 0,
         isFeatured: false,
         isAvailable: true,
         unit: 'piece',
@@ -419,6 +424,7 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
       // Add base pricing (can represent default / primary variant)
       formData.append('mrp', data.mrp.toString());
       formData.append('sellingPrice', data.sellingPrice.toString());
+      formData.append('commissionCost', (data.commissionCost || 0).toString());
       
       // Add stock and order quantities (overall stock for all variants)
       formData.append('stockQuantity', (data.stockQuantity || 0).toString());
@@ -535,6 +541,7 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
   const discount = watch('mrp') && watch('sellingPrice')
     ? ((watch('mrp') - watch('sellingPrice')) / watch('mrp')) * 100
     : 0;
+  const finalSellingPrice = Number(watch('sellingPrice') || 0) + Number(watch('commissionCost') || 0);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -731,6 +738,35 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
                 )}
               </div>
             </div>
+
+            {!isSeller && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="commissionCost">Admin Commission (₹)</Label>
+                  <Input
+                    id="commissionCost"
+                    type="number"
+                    step="0.01"
+                    {...register('commissionCost', { valueAsNumber: true })}
+                    placeholder="0.00"
+                  />
+                  {errors.commissionCost && (
+                    <p className="text-sm text-destructive">{errors.commissionCost.message}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="finalSellingPrice">Final Selling Price (₹)</Label>
+                  <Input
+                    id="finalSellingPrice"
+                    type="number"
+                    step="0.01"
+                    value={Number.isFinite(finalSellingPrice) ? finalSellingPrice : 0}
+                    readOnly
+                    disabled
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Stock & Inventory */}
