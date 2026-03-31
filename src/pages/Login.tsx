@@ -134,7 +134,7 @@ export default function Login() {
         </Card>
 
         <p className="text-center text-xs text-muted-foreground mt-6">
-          © 2024 Dely. All rights reserved.
+          © 2026 Dely. All rights reserved.
         </p>
       </div>
     </div>
