@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, type FormEvent } from 'react';
 import { 
   Search, 
   Filter, 
@@ -218,7 +218,7 @@ export default function UsersPage() {
     },
   });
 
-  const handleAddUserSubmit = (e: React.FormEvent) => {
+  const handleAddUserSubmit = (e: FormEvent) => {
     e.preventDefault();
     const { name, email, phone, password } = addUserForm;
     if (!name.trim() || !email.trim() || !phone.trim() || !password) {
@@ -1161,6 +1161,30 @@ export default function UsersPage() {
                         viewedUser.fssai_number ||
                         viewedUser.fssai ||
                         '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">GST Certificate</Label>
+                    <p className="font-mono text-sm">
+                      {viewedUser.gstCertificate || viewedUser.gst_certificate || '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">FSSAI License</Label>
+                    <p className="font-mono text-sm">
+                      {viewedUser.fssaiLicense || viewedUser.fssai_license || '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Udyam Registration</Label>
+                    <p className="font-mono text-sm">
+                      {viewedUser.udyamRegistration || viewedUser.udyam_registration || '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Trade Certificate</Label>
+                    <p className="font-mono text-sm">
+                      {viewedUser.tradeCertificate || viewedUser.trade_certificate || '—'}
                     </p>
                   </div>
                 </div>
