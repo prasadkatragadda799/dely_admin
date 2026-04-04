@@ -327,6 +327,63 @@ export default function UsersPage() {
     }
   };
 
+  /** Business / profile document URLs: show thumbnails like KYC, not raw link text. */
+  const renderProfileBusinessDocument = (
+    label: string,
+    raw: string | undefined | null,
+    userIdForFile: string,
+  ) => {
+    const rawStr = typeof raw === 'string' && raw.trim() ? raw.trim() : undefined;
+    const resolved = resolveMediaUrl(rawStr);
+    const safeName = `${label.replace(/\s+/g, '-').toLowerCase()}-${userIdForFile}`;
+
+    return (
+      <div className="space-y-2">
+        <Label className="text-muted-foreground">{label}</Label>
+        {resolved ? (
+          <>
+            <button
+              type="button"
+              className="w-full rounded-md overflow-hidden border bg-muted/20"
+              onClick={() => openImagePreview(label, rawStr)}
+            >
+              <img src={resolved} alt={label} className="w-full h-40 object-cover" />
+            </button>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                onClick={() => openImagePreview(label, rawStr)}
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                Preview
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                onClick={() => rawStr && downloadFile(rawStr, safeName)}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download
+              </Button>
+            </div>
+          </>
+        ) : rawStr && isUnsafeLocalDeviceUrl(rawStr) ? (
+          <p className="text-xs text-amber-800 dark:text-amber-200 leading-relaxed">
+            Device-only path in profile; not viewable here. Check KYC registration documents if the file was
+            uploaded to the server.
+          </p>
+        ) : (
+          <p className="text-sm text-muted-foreground">—</p>
+        )}
+      </div>
+    );
+  };
+
   const getDocUrl = (docs: any, predicate: (doc: any) => boolean): string | undefined => {
     if (!docs) return undefined;
     const list = Array.isArray(docs) ? docs : (docs?.items && Array.isArray(docs.items) ? docs.items : []);
@@ -1273,30 +1330,32 @@ export default function UsersPage() {
                         '—'}
                     </p>
                   </div>
-                  <div>
-                    <Label className="text-muted-foreground">GST Certificate</Label>
-                    <p className="font-mono text-sm">
-                      {viewedUser.gstCertificate || viewedUser.gst_certificate || '—'}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">FSSAI License</Label>
-                    <p className="font-mono text-sm">
-                      {viewedUser.fssaiLicense || viewedUser.fssai_license || '—'}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Udyam Registration</Label>
-                    <p className="font-mono text-sm">
-                      {viewedUser.udyamRegistration || viewedUser.udyam_registration || '—'}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Trade Certificate</Label>
-                    <p className="font-mono text-sm">
-                      {viewedUser.tradeCertificate || viewedUser.trade_certificate || '—'}
-                    </p>
-                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground -mt-1">
+                  Certificate files below are shown as previews (same as KYC). Raw values are image URLs from
+                  registration.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {renderProfileBusinessDocument(
+                    'GST Certificate',
+                    viewedUser.gstCertificate || viewedUser.gst_certificate,
+                    String(viewedUser.id || viewingUserId || 'user'),
+                  )}
+                  {renderProfileBusinessDocument(
+                    'FSSAI License',
+                    viewedUser.fssaiLicense || viewedUser.fssai_license,
+                    String(viewedUser.id || viewingUserId || 'user'),
+                  )}
+                  {renderProfileBusinessDocument(
+                    'Udyam Registration',
+                    viewedUser.udyamRegistration || viewedUser.udyam_registration,
+                    String(viewedUser.id || viewingUserId || 'user'),
+                  )}
+                  {renderProfileBusinessDocument(
+                    'Trade Certificate',
+                    viewedUser.tradeCertificate || viewedUser.trade_certificate,
+                    String(viewedUser.id || viewingUserId || 'user'),
+                  )}
                 </div>
               </div>
 
