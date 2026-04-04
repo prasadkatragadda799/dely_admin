@@ -846,6 +846,9 @@ export default function Products() {
                       <th className="py-4 px-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                         Category
                       </th>
+                      <th className="py-4 px-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        Unit / pack
+                      </th>
                       {!isSeller && (
                         <th className="py-4 px-4 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                           Listed by
@@ -890,6 +893,9 @@ export default function Products() {
                         (Array.isArray(product.productVariants) && product.productVariants) ||
                         [];
                       const primaryVariant = variants[0];
+                      const saleUnit = product.unit || 'piece';
+                      const piecesPerUnit =
+                        product.piecesPerSet ?? product.pieces_per_set ?? 1;
                       
                       return (
                         <tr
@@ -964,6 +970,19 @@ export default function Products() {
                           </td>
                           <td className="py-4 px-4 text-foreground">
                             {product.category?.name || '-'}
+                    </td>
+                    <td className="py-4 px-4 align-top">
+                      <p className="text-sm font-medium capitalize">{saleUnit}</p>
+                      {Number(piecesPerUnit) > 1 && (
+                        <p className="text-xs text-muted-foreground">
+                          {piecesPerUnit} pcs / {saleUnit}
+                        </p>
+                      )}
+                      {(primaryVariant?.setPieces || primaryVariant?.set_pcs) && (
+                        <p className="text-xs text-muted-foreground mt-1 max-w-[160px] break-words">
+                          {primaryVariant.setPieces || primaryVariant.set_pcs}
+                        </p>
+                      )}
                     </td>
                     {!isSeller && (
                       <td className="py-4 px-4 text-sm">

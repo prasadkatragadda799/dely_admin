@@ -856,6 +856,7 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
                     <SelectItem value="gram">Gram (g)</SelectItem>
                     <SelectItem value="liter">Liter (L)</SelectItem>
                     <SelectItem value="pack">Pack</SelectItem>
+                    <SelectItem value="set">Set</SelectItem>
                     <SelectItem value="box">Box</SelectItem>
                     <SelectItem value="bottle">Bottle</SelectItem>
                   </SelectContent>
@@ -867,14 +868,105 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="piecesPerSet">Pieces per Set</Label>
+              <Label htmlFor="piecesPerSet">Pieces per sale unit</Label>
               <Input
                 id="piecesPerSet"
                 type="number"
                 {...register('piecesPerSet', { valueAsNumber: true })}
                 placeholder="1"
               />
+              <p className="text-xs text-muted-foreground">
+                How many individual pieces are inside one ordered unit (e.g. 12 for a 12-pack). The app
+                shows this next to the price and in the cart.
+              </p>
             </div>
+          </div>
+
+          {/* Packaging variants — set/pcs label + optional price rows */}
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 className="text-lg font-semibold">Packaging variants</h3>
+                <p className="text-xs text-muted-foreground max-w-xl">
+                  Use &quot;Set / pieces label&quot; for text like 6×100g or 12 pcs (shown in the mobile
+                  app). MRP and special price here should match your main pricing unless you use multiple
+                  sellable SKUs.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  appendVariant({
+                    hsnCode: '',
+                    setPieces: '',
+                    weight: '',
+                    mrp: watch('mrp') || 0,
+                    specialPrice: watch('sellingPrice') || 0,
+                    freeItem: '',
+                  })
+                }>
+                Add variant row
+              </Button>
+            </div>
+
+            {variantFields.map((field, index) => (
+              <div
+                key={field.id}
+                className="rounded-lg border border-border bg-card/50 p-4 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-semibold text-foreground">Variant {index + 1}</span>
+                  {variantFields.length > 1 ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => removeVariant(index)}>
+                      Remove
+                    </Button>
+                  ) : null}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Set / pieces label</Label>
+                    <Input
+                      placeholder='e.g. "12 pcs", "6×100g"'
+                      {...register(`variants.${index}.setPieces`)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Weight / size note</Label>
+                    <Input placeholder="e.g. 500 ml" {...register(`variants.${index}.weight`)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>HSN (variant)</Label>
+                    <Input {...register(`variants.${index}.hsnCode`)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>MRP (₹)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      {...register(`variants.${index}.mrp`, { valueAsNumber: true })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Special price (₹)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      {...register(`variants.${index}.specialPrice`, { valueAsNumber: true })}
+                    />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Free item note</Label>
+                    <Input {...register(`variants.${index}.freeItem`)} />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
 
           {/* Images */}
