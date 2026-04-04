@@ -36,6 +36,7 @@ import {
 } from '@/components/ui/select';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { usersAPI, kycAPI } from '@/lib/api';
+import { resolveMediaUrl, isUnsafeLocalDeviceUrl } from '@/lib/mediaUrl';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -292,14 +293,26 @@ export default function UsersPage() {
   };
 
   const openImagePreview = (title: string, url?: string) => {
-    if (!url) return;
-    setPreviewImage({ title, url });
+    const resolved = resolveMediaUrl(url);
+    if (!resolved) {
+      toast({
+        title: 'Cannot open image',
+        description:
+          url && isUnsafeLocalDeviceUrl(url)
+            ? 'This file was saved as a phone-only path. Use registration documents below if available, or ask the user to resubmit KYC.'
+            : 'No valid image URL. Check API base URL or document upload.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setPreviewImage({ title, url: resolved });
     setIsImageDialogOpen(true);
   };
 
   const downloadFile = async (url: string, filename: string) => {
+    const resolved = resolveMediaUrl(url) || url;
     try {
-      const res = await fetch(url);
+      const res = await fetch(resolved);
       const blob = await res.blob();
       const objectUrl = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -310,7 +323,7 @@ export default function UsersPage() {
       document.body.removeChild(a);
       window.URL.revokeObjectURL(objectUrl);
     } catch {
-      window.open(url, '_blank');
+      window.open(resolved, '_blank');
     }
   };
 
@@ -396,6 +409,16 @@ export default function UsersPage() {
       }
     },
     enabled: !!verifyingUserId,
+  });
+
+  const { data: verifyUserKYCDocuments } = useQuery({
+    queryKey: ['user-kyc-documents-verify', userKYCSubmission?.id],
+    queryFn: async () => {
+      if (!userKYCSubmission?.id) return null;
+      const response = await kycAPI.getKYCDocuments(userKYCSubmission.id);
+      return response.data;
+    },
+    enabled: !!verifyingUserId && !!userKYCSubmission?.id,
   });
 
   // Fetch user details for "View Profile" modal
@@ -940,7 +963,7 @@ export default function UsersPage() {
           setVerifyComments('');
         }
       }}>
-        <DialogContent>
+        <DialogContent className="max-w-3xl max-h-[92vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>Verify KYC</DialogTitle>
             <DialogDescription>
@@ -958,93 +981,180 @@ export default function UsersPage() {
             </div>
           ) : userKYCSubmission ? (
             <>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label>Business Name</Label>
-                  <p className="font-medium">{userKYCSubmission.businessName || userKYCSubmission.business_name || '-'}</p>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>GST Number</Label>
-                    <p className="font-mono text-sm">{userKYCSubmission.gstNumber || userKYCSubmission.gst_number || userKYCSubmission.gst || '-'}</p>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>FSSAI License Number</Label>
-                    <p className="font-mono text-sm">
-                      {userKYCSubmission.fssaiNumber ||
-                        userKYCSubmission.fssai_number ||
-                        userKYCSubmission.fssai ||
-                        '-'}
-                    </p>
-                  </div>
-                </div>
+              {(() => {
+                const kyc = userKYCSubmission;
+                const reg = (kyc.registrationDocuments || {}) as Record<string, string | undefined>;
+                const shopUrl = getShopImageUrl(kyc, verifyUserKYCDocuments);
+                const fssaiUrl = getFssaiLicenseImageUrl(kyc, verifyUserKYCDocuments);
+                const shopResolved = resolveMediaUrl(shopUrl);
+                const fssaiResolved = resolveMediaUrl(fssaiUrl);
 
-                <div className="space-y-2">
-                  <Label>Documents</Label>
-                  <div className="grid grid-cols-2 gap-3">
-                    {(() => {
-                      const shopUrl: string | undefined =
-                        userKYCSubmission.shopImageUrl ||
-                        userKYCSubmission.shop_image_url ||
-                        undefined;
-                      return (
-                        <div className="border rounded-md p-2">
-                          <p className="text-xs text-muted-foreground mb-2">Shop Image</p>
-                          {shopUrl ? (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="w-full"
-                              onClick={() => openImagePreview('Shop Image', shopUrl)}
-                            >
-                              View
-                            </Button>
-                          ) : (
-                            <p className="text-sm text-muted-foreground">Not uploaded</p>
-                          )}
+                const addrObj = kyc.address || kyc.kycAddress;
+                let addressText = '—';
+                if (addrObj && typeof addrObj === 'object' && !Array.isArray(addrObj)) {
+                  const o = addrObj as Record<string, unknown>;
+                  const line1 = String(o.address_line1 ?? o.addressLine1 ?? o.address ?? '').trim();
+                  const line2 = String(o.address_line2 ?? o.addressLine2 ?? '').trim();
+                  const city = String(o.city ?? kyc.userCity ?? kyc.user_city ?? '').trim();
+                  const state = String(o.state ?? kyc.userState ?? kyc.user_state ?? '').trim();
+                  const pin = String(o.pincode ?? kyc.userPincode ?? kyc.user_pincode ?? '').trim();
+                  const parts = [line1, line2, [city, state, pin].filter(Boolean).join(', ')].filter(Boolean);
+                  addressText = parts.length ? parts.join(' · ') : '—';
+                } else if (kyc.userCity || kyc.userState || kyc.userPincode) {
+                  addressText = [kyc.userCity || kyc.user_city, kyc.userState || kyc.user_state, kyc.userPincode || kyc.user_pincode]
+                    .filter(Boolean)
+                    .join(', ');
+                }
+
+                const regDocs: { label: string; keys: string[] }[] = [
+                  { label: 'GST certificate', keys: ['gstCertificate', 'gst_certificate'] },
+                  { label: 'FSSAI license', keys: ['fssaiLicense', 'fssai_license'] },
+                  { label: 'Udyam registration', keys: ['udyamRegistration', 'udyam_registration'] },
+                  { label: 'Trade certificate', keys: ['tradeCertificate', 'trade_certificate'] },
+                  { label: 'Shop photo', keys: ['shopPhoto', 'shop_photo_url'] },
+                  { label: 'User ID', keys: ['userIdDocument', 'user_id_document_url'] },
+                ];
+
+                const renderDocTile = (label: string, raw?: string) => {
+                  const resolved = resolveMediaUrl(raw);
+                  return (
+                    <div key={label} className="border rounded-md p-2 flex flex-col gap-2 min-h-[140px]">
+                      <p className="text-xs text-muted-foreground font-medium">{label}</p>
+                      {resolved ? (
+                        <button
+                          type="button"
+                          className="w-full text-left rounded-md overflow-hidden border bg-muted/30"
+                          onClick={() => openImagePreview(label, raw)}
+                        >
+                          <img src={resolved} alt={label} className="w-full h-28 object-cover" />
+                        </button>
+                      ) : raw && isUnsafeLocalDeviceUrl(raw) ? (
+                        <p className="text-xs text-amber-800 dark:text-amber-200 leading-snug">
+                          Device-only path in KYC record. Server copy should appear here after registration upload.
+                        </p>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">Not uploaded</p>
+                      )}
+                      {resolved ? (
+                        <div className="flex gap-1">
+                          <Button type="button" variant="outline" size="sm" className="flex-1 text-xs h-8" onClick={() => openImagePreview(label, raw)}>
+                            View
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="flex-1 text-xs h-8"
+                            onClick={() => downloadFile(raw!, `${label.replace(/\s+/g, '-').toLowerCase()}-${kyc.id}`)}
+                          >
+                            <Download className="h-3 w-3 mr-1" />
+                            Save
+                          </Button>
                         </div>
-                      );
-                    })()}
+                      ) : null}
+                    </div>
+                  );
+                };
 
-                    {(() => {
-                      const fssaiUrl: string | undefined =
-                        userKYCSubmission.fssaiLicenseImageUrl ||
-                        userKYCSubmission.fssai_license_image_url ||
-                        undefined;
-                      return (
-                        <div className="border rounded-md p-2">
-                          <p className="text-xs text-muted-foreground mb-2">FSSAI License Image</p>
-                          {fssaiUrl ? (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="w-full"
-                              onClick={() => openImagePreview('FSSAI License Image', fssaiUrl)}
-                            >
-                              View
-                            </Button>
+                return (
+                  <div className="space-y-4 py-4 max-h-[min(70vh,720px)] overflow-y-auto pr-1">
+                    <div className="space-y-2">
+                      <Label>Business name</Label>
+                      <p className="font-medium">{kyc.businessName || kyc.business_name || '—'}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>GST number</Label>
+                        <p className="font-mono text-sm">{kyc.gstNumber || kyc.gst_number || kyc.gst || '—'}</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>FMCG / FSSAI number</Label>
+                        <p className="font-mono text-sm">{kyc.fssaiNumber || kyc.fssai_number || kyc.fssai || '—'}</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Address</Label>
+                      <p className="text-sm whitespace-pre-wrap">{addressText}</p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>KYC submission images</Label>
+                      <p className="text-xs text-muted-foreground">Effective URLs (registration fallback when the app sent a device path).</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="border rounded-md p-2 flex flex-col gap-2">
+                          <p className="text-xs text-muted-foreground font-medium">Shop image</p>
+                          {shopResolved ? (
+                            <button type="button" className="w-full rounded-md overflow-hidden border" onClick={() => openImagePreview('Shop image', shopUrl)}>
+                              <img src={shopResolved} alt="Shop" className="w-full h-28 object-cover" />
+                            </button>
+                          ) : shopUrl && isUnsafeLocalDeviceUrl(shopUrl) ? (
+                            <p className="text-xs text-amber-800 dark:text-amber-200">Device-only URI; using registration shop photo in grid below if present.</p>
                           ) : (
-                            <p className="text-sm text-muted-foreground">Not uploaded</p>
+                            <p className="text-sm text-muted-foreground">Not available</p>
                           )}
+                          {shopResolved ? (
+                            <div className="flex gap-1">
+                              <Button type="button" variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => openImagePreview('Shop image', shopUrl)}>
+                                View
+                              </Button>
+                              <Button type="button" variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => shopUrl && downloadFile(shopUrl, `shop-${kyc.id}`)}>
+                                <Download className="h-3 w-3 mr-1" />
+                                Save
+                              </Button>
+                            </div>
+                          ) : null}
                         </div>
-                      );
-                    })()}
-                  </div>
-                </div>
+                        <div className="border rounded-md p-2 flex flex-col gap-2">
+                          <p className="text-xs text-muted-foreground font-medium">FSSAI license image</p>
+                          {fssaiResolved ? (
+                            <button type="button" className="w-full rounded-md overflow-hidden border" onClick={() => openImagePreview('FSSAI license image', fssaiUrl)}>
+                              <img src={fssaiResolved} alt="FSSAI" className="w-full h-28 object-cover" />
+                            </button>
+                          ) : fssaiUrl && isUnsafeLocalDeviceUrl(fssaiUrl) ? (
+                            <p className="text-xs text-amber-800 dark:text-amber-200">Device-only URI; check FSSAI license in registration documents.</p>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">Not available</p>
+                          )}
+                          {fssaiResolved ? (
+                            <div className="flex gap-1">
+                              <Button type="button" variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => openImagePreview('FSSAI license image', fssaiUrl)}>
+                                View
+                              </Button>
+                              <Button type="button" variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => fssaiUrl && downloadFile(fssaiUrl, `fssai-${kyc.id}`)}>
+                                <Download className="h-3 w-3 mr-1" />
+                                Save
+                              </Button>
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="verify-comments">Comments (Optional)</Label>
-                  <Textarea 
-                    id="verify-comments" 
-                    placeholder="Add any comments about this verification"
-                    rows={3}
-                    value={verifyComments}
-                    onChange={(e) => setVerifyComments(e.target.value)}
-                  />
-                </div>
-              </div>
+                    <div className="space-y-2">
+                      <Label>Registration documents</Label>
+                      <p className="text-xs text-muted-foreground">Files captured at signup (same flow as the mobile app).</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {regDocs.map(({ label, keys }) => {
+                          const raw = keys.map((k) => reg[k]).find((u) => typeof u === 'string' && u.length > 0);
+                          return renderDocTile(label, raw);
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="verify-comments">Comments (optional)</Label>
+                      <Textarea
+                        id="verify-comments"
+                        placeholder="Add any comments about this verification"
+                        rows={3}
+                        value={verifyComments}
+                        onChange={(e) => setVerifyComments(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                );
+              })()}
               <DialogFooter>
                 <Button 
                   variant="outline" 
@@ -1237,47 +1347,49 @@ export default function UsersPage() {
                     {(() => {
                       const shopUrl = getShopImageUrl(viewedUserKYC, viewedUserKYCDocuments);
                       const fssaiUrl = getFssaiLicenseImageUrl(viewedUserKYC, viewedUserKYCDocuments);
+                      const shopResolved = resolveMediaUrl(shopUrl);
+                      const fssaiResolved = resolveMediaUrl(fssaiUrl);
                       return (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <Label className="text-muted-foreground">Shop Image</Label>
-                            {shopUrl ? (
-                              <button type="button" className="w-full" onClick={() => openImagePreview('Shop Image', shopUrl)}>
-                                <img src={shopUrl} alt="Shop" className="w-full h-40 object-cover rounded-md border" />
+                            <Label className="text-muted-foreground">Shop image</Label>
+                            {shopResolved ? (
+                              <button type="button" className="w-full" onClick={() => openImagePreview('Shop image', shopUrl)}>
+                                <img src={shopResolved} alt="Shop" className="w-full h-40 object-cover rounded-md border" />
                               </button>
                             ) : (
-                              <div className="h-40 rounded-md border flex items-center justify-center text-muted-foreground text-sm">
-                                Missing
+                              <div className="h-40 rounded-md border flex items-center justify-center text-muted-foreground text-sm px-2 text-center">
+                                {shopUrl && isUnsafeLocalDeviceUrl(shopUrl) ? 'Device-only path in DB' : 'Missing'}
                               </div>
                             )}
                             <div className="flex gap-2">
-                              <Button variant="outline" size="sm" className="flex-1" disabled={!shopUrl} onClick={() => shopUrl && openImagePreview('Shop Image', shopUrl)}>
+                              <Button variant="outline" size="sm" className="flex-1" disabled={!shopResolved} onClick={() => shopUrl && openImagePreview('Shop image', shopUrl)}>
                                 <Eye className="h-4 w-4 mr-2" />
                                 Preview
                               </Button>
-                              <Button variant="outline" size="sm" className="flex-1" disabled={!shopUrl} onClick={() => shopUrl && downloadFile(shopUrl, `shop-image-${viewedUserKYC.id}`)}>
+                              <Button variant="outline" size="sm" className="flex-1" disabled={!shopResolved} onClick={() => shopUrl && downloadFile(shopUrl, `shop-image-${viewedUserKYC.id}`)}>
                                 <Download className="h-4 w-4 mr-2" />
                                 Download
                               </Button>
                             </div>
                           </div>
                           <div className="space-y-2">
-                            <Label className="text-muted-foreground">FSSAI License Image</Label>
-                            {fssaiUrl ? (
-                              <button type="button" className="w-full" onClick={() => openImagePreview('FSSAI License Image', fssaiUrl)}>
-                                <img src={fssaiUrl} alt="FSSAI License" className="w-full h-40 object-cover rounded-md border" />
+                            <Label className="text-muted-foreground">FSSAI license image</Label>
+                            {fssaiResolved ? (
+                              <button type="button" className="w-full" onClick={() => openImagePreview('FSSAI license image', fssaiUrl)}>
+                                <img src={fssaiResolved} alt="FSSAI License" className="w-full h-40 object-cover rounded-md border" />
                               </button>
                             ) : (
-                              <div className="h-40 rounded-md border flex items-center justify-center text-muted-foreground text-sm">
-                                Missing
+                              <div className="h-40 rounded-md border flex items-center justify-center text-muted-foreground text-sm px-2 text-center">
+                                {fssaiUrl && isUnsafeLocalDeviceUrl(fssaiUrl) ? 'Device-only path in DB' : 'Missing'}
                               </div>
                             )}
                             <div className="flex gap-2">
-                              <Button variant="outline" size="sm" className="flex-1" disabled={!fssaiUrl} onClick={() => fssaiUrl && openImagePreview('FSSAI License Image', fssaiUrl)}>
+                              <Button variant="outline" size="sm" className="flex-1" disabled={!fssaiResolved} onClick={() => fssaiUrl && openImagePreview('FSSAI license image', fssaiUrl)}>
                                 <Eye className="h-4 w-4 mr-2" />
                                 Preview
                               </Button>
-                              <Button variant="outline" size="sm" className="flex-1" disabled={!fssaiUrl} onClick={() => fssaiUrl && downloadFile(fssaiUrl, `fssai-license-${viewedUserKYC.id}`)}>
+                              <Button variant="outline" size="sm" className="flex-1" disabled={!fssaiResolved} onClick={() => fssaiUrl && downloadFile(fssaiUrl, `fssai-license-${viewedUserKYC.id}`)}>
                                 <Download className="h-4 w-4 mr-2" />
                                 Download
                               </Button>
