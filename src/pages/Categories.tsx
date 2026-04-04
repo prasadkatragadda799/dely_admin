@@ -23,6 +23,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { categoriesAPI } from '@/lib/api';
 import { CategoryForm } from '@/components/admin/CategoryForm';
+import { ExcelBulkImportSection } from '@/components/admin/ExcelBulkImportSection';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -325,10 +326,13 @@ export default function Categories() {
           <h1 className="text-2xl font-bold text-foreground">Categories</h1>
           <p className="text-muted-foreground">Manage product categories and subcategories</p>
         </div>
-        <Button variant="gradient" onClick={() => handleAddCategory()}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Category
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <ExcelBulkImportSection entity="categories" invalidateQueryKeys={[['categories']]} />
+          <Button variant="gradient" onClick={() => handleAddCategory()}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Category
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}

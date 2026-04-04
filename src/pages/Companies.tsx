@@ -45,6 +45,7 @@ import { companiesAPI, brandsAPI } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { CompanyForm } from '@/components/admin/CompanyForm';
 import { BrandForm } from '@/components/admin/BrandForm';
+import { ExcelBulkImportSection } from '@/components/admin/ExcelBulkImportSection';
 
 export default function Companies() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -199,7 +200,13 @@ export default function Companies() {
           <h1 className="text-2xl font-bold text-foreground">Companies & Brands</h1>
           <p className="text-muted-foreground">Manage companies and their brands</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-2">
+          <ExcelBulkImportSection
+            entity={activeTab === 'companies' ? 'companies' : 'brands'}
+            invalidateQueryKeys={
+              activeTab === 'companies' ? [['companies']] : [['brands'], ['companies']]
+            }
+          />
           <Button 
             variant="gradient"
             onClick={activeTab === 'companies' ? handleAddCompany : handleAddBrand}

@@ -33,6 +33,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { productsAPI, categoriesAPI, divisionsAPI, type Division, sellerProductsAPI } from '@/lib/api';
+import { ExcelBulkImportSection } from '@/components/admin/ExcelBulkImportSection';
 import { ProductForm } from '@/components/admin/ProductForm';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -533,7 +534,7 @@ export default function Products() {
           <h1 className="text-2xl font-bold text-foreground">Products</h1>
           <p className="text-muted-foreground">Manage your product catalog</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <Button
             variant="outline"
             onClick={handleExport}
@@ -546,6 +547,7 @@ export default function Products() {
             )}
             Export
           </Button>
+          <ExcelBulkImportSection entity="products" invalidateQueryKeys={[['products']]} />
           <Button variant="gradient" onClick={handleAddProduct}>
             <Plus className="h-4 w-4 mr-2" />
             Add Product

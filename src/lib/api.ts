@@ -687,6 +687,32 @@ export const companiesAPI = {
   },
 };
 
+export type BulkImportEntity = 'categories' | 'companies' | 'brands' | 'products';
+
+export type BulkImportResult = {
+  created: number;
+  failed: number;
+  errors: Array<{ row: number; error: string }>;
+  errors_truncated?: boolean;
+};
+
+/** Bulk create from Excel (.xlsx). Templates: GET /admin/import/template/{entity} */
+export const importAPI = {
+  downloadTemplate: async (entity: BulkImportEntity): Promise<Blob> => {
+    const response = await apiClient.get(`/admin/import/template/${entity}`, {
+      responseType: 'blob',
+    });
+    return response.data as Blob;
+  },
+
+  uploadExcel: async (entity: BulkImportEntity, file: File) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    const response = await apiClient.post<ApiResponse<BulkImportResult>>(`/admin/import/upload/${entity}`, fd);
+    return response.data;
+  },
+};
+
 // Brands API
 export const brandsAPI = {
   getBrands: async (params?: { companyId?: string }) => {
