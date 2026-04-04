@@ -71,6 +71,13 @@ const variantSchema = z.object({
   freeItem: z.string().optional(),
 });
 
+/** Optional tier prices: empty / NaN → undefined (omit on save). */
+const optionalPositiveMoney = z.preprocess((v) => {
+  if (v === '' || v === null || v === undefined) return undefined;
+  if (typeof v === 'number' && Number.isNaN(v)) return undefined;
+  return v;
+}, z.number().positive().optional());
+
 const productSchema = z.object({
   name: z.string().min(1, 'Product name is required'),
   description: z.string().optional(),
@@ -81,6 +88,10 @@ const productSchema = z.object({
   hsnCode: z.string().optional(),
   mrp: z.number().min(0, 'MRP must be greater than 0'),
   sellingPrice: z.number().min(0, 'Selling price must be greater than 0'),
+  setSellingPrice: optionalPositiveMoney,
+  setMrp: optionalPositiveMoney,
+  remainingSellingPrice: optionalPositiveMoney,
+  remainingMrp: optionalPositiveMoney,
   commissionCost: z.number().min(0, 'Commission cost must be 0 or greater').default(0),
   stockQuantity: z.number().int().min(0, 'Stock quantity must be 0 or greater'),
   minOrderQuantity: z.number().int().min(1, 'Minimum order quantity must be at least 1'),
@@ -96,10 +107,34 @@ const productSchema = z.object({
     .array(variantSchema)
     .min(1, 'At least one variant is required')
     .optional(),
-}).refine((data) => data.sellingPrice <= data.mrp, {
-  message: 'Selling price must be less than or equal to MRP',
-  path: ['sellingPrice'],
-});
+})
+  .refine((data) => data.sellingPrice <= data.mrp, {
+    message: 'Selling price must be less than or equal to MRP',
+    path: ['sellingPrice'],
+  })
+  .refine(
+    (data) => {
+      if (data.setSellingPrice == null) return true;
+      const cap = data.setMrp ?? data.mrp;
+      return data.setSellingPrice <= cap;
+    },
+    {
+      message: 'Set selling must be ≤ set MRP (or product MRP if set MRP is empty)',
+      path: ['setSellingPrice'],
+    },
+  )
+  .refine(
+    (data) => {
+      if (data.remainingSellingPrice == null) return true;
+      const cap = data.remainingMrp ?? data.mrp;
+      return data.remainingSellingPrice <= cap;
+    },
+    {
+      message:
+        'Remaining selling must be ≤ remaining MRP (or product MRP if remaining MRP is empty)',
+      path: ['remainingSellingPrice'],
+    },
+  );
 
 type ProductFormData = z.infer<typeof productSchema>;
 
@@ -266,6 +301,10 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
       const stockQuantity = Number(productData.stockQuantity ?? productData.stock_quantity ?? 0);
       const minOrderQuantity = Number(productData.minOrderQuantity ?? productData.min_order_quantity ?? 1);
       const piecesPerSet = Number(productData.piecesPerSet ?? productData.pieces_per_set ?? 1);
+      const optMoney = (v: unknown) => {
+        const n = Number(v);
+        return Number.isFinite(n) && n > 0 ? n : undefined;
+      };
       const isFeatured = Boolean(productData.isFeatured ?? productData.is_featured ?? false);
       const isAvailable = productData.isAvailable !== undefined
         ? Boolean(productData.isAvailable)
@@ -280,6 +319,12 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
         brandId: brandId || 'none',
         mrp,
         sellingPrice,
+        setSellingPrice: optMoney(productData.setSellingPrice ?? productData.set_selling_price),
+        setMrp: optMoney(productData.setMrp ?? productData.set_mrp),
+        remainingSellingPrice: optMoney(
+          productData.remainingSellingPrice ?? productData.remaining_selling_price,
+        ),
+        remainingMrp: optMoney(productData.remainingMrp ?? productData.remaining_mrp),
         commissionCost,
         stockQuantity,
         minOrderQuantity,
@@ -424,6 +469,18 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
       // Add base pricing (can represent default / primary variant)
       formData.append('mrp', data.mrp.toString());
       formData.append('sellingPrice', data.sellingPrice.toString());
+      if (typeof data.setSellingPrice === 'number' && data.setSellingPrice > 0) {
+        formData.append('setSellingPrice', data.setSellingPrice.toString());
+      }
+      if (typeof data.setMrp === 'number' && data.setMrp > 0) {
+        formData.append('setMrp', data.setMrp.toString());
+      }
+      if (typeof data.remainingSellingPrice === 'number' && data.remainingSellingPrice > 0) {
+        formData.append('remainingSellingPrice', data.remainingSellingPrice.toString());
+      }
+      if (typeof data.remainingMrp === 'number' && data.remainingMrp > 0) {
+        formData.append('remainingMrp', data.remainingMrp.toString());
+      }
       formData.append('commissionCost', (data.commissionCost || 0).toString());
       
       // Add stock and order quantities (overall stock for all variants)
@@ -735,6 +792,67 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
                   <p className="text-sm text-emerald-600">
                     Discount: {discount.toFixed(1)}%
                   </p>
+                )}
+              </div>
+            </div>
+
+            <p className="text-sm text-muted-foreground">
+              Optional <strong>Set</strong> and <strong>Remaining</strong> prices let customers pick a price tier in the
+              mobile app. Leave empty to hide a tier.
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="setSellingPrice">Set selling (₹)</Label>
+                <Input
+                  id="setSellingPrice"
+                  type="number"
+                  step="0.01"
+                  {...register('setSellingPrice', { valueAsNumber: true })}
+                  placeholder="Optional"
+                />
+                {errors.setSellingPrice && (
+                  <p className="text-sm text-destructive">{errors.setSellingPrice.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="setMrp">Set MRP (₹)</Label>
+                <Input
+                  id="setMrp"
+                  type="number"
+                  step="0.01"
+                  {...register('setMrp', { valueAsNumber: true })}
+                  placeholder="Optional"
+                />
+                {errors.setMrp && (
+                  <p className="text-sm text-destructive">{errors.setMrp.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="remainingSellingPrice">Remaining selling (₹)</Label>
+                <Input
+                  id="remainingSellingPrice"
+                  type="number"
+                  step="0.01"
+                  {...register('remainingSellingPrice', { valueAsNumber: true })}
+                  placeholder="Optional"
+                />
+                {errors.remainingSellingPrice && (
+                  <p className="text-sm text-destructive">
+                    {errors.remainingSellingPrice.message}
+                  </p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="remainingMrp">Remaining MRP (₹)</Label>
+                <Input
+                  id="remainingMrp"
+                  type="number"
+                  step="0.01"
+                  {...register('remainingMrp', { valueAsNumber: true })}
+                  placeholder="Optional"
+                />
+                {errors.remainingMrp && (
+                  <p className="text-sm text-destructive">{errors.remainingMrp.message}</p>
                 )}
               </div>
             </div>
