@@ -527,7 +527,7 @@ export default function Products() {
   }, [products, pagination]);
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="min-w-0 space-y-6 animate-fade-in">
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -653,12 +653,12 @@ export default function Products() {
       {/* Filters */}
       <Card className="shadow-card">
         <CardContent className="p-4">
-          <div className="flex flex-col lg:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <div className="flex min-w-0 flex-col gap-4 lg:flex-row">
+            <div className="relative min-w-0 flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search products by name, brand, or company..."
-                className="pl-10"
+                className="min-w-0 pl-10"
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
@@ -666,7 +666,7 @@ export default function Products() {
                 }}
               />
             </div>
-            <div className="flex gap-3">
+            <div className="flex min-w-0 flex-wrap gap-3">
               <Select value={selectedCategory} onValueChange={(value) => {
                 setSelectedCategory(value);
                 setPage(1);
@@ -787,8 +787,8 @@ export default function Products() {
       )}
 
       {/* Products Table */}
-      <Card className="shadow-card">
-        <CardContent className="p-0">
+      <Card className="min-w-0 shadow-card">
+        <CardContent className="min-w-0 p-0">
           {isLoading && !productsResponse ? (
             <div className="p-8 space-y-4">
               {[...Array(5)].map((_, i) => (
@@ -824,8 +824,8 @@ export default function Products() {
                   <Loader2 className="h-4 w-4 animate-spin text-primary" />
                 </div>
               )}
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="max-w-full overflow-x-auto">
+            <table className="w-full min-w-max">
               <thead className="bg-secondary/50">
                 <tr className="border-b border-border">
                   <th className="py-4 px-4 text-left">

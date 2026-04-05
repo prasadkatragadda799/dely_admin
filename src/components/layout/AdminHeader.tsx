@@ -99,22 +99,22 @@ export function AdminHeader() {
   };
 
   return (
-    <header className="h-16 border-b border-border bg-card px-4 flex items-center justify-between sticky top-0 z-50">
-      <div className="flex items-center gap-4">
-        <SidebarTrigger className="h-9 w-9">
+    <header className="sticky top-0 z-50 flex h-16 min-w-0 shrink-0 items-center justify-between gap-2 border-b border-border bg-card px-4">
+      <div className="flex min-w-0 flex-1 items-center gap-4">
+        <SidebarTrigger className="h-9 w-9 shrink-0">
           <Menu className="h-5 w-5" />
         </SidebarTrigger>
 
-        <div className="relative hidden md:block">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <div className="relative hidden min-w-0 max-w-md flex-1 md:block">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search products, orders, users..."
-            className="w-80 pl-10 bg-secondary/50 border-0 focus-visible:ring-primary"
+            className="w-full min-w-0 pl-10 bg-secondary/50 border-0 focus-visible:ring-primary"
           />
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex shrink-0 items-center gap-3">
         {/* Notifications */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
