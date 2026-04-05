@@ -52,6 +52,43 @@ interface Category {
   children?: Category[];
 }
 
+function CategoryListThumbnail({ category }: { category: Category }) {
+  const [imageBroken, setImageBroken] = useState(false);
+
+  if (category.image && !imageBroken) {
+    return (
+      <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-border bg-muted">
+        <img
+          src={category.image}
+          alt=""
+          className="h-full w-full object-cover"
+          loading="lazy"
+          onError={() => setImageBroken(true)}
+        />
+      </div>
+    );
+  }
+
+  if (category.icon) {
+    return (
+      <div
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-xl"
+        style={{
+          backgroundColor: category.color ? `${category.color}20` : undefined,
+        }}
+      >
+        {category.icon}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-muted-foreground">
+      <FolderTree className="h-5 w-5" />
+    </div>
+  );
+}
+
 export default function Categories() {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
@@ -235,17 +272,10 @@ export default function Categories() {
                 />
               )}
               {!hasChildren && <div className="w-5" />}
-              
-              {category.icon && (
-                <div 
-                  className="w-10 h-10 rounded-lg flex items-center justify-center text-xl"
-                  style={{ backgroundColor: category.color ? `${category.color}20` : undefined }}
-                >
-                  {category.icon}
-                </div>
-              )}
-              
-              <div className="flex-1">
+
+              <CategoryListThumbnail category={category} />
+
+              <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="font-medium text-foreground">{category.name}</p>
                   {!category.isActive && (

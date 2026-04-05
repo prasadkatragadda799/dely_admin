@@ -41,6 +41,42 @@ const categoryFormSchema = z.object({
 
 type CategoryFormData = z.infer<typeof categoryFormSchema>;
 
+/** Square app-style icon; must match backend CATEGORY_ICON_* in admin_upload.py */
+const CATEGORY_ICON_MIN_PX = 256;
+const CATEGORY_ICON_MAX_PX = 1024;
+
+function validateCategoryIconDimensions(file: File): Promise<{ ok: true } | { ok: false; message: string }> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new window.Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const w = img.naturalWidth;
+      const h = img.naturalHeight;
+      if (w !== h) {
+        resolve({
+          ok: false,
+          message: `Image must be square (width = height). This file is ${w}×${h}px.`,
+        });
+        return;
+      }
+      if (w < CATEGORY_ICON_MIN_PX || w > CATEGORY_ICON_MAX_PX) {
+        resolve({
+          ok: false,
+          message: `Square images must be between ${CATEGORY_ICON_MIN_PX} and ${CATEGORY_ICON_MAX_PX}px per side (app icon size). This file is ${w}×${h}px.`,
+        });
+        return;
+      }
+      resolve({ ok: true });
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve({ ok: false, message: 'Could not read this image. Use PNG or JPEG.' });
+    };
+    img.src = url;
+  });
+}
+
 interface Category {
   id: string;
   name: string;
@@ -186,24 +222,40 @@ export function CategoryForm({
     }
   }, [categoryData, categoryId, open, parentId, reset]);
 
-  // Handle image selection
+  // Handle image selection (square app-icon size only; validated here and on server)
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      if (!file.type.startsWith('image/')) {
+    const input = e.target;
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: 'Invalid file type',
+        description: 'Please select an image file',
+        variant: 'destructive',
+      });
+      input.value = '';
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: 'File too large',
+        description: 'Image must be 5MB or less',
+        variant: 'destructive',
+      });
+      input.value = '';
+      return;
+    }
+
+    void (async () => {
+      const dim = await validateCategoryIconDimensions(file);
+      if (dim.ok === false) {
         toast({
-          title: 'Invalid file type',
-          description: 'Please select an image file',
+          title: 'Invalid category image',
+          description: dim.message,
           variant: 'destructive',
         });
-        return;
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        toast({
-          title: 'File too large',
-          description: 'Image size must be less than 5MB',
-          variant: 'destructive',
-        });
+        input.value = '';
         return;
       }
       setSelectedImage(file);
@@ -212,7 +264,7 @@ export function CategoryForm({
         setImagePreview(reader.result as string);
       };
       reader.readAsDataURL(file);
-    }
+    })();
   };
 
   const removeImage = () => {
@@ -441,11 +493,11 @@ export function CategoryForm({
           <div className="space-y-2">
             <Label>Category Image</Label>
             {imagePreview ? (
-              <div className="relative w-full h-48 rounded-lg border border-border overflow-hidden">
+              <div className="relative mx-auto aspect-square w-full max-w-[280px] rounded-lg border border-border overflow-hidden bg-muted">
                 <img
                   src={imagePreview}
                   alt="Category preview"
-                  className="w-full h-full object-cover"
+                  className="h-full w-full object-cover"
                 />
                 <Button
                   type="button"
@@ -475,8 +527,9 @@ export function CategoryForm({
                   className="hidden"
                   onChange={handleImageChange}
                 />
-                <p className="text-xs text-muted-foreground mt-2">
-                  Recommended: 400x400px, max 5MB
+                <p className="text-xs text-muted-foreground mt-2 max-w-sm mx-auto">
+                  Square app-style icon: {CATEGORY_ICON_MIN_PX}–{CATEGORY_ICON_MAX_PX}px per side (e.g. 512×512), max 5MB.
+                  PNG or JPEG recommended.
                 </p>
               </div>
             )}
