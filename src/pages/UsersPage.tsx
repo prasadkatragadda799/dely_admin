@@ -824,7 +824,7 @@ export default function UsersPage() {
                                   <Eye className="h-4 w-4 mr-2" />
                                   View Profile
                                 </DropdownMenuItem>
-                                {(kycStatus === 'pending' || !kycStatus) && (
+                                {String(kycStatus).toLowerCase() !== 'verified' && (
                                   <DropdownMenuItem onClick={() => handleVerifyKYC(userId)}>
                                     <Shield className="h-4 w-4 mr-2" />
                                     Verify KYC
