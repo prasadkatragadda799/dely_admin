@@ -56,6 +56,29 @@ interface Category {
   children?: Category[];
 }
 
+/** Align with backend format_variant_packaging_line / mobile app */
+function formatVariantPackagingLine(v: Record<string, unknown> | null | undefined): string {
+  if (!v) return '';
+  const pl = String(v.packagingLabel ?? '').trim();
+  if (pl) return pl;
+  const type = String(v.packagingLabelType ?? v.packaging_label_type ?? '')
+    .trim()
+    .toLowerCase();
+  const labels: Record<string, string> = {
+    set: 'Set',
+    pieces: 'Pieces',
+    pack: 'Pack',
+    unit: 'Unit',
+    pair: 'Pair',
+    dozen: 'Dozen',
+  };
+  const head = type && labels[type] ? labels[type] : '';
+  const detail = String(v.setPieces ?? v.set_pcs ?? '').trim();
+  if (head && detail) return `${head}: ${detail}`;
+  if (head) return head;
+  return detail;
+}
+
 export default function Products() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -896,10 +919,11 @@ export default function Products() {
                         (Array.isArray(product.productVariants) && product.productVariants) ||
                         [];
                       const primaryVariant = variants[0];
+                      const variantPackLine = formatVariantPackagingLine(primaryVariant);
                       const saleUnit = product.unit || 'piece';
                       const piecesPerUnit =
                         product.piecesPerSet ?? product.pieces_per_set ?? 1;
-                      
+
                       return (
                         <tr
                           key={productId}
@@ -938,7 +962,8 @@ export default function Products() {
                           <p className="font-medium text-foreground">{product.name}</p>
                                 {primaryVariant && (
                                   <p className="text-xs text-muted-foreground">
-                                    {primaryVariant.weight && `${primaryVariant.weight} · `}{' '}
+                                    {variantPackLine ? `${variantPackLine} · ` : ''}
+                                    {primaryVariant.weight && `${primaryVariant.weight} · `}
                                     ₹{primaryVariant.specialPrice || primaryVariant.sellingPrice || primaryVariant.mrp}
                                   </p>
                                 )}
@@ -981,9 +1006,9 @@ export default function Products() {
                           {piecesPerUnit} pcs / {saleUnit}
                         </p>
                       )}
-                      {(primaryVariant?.setPieces || primaryVariant?.set_pcs) && (
-                        <p className="text-xs text-muted-foreground mt-1 max-w-[160px] break-words">
-                          {primaryVariant.setPieces || primaryVariant.set_pcs}
+                      {variantPackLine && (
+                        <p className="text-xs text-muted-foreground mt-1 max-w-[180px] break-words">
+                          {variantPackLine}
                         </p>
                       )}
                     </td>

@@ -62,8 +62,22 @@ interface ProductFormProps {
   productId?: string; // If provided, we're editing
 }
 
+/** Matches backend VALID_PACKAGING_LABEL_TYPES */
+const PACKAGING_LABEL_TYPE_OPTIONS = [
+  { value: '', label: 'Not selected' },
+  { value: 'set', label: 'Set' },
+  { value: 'pieces', label: 'Pieces' },
+  { value: 'pack', label: 'Pack' },
+  { value: 'unit', label: 'Unit' },
+  { value: 'pair', label: 'Pair' },
+  { value: 'dozen', label: 'Dozen' },
+] as const;
+
+const PACKAGING_SELECT_SENTINEL = '__none__';
+
 const variantSchema = z.object({
   hsnCode: z.string().optional(),
+  packagingLabelType: z.string().optional(),
   setPieces: z.string().optional(),
   weight: z.string().optional(),
   mrp: z.number().min(0, 'MRP is required for each variant'),
@@ -168,6 +182,7 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
       variants: [
         {
           hsnCode: '',
+          packagingLabelType: '',
           setPieces: '',
           weight: '',
           mrp: 0,
@@ -335,6 +350,8 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
         variants: (productData.variants && Array.isArray(productData.variants) && productData.variants.length > 0)
           ? productData.variants.map((v: any) => ({
               hsnCode: v.hsnCode || v.hsn_code || '',
+              packagingLabelType:
+                v.packagingLabelType?.toString() || v.packaging_label_type?.toString() || '',
               setPieces: v.setPieces?.toString() || v.set_pcs?.toString() || '',
               weight: v.weight || '',
               mrp: Number(v.mrp || 0),
@@ -344,6 +361,7 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
           : [
               {
                 hsnCode: productData.hsnCode || productData.hsn_code || '',
+                packagingLabelType: '',
                 setPieces: '',
                 weight: '',
                 mrp,
@@ -532,6 +550,7 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
       if (data.variants && data.variants.length > 0) {
         const cleanedVariants = data.variants.map((v) => ({
           hsnCode: v.hsnCode || '',
+          packagingLabelType: (v.packagingLabelType || '').trim() || undefined,
           setPieces: v.setPieces || '',
           weight: v.weight || '',
           mrp: Number.isFinite(v.mrp) ? v.mrp : 0,
@@ -1006,9 +1025,9 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
               <div>
                 <h3 className="text-lg font-semibold">Packaging variants</h3>
                 <p className="text-xs text-muted-foreground max-w-xl">
-                  Use &quot;Set / pieces label&quot; for text like 6×100g or 12 pcs (shown in the mobile
-                  app). MRP and special price here should match your main pricing unless you use multiple
-                  sellable SKUs.
+                  Choose <strong>Set</strong>, <strong>Pieces</strong>, <strong>Pack</strong>, etc., then add
+                  detail (e.g. 6×100g, 12). Shown in the admin product list and mobile app. MRP and special
+                  price should match your main pricing unless you use multiple sellable SKUs.
                 </p>
               </div>
               <Button
@@ -1018,6 +1037,7 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
                 onClick={() =>
                   appendVariant({
                     hsnCode: '',
+                    packagingLabelType: '',
                     setPieces: '',
                     weight: '',
                     mrp: watch('mrp') || 0,
@@ -1047,10 +1067,38 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
                   ) : null}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label>Set / pieces label</Label>
+                  <div className="space-y-2">
+                    <Label>Type</Label>
+                    <Select
+                      value={
+                        watch(`variants.${index}.packagingLabelType`)?.trim()
+                          ? watch(`variants.${index}.packagingLabelType`)
+                          : PACKAGING_SELECT_SENTINEL
+                      }
+                      onValueChange={(val) =>
+                        setValue(
+                          `variants.${index}.packagingLabelType`,
+                          val === PACKAGING_SELECT_SENTINEL ? '' : val,
+                        )
+                      }>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Set / Pieces / Pack…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PACKAGING_LABEL_TYPE_OPTIONS.map((opt) => (
+                          <SelectItem
+                            key={opt.value || PACKAGING_SELECT_SENTINEL}
+                            value={opt.value || PACKAGING_SELECT_SENTINEL}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Label detail</Label>
                     <Input
-                      placeholder='e.g. "12 pcs", "6×100g"'
+                      placeholder='e.g. "6×100g", "12"'
                       {...register(`variants.${index}.setPieces`)}
                     />
                   </div>
