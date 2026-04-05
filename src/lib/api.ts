@@ -1286,9 +1286,10 @@ export const uploadAPI = {
   uploadImage: async (file: File, type: 'product' | 'company' | 'brand' | 'offer' | 'category', entityId?: string) => {
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('type', type);
+    // FastAPI reads these as multipart Form fields (not query params)
+    formData.append('upload_type', type);
     if (entityId) {
-      formData.append('entityId', entityId);
+      formData.append('entity_id', entityId);
     }
     // Don't set Content-Type - let axios set it automatically with boundary
     const response = await apiClient.post<ApiResponse<{
