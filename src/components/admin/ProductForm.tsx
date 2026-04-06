@@ -152,13 +152,25 @@ const productSchema = z.object({
 
 type ProductFormData = z.infer<typeof productSchema>;
 
+/** Remote gallery row (server) or newly picked file — used to sync removals on PUT via keepImageIds. */
+type ProductImageSlot =
+  | { kind: 'remote'; id: string; url: string }
+  | { kind: 'local'; file: File; preview: string };
+
+function revokeLocalPreviews(slots: ProductImageSlot[]) {
+  slots.forEach((s) => {
+    if (s.kind === 'local' && s.preview.startsWith('blob:')) {
+      URL.revokeObjectURL(s.preview);
+    }
+  });
+}
+
 export function ProductForm({ open, onOpenChange, productId }: ProductFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const isSeller = user?.role === 'seller';
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [imageSlots, setImageSlots] = useState<ProductImageSlot[]>([]);
   const [selectedCompany, setSelectedCompany] = useState<string>('');
 
   const {
@@ -375,13 +387,19 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
         metaDescription: productData.metaDescription || '',
       });
       setSelectedCompany(companyId || '');
-      if (productData.images) {
-        setImagePreviews(
-          productData.images
-            .map((img: any) => img.url || img.imageUrl || img.image_url)
-            .filter(Boolean)
-        );
-      }
+      setImageSlots((prev) => {
+        revokeLocalPreviews(prev);
+        if (!productData.images?.length) {
+          return [];
+        }
+        return productData.images
+          .map((img: any) => ({
+            kind: 'remote' as const,
+            id: String(img.id ?? ''),
+            url: String(img.imageUrl || img.image_url || img.url || ''),
+          }))
+          .filter((s) => s.id && s.url);
+      });
     } else if (!productId && open) {
       reset({
         minOrderQuantity: 1,
@@ -391,8 +409,10 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
         isAvailable: true,
         unit: 'piece',
       });
-      setSelectedFiles([]);
-      setImagePreviews([]);
+      setImageSlots((prev) => {
+        revokeLocalPreviews(prev);
+        return [];
+      });
       setSelectedCompany('');
     }
   }, [productData, productId, open, reset]);
@@ -428,21 +448,26 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
       return true;
     });
 
-    setSelectedFiles((prev) => [...prev, ...validFiles]);
-
-    // Create previews
-    validFiles.forEach((file) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreviews((prev) => [...prev, reader.result as string]);
-      };
-      reader.readAsDataURL(file);
+    setImageSlots((prev) => {
+      const room = 5 - prev.length;
+      if (room <= 0) return prev;
+      const slice = validFiles.slice(0, room);
+      const next = [...prev];
+      for (const file of slice) {
+        next.push({ kind: 'local', file, preview: URL.createObjectURL(file) });
+      }
+      return next;
     });
   };
 
   const removeImage = (index: number) => {
-    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
-    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+    setImageSlots((prev) => {
+      const slot = prev[index];
+      if (slot?.kind === 'local' && slot.preview.startsWith('blob:')) {
+        URL.revokeObjectURL(slot.preview);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
   // Create/Update product mutation
@@ -537,12 +562,18 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
         formData.append('meta_description', data.metaDescription);
       }
       
-      // Add images to the same FormData (as per backend guide)
-      if (selectedFiles.length > 0) {
-        selectedFiles.forEach((image) => {
-          formData.append('images', image);
-        });
-        // Set primary image index (first image is primary)
+      // Images: on update, tell backend which existing rows to keep, then append new files.
+      const localSlots = imageSlots.filter((s): s is Extract<ProductImageSlot, { kind: 'local' }> => s.kind === 'local');
+      // Admin PUT supports keepImageIds; seller PUT is JSON-only (same FormData is a separate issue).
+      if (productId && !isSeller) {
+        const keepIds = imageSlots.filter((s) => s.kind === 'remote').map((s) => s.id);
+        formData.append('keepImageIds', JSON.stringify(keepIds));
+      }
+      localSlots.forEach((s) => {
+        formData.append('images', s.file);
+      });
+      // primaryIndex is relative to newly uploaded files only; set when the first gallery slot is new.
+      if (localSlots.length > 0 && imageSlots[0]?.kind === 'local') {
         formData.append('primaryIndex', '0');
       }
 
@@ -582,8 +613,10 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
       });
       onOpenChange(false);
       reset();
-      setSelectedFiles([]);
-      setImagePreviews([]);
+      setImageSlots((prev) => {
+        revokeLocalPreviews(prev);
+        return [];
+      });
     },
     onError: (error: any) => {
       const errorMessage = error.response?.data?.error?.message 
@@ -1148,22 +1181,22 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
                   multiple
                   onChange={handleFileChange}
                   className="cursor-pointer"
-                  disabled={selectedFiles.length >= 5}
+                  disabled={imageSlots.length >= 5}
                 />
               </div>
-              {selectedFiles.length >= 5 && (
+              {imageSlots.length >= 5 && (
                 <p className="text-sm text-muted-foreground">
                   Maximum 5 images allowed
                 </p>
               )}
             </div>
 
-            {imagePreviews.length > 0 && (
+            {imageSlots.length > 0 && (
               <div className="grid grid-cols-4 gap-4">
-                {imagePreviews.map((preview, index) => (
-                  <div key={index} className="relative">
+                {imageSlots.map((slot, index) => (
+                  <div key={slot.kind === 'remote' ? slot.id : `${slot.preview}-${index}`} className="relative">
                     <img
-                      src={preview}
+                      src={slot.kind === 'remote' ? slot.url : slot.preview}
                       alt={`Preview ${index + 1}`}
                       className="w-full h-24 object-cover rounded-lg border"
                     />
