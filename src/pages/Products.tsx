@@ -94,6 +94,7 @@ export default function Products() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | undefined>();
   const [viewingProduct, setViewingProduct] = useState<any | null>(null);
+  const [viewingImageIndex, setViewingImageIndex] = useState(0);
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(50); // Admin API supports up to 10000; seller up to 100
@@ -421,6 +422,7 @@ export default function Products() {
 
   const handleViewDetails = (product: any) => {
     setViewingProduct(product);
+    setViewingImageIndex(0);
   };
 
   const confirmDelete = () => {
@@ -1210,7 +1212,15 @@ export default function Products() {
       />
 
       {/* View Product Details Dialog */}
-      <Dialog open={!!viewingProduct} onOpenChange={(open) => !open && setViewingProduct(null)}>
+      <Dialog
+        open={!!viewingProduct}
+        onOpenChange={(open) => {
+          if (!open) {
+            setViewingProduct(null);
+            setViewingImageIndex(0);
+          }
+        }}
+      >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{viewingProduct?.name || 'Product details'}</DialogTitle>
@@ -1264,15 +1274,33 @@ export default function Products() {
                   <p className="text-sm text-muted-foreground mb-2">
                     Images ({getProductImageUrls(viewingProduct).length})
                   </p>
-                  <div className="grid grid-cols-4 gap-2">
-                    {getProductImageUrls(viewingProduct).map((url, idx) => (
-                      <img
-                        key={`${url}-${idx}`}
-                        src={url}
-                        alt={`Product image ${idx + 1}`}
-                        className="w-full h-20 object-cover rounded border"
-                      />
-                    ))}
+
+                  <div className="rounded-md border bg-muted/30 p-2 mb-2">
+                    <img
+                      src={getProductImageUrls(viewingProduct)[viewingImageIndex]}
+                      alt={`Product image ${viewingImageIndex + 1}`}
+                      className="w-full h-56 object-contain rounded bg-white"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-6 gap-2">
+                    {getProductImageUrls(viewingProduct).map((url, idx) => {
+                      const active = idx === viewingImageIndex;
+                      return (
+                        <button
+                          key={`${url}-${idx}`}
+                          type="button"
+                          onClick={() => setViewingImageIndex(idx)}
+                          className={`rounded border p-1 bg-white ${active ? 'border-primary ring-1 ring-primary' : 'border-border'}`}
+                        >
+                          <img
+                            src={url}
+                            alt={`Thumbnail ${idx + 1}`}
+                            className="w-full h-14 object-contain rounded"
+                          />
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
