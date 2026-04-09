@@ -97,7 +97,7 @@ const productSchema = z.object({
   description: z.string().optional(),
   categoryId: z.string().min(1, 'Category is required'),
   divisionId: z.string().optional(),
-  companyId: z.string().optional(),
+  companyId: z.string().min(1, 'Company is required'),
   brandId: z.string().optional(),
   hsnCode: z.string().optional(),
   mrp: z.number().min(0, 'MRP must be greater than 0'),
@@ -342,7 +342,7 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
         description: productData.description || '',
         categoryId,
         divisionId: divisionId || 'default',
-        companyId: companyId || 'none',
+        companyId: companyId || '',
         brandId: brandId || 'none',
         mrp,
         sellingPrice,
@@ -407,6 +407,8 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
       });
     } else if (!productId && open) {
       reset({
+        companyId: '',
+        brandId: 'none',
         minOrderQuantity: 1,
         piecesPerSet: 1,
         commissionCost: 0,
@@ -424,9 +426,8 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
 
   // Handle company change to filter brands
   const handleCompanyChange = (companyId: string) => {
-    const actualCompanyId = companyId === 'none' ? '' : companyId;
-    setSelectedCompany(actualCompanyId);
-    setValue('companyId', actualCompanyId);
+    setSelectedCompany(companyId);
+    setValue('companyId', companyId);
     setValue('brandId', 'none'); // Reset brand when company changes
   };
 
@@ -499,15 +500,11 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
         if (productId) formData.append('division_id', '');
       }
       
-      // Add company (optional) - backend expects 'company_id'
-      if (isSeller) {
-        if (!data.companyId || data.companyId === 'none' || data.companyId === '') {
-          throw new Error('Company is required for seller products');
-        }
-        formData.append('company_id', data.companyId);
-      } else if (data.companyId && data.companyId !== 'none' && data.companyId !== '') {
-        formData.append('company_id', data.companyId);
+      // Add company (required) - backend expects 'company_id'
+      if (!data.companyId || data.companyId === 'none' || data.companyId === '') {
+        throw new Error('Company is required');
       }
+      formData.append('company_id', data.companyId);
       
       // Add brand (optional) - backend expects 'brand_id'
       if (data.brandId && data.brandId !== 'none' && data.brandId !== '') {
@@ -753,17 +750,16 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="companyId">
-                  Company {isSeller && <span className="text-destructive">*</span>}
+                  Company <span className="text-destructive">*</span>
                 </Label>
                 <Select
-                  value={watch('companyId') || 'none'}
-                  onValueChange={(value) => handleCompanyChange(value === 'none' ? '' : value)}
+                  value={watch('companyId') || ''}
+                  onValueChange={handleCompanyChange}
                 >
                   <SelectTrigger id="companyId">
-                    <SelectValue placeholder={isSeller ? 'Select company' : 'Select company (optional)'} />
+                    <SelectValue placeholder="Select company" />
                   </SelectTrigger>
                   <SelectContent>
-                    {!isSeller && <SelectItem value="none">None</SelectItem>}
                     {companies.map((company) => (
                       <SelectItem key={company.id} value={company.id}>
                         {company.name}
@@ -775,6 +771,9 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
                   <p className="text-xs text-muted-foreground">
                     Sellers can now create products for any company.
                   </p>
+                )}
+                {errors.companyId && (
+                  <p className="text-sm text-destructive">{errors.companyId.message}</p>
                 )}
               </div>
 
