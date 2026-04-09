@@ -47,6 +47,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface Category {
@@ -86,6 +93,7 @@ export default function Products() {
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingProductId, setEditingProductId] = useState<string | undefined>();
+  const [viewingProduct, setViewingProduct] = useState<any | null>(null);
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(50); // Admin API supports up to 10000; seller up to 100
@@ -161,6 +169,24 @@ export default function Products() {
       null;
     const s = String(hsn ?? '').trim();
     return s ? s : '—';
+  };
+
+  const getProductImageUrls = (product: any): string[] => {
+    const rows =
+      (Array.isArray(product?.images) && product.images) ||
+      (Array.isArray(product?.product_images) && product.product_images) ||
+      (Array.isArray(product?.productImages) && product.productImages) ||
+      [];
+    const urls = rows
+      .map((img: any) => String(img?.image_url || img?.imageUrl || img?.url || '').trim())
+      .filter(Boolean);
+    const deduped: string[] = Array.from(new Set<string>(urls));
+    const primary = rows.find((img: any) => img?.isPrimary || img?.is_primary);
+    const primaryUrl = String(primary?.image_url || primary?.imageUrl || primary?.url || '').trim();
+    if (primaryUrl) {
+      return [primaryUrl, ...deduped.filter((u: string) => u !== primaryUrl)];
+    }
+    return deduped;
   };
 
   // Flatten categories for dropdown
@@ -391,6 +417,10 @@ export default function Products() {
 
   const handleDelete = (productId: string) => {
     setDeletingProductId(productId);
+  };
+
+  const handleViewDetails = (product: any) => {
+    setViewingProduct(product);
   };
 
   const confirmDelete = () => {
@@ -904,8 +934,8 @@ export default function Products() {
                     {products.map((product: any) => {
                       // Handle both camelCase and snake_case field names
                       const productId = product.id || product._id || product.product_id;
-                      const primaryImage = product.images?.find((img: any) => img.isPrimary || img.is_primary) || product.images?.[0];
-                      const imageUrl = primaryImage?.image_url || primaryImage?.imageUrl || primaryImage?.url;
+                      const imageUrls = getProductImageUrls(product);
+                      const imageUrl = imageUrls[0];
                       const sellingPrice = product.sellingPrice || product.selling_price || 0;
                       const commissionCost = product.commissionCost ?? product.commission_cost ?? 0;
                       const finalSellingPrice = product.finalSellingPrice ?? product.final_selling_price ?? (Number(sellingPrice) + Number(commissionCost));
@@ -970,6 +1000,11 @@ export default function Products() {
                                 {variants.length > 1 && (
                                   <p className="text-[11px] text-muted-foreground">
                                     {variants.length} variants
+                                  </p>
+                                )}
+                                {imageUrls.length > 1 && (
+                                  <p className="text-[11px] text-muted-foreground">
+                                    {imageUrls.length} images
                                   </p>
                                 )}
                                 {isFeatured && (
@@ -1084,7 +1119,7 @@ export default function Products() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="bg-popover">
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleViewDetails(product)}>
                             <Eye className="h-4 w-4 mr-2" />
                             View Details
                           </DropdownMenuItem>
@@ -1173,6 +1208,78 @@ export default function Products() {
         onOpenChange={handleFormClose}
         productId={editingProductId}
       />
+
+      {/* View Product Details Dialog */}
+      <Dialog open={!!viewingProduct} onOpenChange={(open) => !open && setViewingProduct(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{viewingProduct?.name || 'Product details'}</DialogTitle>
+            <DialogDescription>Read-only product information</DialogDescription>
+          </DialogHeader>
+
+          {viewingProduct && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Brand</p>
+                  <p className="font-medium">{viewingProduct.brand?.name || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Company</p>
+                  <p className="font-medium">{viewingProduct.company?.name || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Category</p>
+                  <p className="font-medium">{viewingProduct.category?.name || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Division</p>
+                  <p className="font-medium">
+                    {viewingProduct?.division?.name ||
+                      (viewingProduct?.division?.slug === 'kitchen' ? 'Kitchen' : 'Grocery')}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">MRP</p>
+                  <p className="font-medium">{formatCurrency(Number(viewingProduct.mrp || 0))}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Selling Price</p>
+                  <p className="font-medium">
+                    {formatCurrency(Number(viewingProduct.sellingPrice || viewingProduct.selling_price || 0))}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Stock</p>
+                  <p className="font-medium">{viewingProduct.stockQuantity || viewingProduct.stock_quantity || 0}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Expiry</p>
+                  <p className="font-medium">{formatExpiry(viewingProduct)}</p>
+                </div>
+              </div>
+
+              {getProductImageUrls(viewingProduct).length > 0 && (
+                <div>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Images ({getProductImageUrls(viewingProduct).length})
+                  </p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {getProductImageUrls(viewingProduct).map((url, idx) => (
+                      <img
+                        key={`${url}-${idx}`}
+                        src={url}
+                        alt={`Product image ${idx + 1}`}
+                        className="w-full h-20 object-cover rounded border"
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deletingProductId} onOpenChange={() => setDeletingProductId(null)}>

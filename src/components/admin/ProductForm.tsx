@@ -389,10 +389,15 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
       setSelectedCompany(companyId || '');
       setImageSlots((prev) => {
         revokeLocalPreviews(prev);
-        if (!productData.images?.length) {
+        const gallery =
+          (Array.isArray(productData.images) && productData.images) ||
+          (Array.isArray(productData.product_images) && productData.product_images) ||
+          (Array.isArray(productData.productImages) && productData.productImages) ||
+          [];
+        if (!gallery.length) {
           return [];
         }
-        return productData.images
+        return gallery
           .map((img: any) => ({
             kind: 'remote' as const,
             id: String(img.id ?? ''),
