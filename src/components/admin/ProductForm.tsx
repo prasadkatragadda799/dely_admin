@@ -75,6 +75,15 @@ const PACKAGING_LABEL_TYPE_OPTIONS = [
 
 const PACKAGING_SELECT_SENTINEL = '__none__';
 
+const normalizePiecesPerSetForUnit = (unit?: string, piecesPerSet?: number) => {
+  const normalizedUnit = String(unit || 'piece').trim().toLowerCase();
+  if (normalizedUnit === 'piece') {
+    return 1;
+  }
+  const parsed = Number(piecesPerSet ?? 1);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : 1;
+};
+
 const variantSchema = z.object({
   hsnCode: z.string().optional(),
   packagingLabelType: z.string().optional(),
@@ -535,10 +544,9 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
       // Add unit (generic unit, individual variant weights go in variants array)
       formData.append('unit', data.unit);
       
-      // Add pieces per set if provided
-      if (data.piecesPerSet) {
-        formData.append('piecesPerSet', data.piecesPerSet.toString());
-      }
+      // For "piece" unit, always persist 1 to avoid bad UI labels like "12 pcs / piece".
+      const normalizedPiecesPerSet = normalizePiecesPerSetForUnit(data.unit, data.piecesPerSet);
+      formData.append('piecesPerSet', normalizedPiecesPerSet.toString());
       
       // Add boolean fields (convert to string)
       formData.append('isFeatured', (data.isFeatured || false).toString());
