@@ -321,6 +321,14 @@ const orderStats = [
     });
   };
 
+  const formatPaymentMethod = (rawMethod: string | undefined) => {
+    const method = String(rawMethod || '').trim().toLowerCase();
+    if (method === 'cod' || method === 'cash' || method === 'cash_on_delivery') {
+      return 'Cash on Delivery';
+    }
+    return rawMethod || 'Unknown';
+  };
+
   const handleViewDetails = (orderId: string) => {
     // TODO: Implement order detail view/modal
     toast({
@@ -520,7 +528,9 @@ const orderStats = [
         const businessName = order.customer?.businessName || order.businessName || order.business_name || order.customer?.companyName || '-';
         const itemsCount = order.itemsCount ?? order.items_count ?? order.items?.length ?? 0;
         const totalAmount = order.totalAmount ?? order.total_amount ?? order.total ?? order.amount ?? 0;
-        const paymentMethod = order.paymentMethod || order.payment_method || order.payment?.method || 'Unknown';
+        const paymentMethod = formatPaymentMethod(
+          order.paymentMethod || order.payment_method || order.payment?.method || 'Unknown',
+        );
         const status = order.status || order.order_status || 'pending';
         const orderDate = order.createdAt || order.created_at || order.orderDate || order.order_date || '';
         const deliveryDate = order.deliveryDate || order.delivery_date || order.expectedDeliveryDate || order.expected_delivery_date || '';
@@ -653,11 +663,7 @@ const orderStats = [
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Payments</SelectItem>
-                  <SelectItem value="credit">Credit</SelectItem>
-                  <SelectItem value="upi">UPI</SelectItem>
-                  <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="bank">Bank Transfer</SelectItem>
-                  <SelectItem value="card">Card</SelectItem>
+                  <SelectItem value="cod">Cash on Delivery</SelectItem>
                 </SelectContent>
               </Select>
               <Button 
@@ -774,7 +780,9 @@ const orderStats = [
                         const businessName = order.customer?.businessName || order.businessName || order.business_name || order.customer?.companyName || '-';
                         const itemsCount = order.itemsCount || order.items_count || order.items?.length || 0;
                         const totalAmount = order.totalAmount || order.total_amount || order.total || order.amount || 0;
-                        const paymentMethod = order.paymentMethod || order.payment_method || order.payment?.method || 'Unknown';
+                        const paymentMethod = formatPaymentMethod(
+                          order.paymentMethod || order.payment_method || order.payment?.method || 'Unknown',
+                        );
                         const status = order.status || order.order_status || 'pending';
                         const orderDate = order.createdAt || order.created_at || order.orderDate || order.order_date;
                         const deliveryDate = order.deliveryDate || order.delivery_date || order.expectedDeliveryDate || order.expected_delivery_date;

@@ -69,12 +69,7 @@ const generalSettingsSchema = z.object({
 });
 
 const paymentSettingsSchema = z.object({
-  creditEnabled: z.boolean(),
-  upiEnabled: z.boolean(),
-  bankTransferEnabled: z.boolean(),
   cashOnDeliveryEnabled: z.boolean(),
-  defaultCreditLimit: z.number().min(0),
-  paymentTermsDays: z.number().min(1),
 });
 
 const deliverySettingsSchema = z.object({
@@ -161,12 +156,7 @@ export default function Settings() {
         return response.data;
       } catch (error) {
         return {
-          creditEnabled: true,
-          upiEnabled: true,
-          bankTransferEnabled: true,
-          cashOnDeliveryEnabled: false,
-          defaultCreditLimit: 50000,
-          paymentTermsDays: 30,
+          cashOnDeliveryEnabled: true,
         };
       }
     },
@@ -826,51 +816,9 @@ export default function Settings() {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
-                        <Label htmlFor="credit-enabled">Credit Payment</Label>
-                        <p className="text-xs text-muted-foreground">
-                          Allow customers to pay on credit
-                        </p>
-                      </div>
-                      <Switch
-                        id="credit-enabled"
-                        checked={paymentForm.watch('creditEnabled')}
-                        onCheckedChange={(checked) => paymentForm.setValue('creditEnabled', checked)}
-                        disabled={paymentMutation.isPending}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="upi-enabled">UPI Payment</Label>
-                        <p className="text-xs text-muted-foreground">
-                          Enable UPI payment gateway
-                        </p>
-                      </div>
-                      <Switch
-                        id="upi-enabled"
-                        checked={paymentForm.watch('upiEnabled')}
-                        onCheckedChange={(checked) => paymentForm.setValue('upiEnabled', checked)}
-                        disabled={paymentMutation.isPending}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="bank-enabled">Bank Transfer</Label>
-                        <p className="text-xs text-muted-foreground">
-                          Allow bank transfer payments
-                        </p>
-                      </div>
-                      <Switch
-                        id="bank-enabled"
-                        checked={paymentForm.watch('bankTransferEnabled')}
-                        onCheckedChange={(checked) => paymentForm.setValue('bankTransferEnabled', checked)}
-                        disabled={paymentMutation.isPending}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
                         <Label htmlFor="cash-enabled">Cash on Delivery</Label>
                         <p className="text-xs text-muted-foreground">
-                          Enable cash on delivery option
+                          Keep this enabled while online payments are disabled.
                         </p>
                       </div>
                       <Switch
@@ -881,25 +829,9 @@ export default function Settings() {
                       />
                     </div>
                   </div>
-                  <Separator />
-                  <div className="space-y-2">
-                    <Label htmlFor="credit-limit">Default Credit Limit (₹)</Label>
-                    <Input
-                      id="credit-limit"
-                      type="number"
-                      {...paymentForm.register('defaultCreditLimit', { valueAsNumber: true })}
-                      disabled={paymentMutation.isPending}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="payment-terms">Payment Terms (Days)</Label>
-                    <Input
-                      id="payment-terms"
-                      type="number"
-                      {...paymentForm.register('paymentTermsDays', { valueAsNumber: true })}
-                      disabled={paymentMutation.isPending}
-                    />
-                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    UPI, card, bank transfer, and credit are disabled globally in backend.
+                  </p>
                   <Button
                     type="submit"
                     variant="gradient"
