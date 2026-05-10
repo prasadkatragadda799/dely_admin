@@ -30,7 +30,8 @@ import {
   Pie,
   Cell,
 } from 'recharts';
-import { analyticsAPI, ordersAPI } from '@/lib/api';
+import { analyticsAPI, ordersAPI, sellerAnalyticsAPI } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 
@@ -65,6 +66,8 @@ function formatTimeAgo(dateString: string) {
 
 export default function Dashboard() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isSeller = user?.role === 'seller';
   const [downloadingReport, setDownloadingReport] = useState(false);
 
   const formatCurrency = (value: number) => {
@@ -76,23 +79,28 @@ export default function Dashboard() {
   };
 
   const { data: dashboardMetrics, isLoading: loadingMetrics } = useQuery({
-    queryKey: ['dashboard', 'metrics'],
+    queryKey: ['dashboard', 'metrics', isSeller ? 'seller' : 'admin'],
     queryFn: async () => {
-      const res = await analyticsAPI.getDashboardMetrics({ period: 'month' });
+      const res = isSeller
+        ? await sellerAnalyticsAPI.getDashboardMetrics({ period: 'month' })
+        : await analyticsAPI.getDashboardMetrics({ period: 'month' });
       return res.data;
     },
   });
 
   const { data: revenueList = [], isLoading: loadingRevenue } = useQuery({
-    queryKey: ['dashboard', 'revenue'],
+    queryKey: ['dashboard', 'revenue', isSeller ? 'seller' : 'admin'],
     queryFn: async () => {
-      const res = await analyticsAPI.getRevenueData({ period: 'week' });
+      const res = isSeller
+        ? await sellerAnalyticsAPI.getRevenueData({ period: 'week' })
+        : await analyticsAPI.getRevenueData({ period: 'week' });
       return Array.isArray(res.data) ? res.data : [];
     },
   });
 
   const { data: orderAnalytics, isLoading: loadingOrderStats } = useQuery({
     queryKey: ['dashboard', 'orderAnalytics'],
+    enabled: !isSeller,
     queryFn: async () => {
       const res = await analyticsAPI.getOrderAnalytics({ period: 'month' });
       return res.data || {};
@@ -100,9 +108,11 @@ export default function Dashboard() {
   });
 
   const { data: productList = [], isLoading: loadingProducts } = useQuery({
-    queryKey: ['dashboard', 'products'],
+    queryKey: ['dashboard', 'products', isSeller ? 'seller' : 'admin'],
     queryFn: async () => {
-      const res = await analyticsAPI.getProductAnalytics({ period: 'month', limit: 5 });
+      const res = isSeller
+        ? await sellerAnalyticsAPI.getProductAnalytics({ period: 'month', limit: 5 })
+        : await analyticsAPI.getProductAnalytics({ period: 'month', limit: 5 });
       const raw = res.data;
       return Array.isArray(raw) ? raw : (raw?.products ? raw.products : []);
     },
@@ -110,6 +120,7 @@ export default function Dashboard() {
 
   const { data: ordersResponse, isLoading: loadingOrders } = useQuery({
     queryKey: ['dashboard', 'recentOrders'],
+    enabled: !isSeller,
     queryFn: () => ordersAPI.getOrders({ page: 1, limit: 5, sort: 'createdAt', order: 'desc' }),
   });
 
@@ -152,8 +163,53 @@ export default function Dashboard() {
   const revenueChange = dashboardMetrics?.revenueChange ?? 0;
   const ordersChange = dashboardMetrics?.ordersChange ?? 0;
   const usersChange = dashboardMetrics?.usersChange ?? 0;
+  const activeProducts = dashboardMetrics?.activeProducts ?? 0;
+  const inactiveProducts = dashboardMetrics?.inactiveProducts ?? 0;
+  const avgOrderValue = dashboardMetrics?.avgOrderValue ?? 0;
+  const avgOrderValueChange = dashboardMetrics?.avgOrderValueChange ?? 0;
 
-  const metrics = [
+  const metrics = isSeller ? [
+    {
+      title: 'Total Revenue',
+      value: formatCurrency(totalRevenue),
+      change: revenueChange != null ? `${revenueChange >= 0 ? '+' : ''}${revenueChange}%` : '',
+      trend: revenueChange > 0 ? 'up' : revenueChange < 0 ? 'down' : 'neutral',
+      subtitle: 'from your products',
+      icon: DollarSign,
+    },
+    {
+      title: 'Total Orders',
+      value: String(totalOrders),
+      change: ordersChange != null ? `${ordersChange >= 0 ? '+' : ''}${ordersChange}%` : '',
+      trend: ordersChange > 0 ? 'up' : ordersChange < 0 ? 'down' : 'neutral',
+      subtitle: 'with your products',
+      icon: ShoppingCart,
+    },
+    {
+      title: 'Your Products',
+      value: String(productCount),
+      change: '',
+      trend: 'neutral' as const,
+      subtitle: 'in your catalog',
+      icon: Package,
+    },
+    {
+      title: 'Active Products',
+      value: String(activeProducts),
+      change: '',
+      trend: 'neutral' as const,
+      subtitle: 'available for sale',
+      icon: Package,
+    },
+    {
+      title: 'Avg Order Value',
+      value: formatCurrency(avgOrderValue),
+      change: avgOrderValueChange != null ? `${avgOrderValueChange >= 0 ? '+' : ''}${avgOrderValueChange}%` : '',
+      trend: avgOrderValueChange > 0 ? 'up' : avgOrderValueChange < 0 ? 'down' : 'neutral',
+      subtitle: 'per order',
+      icon: DollarSign,
+    },
+  ] : [
     {
       title: 'Total Revenue',
       value: formatCurrency(totalRevenue),
@@ -196,7 +252,7 @@ export default function Dashboard() {
     },
   ];
 
-  const isLoading = loadingMetrics || loadingRevenue || loadingOrderStats || loadingProducts || loadingOrders;
+  const isLoading = loadingMetrics || loadingRevenue || (!isSeller && loadingOrderStats) || loadingProducts || (!isSeller && loadingOrders);
 
   const handleDownloadReport = async () => {
     setDownloadingReport(true);
@@ -228,22 +284,26 @@ export default function Dashboard() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground">Welcome back! Here's what's happening today.</p>
+          <p className="text-muted-foreground">
+            {isSeller ? "Your sales overview for this month." : "Welcome back! Here's what's happening today."}
+          </p>
         </div>
-        <div className="flex gap-3">
-          <Button
-            variant="outline"
-            onClick={handleDownloadReport}
-            disabled={downloadingReport}
-          >
-            {downloadingReport ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Download className="h-4 w-4 mr-2" />
-            )}
-            Download Report
-          </Button>
-        </div>
+        {!isSeller && (
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={handleDownloadReport}
+              disabled={downloadingReport}
+            >
+              {downloadingReport ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4 mr-2" />
+              )}
+              Download Report
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Metrics Grid */}
@@ -288,7 +348,7 @@ export default function Dashboard() {
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Revenue Chart */}
-        <Card className="lg:col-span-2 shadow-card">
+        <Card className={isSeller ? "lg:col-span-3 shadow-card" : "lg:col-span-2 shadow-card"}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div>
               <CardTitle className="text-lg font-semibold">Revenue Overview</CardTitle>
@@ -348,8 +408,8 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Order Status Pie Chart */}
-        <Card className="shadow-card">
+        {/* Order Status Pie Chart — admin/manager only */}
+        {!isSeller && <Card className="shadow-card">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg font-semibold">Order Status</CardTitle>
             <CardDescription>Distribution by status</CardDescription>
@@ -396,7 +456,7 @@ export default function Dashboard() {
               ))}
             </div>
           </CardContent>
-        </Card>
+        </Card>}
       </div>
 
       {/* Bottom Row */}
@@ -483,8 +543,8 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Recent Orders Table */}
-      <Card className="shadow-card">
+      {/* Recent Orders Table — admin/manager only */}
+      {!isSeller && <Card className="shadow-card">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <div>
             <CardTitle className="text-lg font-semibold">Recent Orders</CardTitle>
@@ -555,7 +615,7 @@ export default function Dashboard() {
           </div>
           )}
         </CardContent>
-      </Card>
+      </Card>}
     </div>
   );
 }

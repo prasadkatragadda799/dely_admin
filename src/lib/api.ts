@@ -1098,6 +1098,24 @@ export const analyticsAPI = {
   },
 };
 
+// Seller Analytics API (scoped to the authenticated seller's products)
+export const sellerAnalyticsAPI = {
+  getDashboardMetrics: async (params?: { period?: string; dateFrom?: string; dateTo?: string }) => {
+    const response = await apiClient.get<ApiResponse<any>>('/seller/analytics/dashboard', { params });
+    return response.data;
+  },
+
+  getRevenueData: async (params?: { period?: string; dateFrom?: string; dateTo?: string }) => {
+    const response = await apiClient.get<ApiResponse<any[]>>('/seller/analytics/revenue', { params });
+    return response.data;
+  },
+
+  getProductAnalytics: async (params?: { period?: string; dateFrom?: string; dateTo?: string; limit?: number }) => {
+    const response = await apiClient.get<ApiResponse<any>>('/seller/analytics/products', { params });
+    return response.data;
+  },
+};
+
 // Settings API
 export const settingsAPI = {
   // Get all settings
@@ -1206,6 +1224,20 @@ export const settingsAPI = {
     };
   }) => {
     const response = await apiClient.put<ApiResponse<void>>('/admin/settings/notifications', settings);
+    return response.data;
+  },
+
+  // Service Location Settings
+  getServiceLocationSettings: async () => {
+    const response = await apiClient.get<ApiResponse<any>>('/admin/settings/service-locations');
+    return response.data;
+  },
+
+  updateServiceLocationSettings: async (settings: {
+    enabled: boolean;
+    locations: Array<{ pincode: string; city: string; state: string }>;
+  }) => {
+    const response = await apiClient.put<ApiResponse<void>>('/admin/settings/service-locations', settings);
     return response.data;
   },
 

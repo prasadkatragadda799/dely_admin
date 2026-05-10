@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { 
+import {
   Save,
   Upload,
   Users,
@@ -12,7 +12,8 @@ import {
   Trash2,
   Edit,
   X,
-  Plus
+  Plus,
+  MapPin,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -128,6 +129,13 @@ export default function Settings() {
   const [deleteAdminId, setDeleteAdminId] = useState<string | null>(null);
   const [notificationTab, setNotificationTab] = useState<'email' | 'sms'>('email');
 
+  // Service Locations state
+  const [locationEnabled, setLocationEnabled] = useState(false);
+  const [serviceLocations, setServiceLocations] = useState<Array<{ pincode: string; city: string; state: string }>>([]);
+  const [newPincode, setNewPincode] = useState('');
+  const [newCity, setNewCity] = useState('');
+  const [newState, setNewState] = useState('');
+
   // Fetch all settings
   const { data: generalSettingsData, isLoading: isLoadingGeneral } = useQuery({
     queryKey: ['settings', 'general'],
@@ -224,6 +232,19 @@ export default function Settings() {
         return response.data || [];
       } catch (error) {
         return [];
+      }
+    },
+  });
+
+  // Fetch service location settings
+  const { data: serviceLocationData, isLoading: isLoadingServiceLocations } = useQuery({
+    queryKey: ['settings', 'service-locations'],
+    queryFn: async () => {
+      try {
+        const response = await settingsAPI.getServiceLocationSettings();
+        return response.data;
+      } catch {
+        return { enabled: false, locations: [] };
       }
     },
   });
@@ -330,6 +351,13 @@ export default function Settings() {
     }
   }, [notificationSettingsData, notificationForm]);
 
+  useEffect(() => {
+    if (serviceLocationData) {
+      setLocationEnabled(serviceLocationData.enabled ?? false);
+      setServiceLocations(serviceLocationData.locations ?? []);
+    }
+  }, [serviceLocationData]);
+
   // Mutations
   const generalMutation = useMutation({
     mutationFn: async (data: GeneralSettingsForm & { logoFile?: File }) => {
@@ -431,6 +459,26 @@ export default function Settings() {
       toast({
         title: 'Error',
         description: error.response?.data?.message || 'Failed to save tax settings',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const serviceLocationMutation = useMutation({
+    mutationFn: async () => {
+      return await settingsAPI.updateServiceLocationSettings({
+        enabled: locationEnabled,
+        locations: serviceLocations,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings', 'service-locations'] });
+      toast({ title: 'Success', description: 'Service location settings saved successfully' });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to save service location settings',
         variant: 'destructive',
       });
     },
@@ -659,8 +707,28 @@ export default function Settings() {
     }
   };
 
-  const isLoading = isLoadingGeneral || isLoadingPayment || isLoadingDelivery || 
-                    isLoadingTax || isLoadingNotifications || isLoadingAdmins;
+  const handleAddLocation = () => {
+    const pin = newPincode.trim();
+    if (!pin || pin.length < 6) {
+      toast({ title: 'Error', description: 'Enter a valid 6-digit pincode', variant: 'destructive' });
+      return;
+    }
+    if (serviceLocations.some(l => l.pincode === pin)) {
+      toast({ title: 'Error', description: 'Pincode already added', variant: 'destructive' });
+      return;
+    }
+    setServiceLocations(prev => [...prev, { pincode: pin, city: newCity.trim(), state: newState.trim() }]);
+    setNewPincode('');
+    setNewCity('');
+    setNewState('');
+  };
+
+  const handleRemoveLocation = (pincode: string) => {
+    setServiceLocations(prev => prev.filter(l => l.pincode !== pincode));
+  };
+
+  const isLoading = isLoadingGeneral || isLoadingPayment || isLoadingDelivery ||
+                    isLoadingTax || isLoadingNotifications || isLoadingAdmins || isLoadingServiceLocations;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -678,12 +746,13 @@ export default function Settings() {
         </div>
       ) : (
         <Tabs defaultValue="general" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="payment">Payment</TabsTrigger>
             <TabsTrigger value="delivery">Delivery</TabsTrigger>
             <TabsTrigger value="tax">Tax</TabsTrigger>
             <TabsTrigger value="notifications">Notifications</TabsTrigger>
+            <TabsTrigger value="locations">Locations</TabsTrigger>
             <TabsTrigger value="admins">Admins</TabsTrigger>
           </TabsList>
 
@@ -1106,6 +1175,133 @@ export default function Settings() {
                     )}
                   </Button>
                 </form>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Service Locations */}
+          <TabsContent value="locations" className="space-y-4">
+            <Card className="shadow-card">
+              <CardHeader>
+                <CardTitle>Service Location Restrictions</CardTitle>
+                <CardDescription>
+                  When enabled, only customers in listed pincodes can place orders. All others will see
+                  "Products not available in your location."
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Enable toggle */}
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Enable Location Restrictions</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Turn off to allow orders from any location
+                    </p>
+                  </div>
+                  <Switch
+                    checked={locationEnabled}
+                    onCheckedChange={setLocationEnabled}
+                    disabled={serviceLocationMutation.isPending}
+                  />
+                </div>
+
+                <Separator />
+
+                {/* Add new location row */}
+                <div className="space-y-2">
+                  <Label>Add Serviceable Pincode</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Pincode *"
+                      value={newPincode}
+                      onChange={e => setNewPincode(e.target.value)}
+                      className="w-36"
+                      maxLength={6}
+                      disabled={serviceLocationMutation.isPending}
+                    />
+                    <Input
+                      placeholder="City"
+                      value={newCity}
+                      onChange={e => setNewCity(e.target.value)}
+                      disabled={serviceLocationMutation.isPending}
+                    />
+                    <Input
+                      placeholder="State"
+                      value={newState}
+                      onChange={e => setNewState(e.target.value)}
+                      disabled={serviceLocationMutation.isPending}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleAddLocation}
+                      disabled={serviceLocationMutation.isPending}
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Locations table */}
+                {serviceLocations.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-secondary/50">
+                          <TableHead>Pincode</TableHead>
+                          <TableHead>City</TableHead>
+                          <TableHead>State</TableHead>
+                          <TableHead className="w-16"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {serviceLocations.map(loc => (
+                          <TableRow key={loc.pincode} className="hover:bg-secondary/30">
+                            <TableCell className="font-mono font-medium">{loc.pincode}</TableCell>
+                            <TableCell>{loc.city || '—'}</TableCell>
+                            <TableCell>{loc.state || '—'}</TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-destructive"
+                                onClick={() => handleRemoveLocation(loc.pincode)}
+                                disabled={serviceLocationMutation.isPending}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-8 text-muted-foreground gap-2">
+                    <MapPin className="h-8 w-8 opacity-40" />
+                    <p className="text-sm">No pincodes added yet</p>
+                    <p className="text-xs">Add pincodes above to restrict delivery areas</p>
+                  </div>
+                )}
+
+                <Button
+                  variant="gradient"
+                  onClick={() => serviceLocationMutation.mutate()}
+                  disabled={serviceLocationMutation.isPending}
+                >
+                  {serviceLocationMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      Save Changes
+                    </>
+                  )}
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>
