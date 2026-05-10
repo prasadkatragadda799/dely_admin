@@ -1149,11 +1149,8 @@ const orderStats = [
 
               return (
                 <>
-                  {/* Top section with QR + meta */}
+                  {/* Top section: meta + addresses */}
                   <div className="flex justify-between gap-6">
-                    <div className="w-32 h-32 border border-gray-300 flex items-center justify-center bg-white p-1">
-                      <img src="/qr.png" alt="QR Code" className="w-full h-full object-contain" />
-                    </div>
                     <div className="flex-1 grid grid-cols-2 gap-x-6 gap-y-1 text-[11px]">
                       <div className="flex gap-2.5">
                         <img

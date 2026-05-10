@@ -68,6 +68,8 @@ export default function Dashboard() {
   const { toast } = useToast();
   const { user } = useAuth();
   const isSeller = user?.role === 'seller';
+  // admin manages operations only — no financial data shown
+  const isAdminOnly = user?.role === 'admin';
   const [downloadingReport, setDownloadingReport] = useState(false);
 
   const formatCurrency = (value: number) => {
@@ -209,6 +211,48 @@ export default function Dashboard() {
       subtitle: 'per order',
       icon: DollarSign,
     },
+  ] : isAdminOnly ? [
+    // Admin sees operational metrics only — no revenue figures
+    {
+      title: 'Total Orders',
+      value: String(totalOrders),
+      change: ordersChange != null ? `${ordersChange >= 0 ? '+' : ''}${ordersChange}%` : '',
+      trend: ordersChange > 0 ? 'up' : ordersChange < 0 ? 'down' : 'neutral',
+      subtitle: 'vs last month',
+      icon: ShoppingCart,
+    },
+    {
+      title: 'Active Users',
+      value: String(activeUsers),
+      change: usersChange != null ? `${usersChange >= 0 ? '+' : ''}${usersChange}%` : '',
+      trend: usersChange > 0 ? 'up' : usersChange < 0 ? 'down' : 'neutral',
+      subtitle: 'registered users',
+      icon: Users,
+    },
+    {
+      title: 'Products',
+      value: String(productCount),
+      change: '',
+      trend: 'neutral' as const,
+      subtitle: 'in catalog',
+      icon: Package,
+    },
+    {
+      title: 'Active Products',
+      value: String(activeProducts),
+      change: '',
+      trend: 'neutral' as const,
+      subtitle: 'available for sale',
+      icon: Package,
+    },
+    {
+      title: 'KYC Pending',
+      value: String(kycPending),
+      change: '',
+      trend: 'neutral' as const,
+      subtitle: 'awaiting verification',
+      icon: FileCheck,
+    },
   ] : [
     {
       title: 'Total Revenue',
@@ -288,7 +332,7 @@ export default function Dashboard() {
             {isSeller ? "Your sales overview for this month." : "Welcome back! Here's what's happening today."}
           </p>
         </div>
-        {!isSeller && (
+        {!isSeller && !isAdminOnly && (
           <div className="flex gap-3">
             <Button
               variant="outline"
@@ -347,8 +391,8 @@ export default function Dashboard() {
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Revenue Chart */}
-        <Card className={isSeller ? "lg:col-span-3 shadow-card" : "lg:col-span-2 shadow-card"}>
+        {/* Revenue Chart — hidden for admin role */}
+        {isAdminOnly ? null : <Card className={isSeller ? "lg:col-span-3 shadow-card" : "lg:col-span-2 shadow-card"}>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div>
               <CardTitle className="text-lg font-semibold">Revenue Overview</CardTitle>
@@ -406,10 +450,10 @@ export default function Dashboard() {
               )}
             </div>
           </CardContent>
-        </Card>
+        </Card>}
 
         {/* Order Status Pie Chart — admin/manager only */}
-        {!isSeller && <Card className="shadow-card">
+        {!isSeller && <Card className={`shadow-card ${isAdminOnly ? 'lg:col-span-3' : ''}`}>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg font-semibold">Order Status</CardTitle>
             <CardDescription>Distribution by status</CardDescription>

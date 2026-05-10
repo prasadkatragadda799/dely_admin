@@ -125,6 +125,8 @@ const productSchema = z.object({
   isAvailable: z.boolean().optional(),
   metaTitle: z.string().optional(),
   metaDescription: z.string().optional(),
+  manufacturerName: z.string().optional(),
+  manufacturerAddress: z.string().optional(),
   // Multiple size / pack variants like in Excel sheet
   variants: z
     .array(variantSchema)
@@ -394,6 +396,8 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
         expiryDate: productData.expiryDate || productData.expiry_date || '',
         metaTitle: productData.metaTitle || '',
         metaDescription: productData.metaDescription || '',
+        manufacturerName: productData.manufacturerName || productData.manufacturer_name || '',
+        manufacturerAddress: productData.manufacturerAddress || productData.manufacturer_address || '',
       });
       setSelectedCompany(companyId || '');
       setImageSlots((prev) => {
@@ -571,6 +575,10 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
       if (data.metaDescription) {
         formData.append('meta_description', data.metaDescription);
       }
+
+      // Bill From (manufacturer/supplier) fields
+      formData.append('manufacturerName', data.manufacturerName?.trim() || '');
+      formData.append('manufacturerAddress', data.manufacturerAddress?.trim() || '');
       
       // Images: on update, tell backend which existing rows to keep, then append new files.
       const localSlots = imageSlots.filter((s): s is Extract<ProductImageSlot, { kind: 'local' }> => s.kind === 'local');
@@ -1259,6 +1267,33 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
                 id="isAvailable"
                 checked={watch('isAvailable') !== false}
                 onCheckedChange={(checked) => setValue('isAvailable', checked)}
+              />
+            </div>
+          </div>
+
+          {/* Bill From — manufacturer / supplier address */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Bill From (Supplier / Manufacturer)</h3>
+            <p className="text-sm text-muted-foreground">
+              Appears as the "Bill From" address on invoices and purchase bills.
+            </p>
+
+            <div className="space-y-2">
+              <Label htmlFor="manufacturerName">Manufacturer / Supplier Name</Label>
+              <Input
+                id="manufacturerName"
+                {...register('manufacturerName')}
+                placeholder="e.g. krishn bhog flowr mill"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="manufacturerAddress">Manufacturer / Supplier Address</Label>
+              <Textarea
+                id="manufacturerAddress"
+                {...register('manufacturerAddress')}
+                placeholder="e.g. adibaran pur harihar pur azamgarh, State: 09-Uttar Pradesh"
+                rows={3}
               />
             </div>
           </div>

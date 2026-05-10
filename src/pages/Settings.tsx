@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -107,7 +108,8 @@ const notificationSettingsSchema = z.object({
 const adminUserSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   email: z.string().email('Invalid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters').optional(),
+  // Empty string = keep existing password (edit mode); min(6) enforced on non-empty values
+  password: z.union([z.string().min(6, 'Password must be at least 6 characters'), z.literal(''), z.undefined()]),
   role: z.enum(['super_admin', 'admin', 'manager', 'support']),
 });
 
@@ -120,6 +122,8 @@ type AdminUserForm = z.infer<typeof adminUserSchema>;
 
 export default function Settings() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === 'super_admin';
   const queryClient = useQueryClient();
   const logoFileInputRef = useRef<HTMLInputElement>(null);
   const [selectedLogoFile, setSelectedLogoFile] = useState<File | null>(null);
@@ -536,7 +540,8 @@ export default function Settings() {
       return await settingsAPI.updateAdmin(id, {
         name: data.name,
         email: data.email,
-        password: data.password,
+        // Only send password if the field has a non-empty value
+        password: data.password || undefined,
         role: data.role,
       });
     },
@@ -746,14 +751,14 @@ export default function Settings() {
         </div>
       ) : (
         <Tabs defaultValue="general" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-7">
+          <TabsList className={`grid w-full ${isSuperAdmin ? 'grid-cols-7' : 'grid-cols-6'}`}>
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="payment">Payment</TabsTrigger>
             <TabsTrigger value="delivery">Delivery</TabsTrigger>
             <TabsTrigger value="tax">Tax</TabsTrigger>
             <TabsTrigger value="notifications">Notifications</TabsTrigger>
             <TabsTrigger value="locations">Locations</TabsTrigger>
-            <TabsTrigger value="admins">Admins</TabsTrigger>
+            {isSuperAdmin && <TabsTrigger value="admins">Admins</TabsTrigger>}
           </TabsList>
 
           {/* General Settings */}

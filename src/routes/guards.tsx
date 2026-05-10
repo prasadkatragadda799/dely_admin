@@ -65,3 +65,18 @@ export function AdminOnlyRoute({ children }: GuardProps) {
 
   return <>{children}</>;
 }
+
+/**
+ * Blocks support role from management/write-heavy pages.
+ * Support can only access Dashboard, Orders, Users, KYC.
+ */
+export function BlockSupportRoute({ children }: GuardProps) {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) return null;
+  if (user?.role === 'support') {
+    return <Navigate to={ROUTES.DASHBOARD} replace />;
+  }
+
+  return <>{children}</>;
+}

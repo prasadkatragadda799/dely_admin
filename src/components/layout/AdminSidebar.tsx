@@ -99,14 +99,17 @@ export function AdminSidebar() {
       ];
     }
     if (isSupport) {
-      // Support can view but backend should enforce read-only
-      return mainNavItems;
+      return [
+        { title: 'Dashboard', url: ROUTES.DASHBOARD, icon: LayoutDashboard },
+        { title: 'Orders', url: ROUTES.ORDERS, icon: ShoppingCart },
+        { title: 'Users', url: ROUTES.USERS, icon: Users },
+      ];
     }
     return mainNavItems;
   })();
 
   const visibleManagementItems = (() => {
-    if (isSeller || isManager) return [];
+    if (isSeller || isManager || isSupport) return [];
     const items = [...managementItems];
     if (isAdmin) {
       items.unshift({ title: 'Sellers', url: ROUTES.SELLERS, icon: Users });
@@ -115,8 +118,7 @@ export function AdminSidebar() {
   })();
 
   const visibleSystemItems = (() => {
-    if (isSeller) return [];
-    if (isManager) return [];
+    if (isSeller || isManager || isSupport) return [];
     return systemItems;
   })();
 

@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { ProtectedRoute, PublicRoute, BlockSellerRoute, AdminOnlyRoute } from './guards';
+import { ProtectedRoute, PublicRoute, BlockSellerRoute, AdminOnlyRoute, BlockSupportRoute } from './guards';
 import { ROUTES } from '@/constants';
 
 import Login from '@/pages/Login';
@@ -49,7 +49,9 @@ export function AppRoutes() {
         path={ROUTES.PRODUCTS}
         element={
           <ProtectedRoute>
-            <Products />
+            <BlockSupportRoute>
+              <Products />
+            </BlockSupportRoute>
           </ProtectedRoute>
         }
       />
@@ -81,7 +83,9 @@ export function AppRoutes() {
         element={
           <ProtectedRoute>
             <BlockSellerRoute>
-              <Categories />
+              <BlockSupportRoute>
+                <Categories />
+              </BlockSupportRoute>
             </BlockSellerRoute>
           </ProtectedRoute>
         }
@@ -92,7 +96,9 @@ export function AppRoutes() {
         element={
           <ProtectedRoute>
             <BlockSellerRoute>
-              <Divisions />
+              <BlockSupportRoute>
+                <Divisions />
+              </BlockSupportRoute>
             </BlockSellerRoute>
           </ProtectedRoute>
         }
@@ -103,7 +109,9 @@ export function AppRoutes() {
         element={
           <ProtectedRoute>
             <BlockSellerRoute>
-              <Companies />
+              <BlockSupportRoute>
+                <Companies />
+              </BlockSupportRoute>
             </BlockSellerRoute>
           </ProtectedRoute>
         }
@@ -114,7 +122,9 @@ export function AppRoutes() {
         element={
           <ProtectedRoute>
             <BlockSellerRoute>
-              <Offers />
+              <BlockSupportRoute>
+                <Offers />
+              </BlockSupportRoute>
             </BlockSellerRoute>
           </ProtectedRoute>
         }
@@ -136,7 +146,9 @@ export function AppRoutes() {
         element={
           <ProtectedRoute>
             <BlockSellerRoute>
-              <Analytics />
+              <BlockSupportRoute>
+                <Analytics />
+              </BlockSupportRoute>
             </BlockSellerRoute>
           </ProtectedRoute>
         }
@@ -147,7 +159,9 @@ export function AppRoutes() {
         element={
           <ProtectedRoute>
             <BlockSellerRoute>
-              <WeeklyReports />
+              <BlockSupportRoute>
+                <WeeklyReports />
+              </BlockSupportRoute>
             </BlockSellerRoute>
           </ProtectedRoute>
         }
@@ -158,7 +172,9 @@ export function AppRoutes() {
         element={
           <ProtectedRoute>
             <BlockSellerRoute>
-              <InventoryManagement />
+              <BlockSupportRoute>
+                <InventoryManagement />
+              </BlockSupportRoute>
             </BlockSellerRoute>
           </ProtectedRoute>
         }
@@ -169,7 +185,9 @@ export function AppRoutes() {
         element={
           <ProtectedRoute>
             <BlockSellerRoute>
-              <Settings />
+              <BlockSupportRoute>
+                <Settings />
+              </BlockSupportRoute>
             </BlockSellerRoute>
           </ProtectedRoute>
         }
