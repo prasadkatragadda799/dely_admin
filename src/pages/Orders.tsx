@@ -1089,8 +1089,6 @@ const orderStats = [
               const billFromLine2 = seller?.address_line2 || seller?.addressLine2 || '';
               const billFromCityLine = [seller?.city, seller?.state, seller?.pincode].filter(Boolean).join(', ');
               const billFromGst = seller?.gstin || seller?.gst_number || '—';
-              const billFromFssai = seller?.fssai || '—';
-              const billFromFssaiLink = seller?.fssai_link || seller?.fssaiLink || '';
 
               // Bill To: canonical buyer from API, else legacy order shape
               const customerName =
@@ -1176,10 +1174,6 @@ const orderStats = [
                         {billFromLine2 ? <p>{billFromLine2}</p> : null}
                         {billFromCityLine ? <p>{billFromCityLine}</p> : null}
                         <p>GSTIN: {billFromGst}</p>
-                        <p>FSSAI: {billFromFssai}</p>
-                        {billFromFssaiLink ? (
-                          <p className="text-[10px] break-all">{billFromFssaiLink}</p>
-                        ) : null}
                         {seller?.phone ? <p>Phone: {seller.phone}</p> : null}
                         {seller?.email ? <p className="break-all">{seller.email}</p> : null}
                       </div>
