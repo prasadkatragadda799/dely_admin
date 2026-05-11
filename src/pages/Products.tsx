@@ -101,6 +101,10 @@ export default function Products() {
   const [exporting, setExporting] = useState(false);
   /** all | seller | platform — staff-only; seller role uses seller API. */
   const [listingScope, setListingScope] = useState<'all' | 'seller' | 'platform'>('all');
+  const [isBulkStockOpen, setIsBulkStockOpen] = useState(false);
+  const [isBulkStatusOpen, setIsBulkStatusOpen] = useState(false);
+  const [bulkStockValue, setBulkStockValue] = useState('');
+  const [bulkStatusValue, setBulkStatusValue] = useState<'available' | 'unavailable'>('available');
 
   const [searchParams, setSearchParams] = useSearchParams();
   const createdByFromUrl = (searchParams.get('created_by') || '').trim();
@@ -366,6 +370,27 @@ export default function Products() {
         variant: 'destructive',
       });
       setDeletingProductId(null);
+    },
+  });
+
+  const bulkUpdateMutation = useMutation({
+    mutationFn: (updates: { stock_quantity?: number; is_available?: boolean }) =>
+      productsAPI.bulkUpdate(selectedProducts, updates),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      const what = 'stock_quantity' in variables ? 'Stock' : 'Status';
+      toast({ title: `${what} updated`, description: `Updated ${selectedProducts.length} product(s) successfully.` });
+      setSelectedProducts([]);
+      setIsBulkStockOpen(false);
+      setIsBulkStatusOpen(false);
+      setBulkStockValue('');
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Bulk update failed',
+        description: error?.response?.data?.error?.message || error?.message || 'Please try again.',
+        variant: 'destructive',
+      });
     },
   });
 
@@ -822,8 +847,8 @@ export default function Products() {
             <strong>{selectedProducts.length}</strong> products selected
           </span>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm">Update Stock</Button>
-            <Button variant="outline" size="sm">Update Status</Button>
+            <Button variant="outline" size="sm" onClick={() => { setBulkStockValue(''); setIsBulkStockOpen(true); }}>Update Stock</Button>
+            <Button variant="outline" size="sm" onClick={() => { setBulkStatusValue('available'); setIsBulkStatusOpen(true); }}>Update Status</Button>
             <Button
               variant="destructive"
               size="sm"
@@ -1337,6 +1362,75 @@ export default function Products() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Bulk Update Stock Dialog */}
+      <Dialog open={isBulkStockOpen} onOpenChange={setIsBulkStockOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update Stock</DialogTitle>
+            <DialogDescription>
+              Set a new stock quantity for {selectedProducts.length} selected product(s).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <label className="text-sm font-medium text-muted-foreground mb-1 block">New stock quantity</label>
+            <Input
+              type="number"
+              min={0}
+              placeholder="e.g. 100"
+              value={bulkStockValue}
+              onChange={(e) => setBulkStockValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && bulkStockValue !== '') {
+                  bulkUpdateMutation.mutate({ stock_quantity: Number(bulkStockValue) });
+                }
+              }}
+            />
+          </div>
+          <div className="flex justify-end gap-2 mt-2">
+            <Button variant="outline" onClick={() => setIsBulkStockOpen(false)} disabled={bulkUpdateMutation.isPending}>Cancel</Button>
+            <Button
+              onClick={() => bulkUpdateMutation.mutate({ stock_quantity: Number(bulkStockValue) })}
+              disabled={bulkStockValue === '' || isNaN(Number(bulkStockValue)) || bulkUpdateMutation.isPending}
+            >
+              {bulkUpdateMutation.isPending ? 'Updating…' : 'Apply'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Update Status Dialog */}
+      <Dialog open={isBulkStatusOpen} onOpenChange={setIsBulkStatusOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update Status</DialogTitle>
+            <DialogDescription>
+              Set availability status for {selectedProducts.length} selected product(s).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <label className="text-sm font-medium text-muted-foreground mb-1 block">Availability</label>
+            <Select value={bulkStatusValue} onValueChange={(v) => setBulkStatusValue(v as 'available' | 'unavailable')}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="available">Available</SelectItem>
+                <SelectItem value="unavailable">Unavailable</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex justify-end gap-2 mt-2">
+            <Button variant="outline" onClick={() => setIsBulkStatusOpen(false)} disabled={bulkUpdateMutation.isPending}>Cancel</Button>
+            <Button
+              onClick={() => bulkUpdateMutation.mutate({ is_available: bulkStatusValue === 'available' })}
+              disabled={bulkUpdateMutation.isPending}
+            >
+              {bulkUpdateMutation.isPending ? 'Updating…' : 'Apply'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
