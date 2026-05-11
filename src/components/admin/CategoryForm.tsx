@@ -375,8 +375,8 @@ export function CategoryForm({
                 <SelectValue placeholder="Select division" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="default">
-                  Grocery (default)
+                <SelectItem value="default" disabled>
+                  Grocery (disabled — select a division below)
                 </SelectItem>
                 {(divisionsData || []).map((d) => (
                   <SelectItem key={d.id} value={d.id}>

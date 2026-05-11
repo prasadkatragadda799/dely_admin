@@ -745,7 +745,9 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
                   <SelectValue placeholder="Select division" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="default">Grocery (default)</SelectItem>
+                  <SelectItem value="default" disabled>
+                    Grocery (disabled — select a division below)
+                  </SelectItem>
                   {(divisionsData || []).map((d) => (
                     <SelectItem key={d.id} value={d.id}>
                       {d.icon ? `${d.icon} ` : ''}{d.name} ({d.slug})
