@@ -15,6 +15,7 @@ import {
   X,
   Plus,
   MapPin,
+  QrCode,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -128,6 +129,8 @@ export default function Settings() {
   const logoFileInputRef = useRef<HTMLInputElement>(null);
   const [selectedLogoFile, setSelectedLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const qrFileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingQr, setIsUploadingQr] = useState(false);
   const [isAdminDialogOpen, setIsAdminDialogOpen] = useState(false);
   const [editingAdminId, setEditingAdminId] = useState<string | null>(null);
   const [deleteAdminId, setDeleteAdminId] = useState<string | null>(null);
@@ -609,6 +612,32 @@ export default function Settings() {
     paymentMutation.mutate(data);
   };
 
+  const handleQrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingQr(true);
+    try {
+      await settingsAPI.uploadPaymentQr(file);
+      queryClient.invalidateQueries({ queryKey: ['settings', 'payment'] });
+      toast({ title: 'QR code uploaded', description: 'Delivery app will show the new QR immediately.' });
+    } catch (err: any) {
+      toast({ title: 'Upload failed', description: err?.response?.data?.message || 'Please try again.', variant: 'destructive' });
+    } finally {
+      setIsUploadingQr(false);
+      if (qrFileInputRef.current) qrFileInputRef.current.value = '';
+    }
+  };
+
+  const handleQrDelete = async () => {
+    try {
+      await settingsAPI.deletePaymentQr();
+      queryClient.invalidateQueries({ queryKey: ['settings', 'payment'] });
+      toast({ title: 'QR code removed' });
+    } catch {
+      toast({ title: 'Failed to remove QR', variant: 'destructive' });
+    }
+  };
+
   const handleDeliverySubmit = (data: DeliverySettingsForm) => {
     deliveryMutation.mutate(data);
   };
@@ -924,6 +953,76 @@ export default function Settings() {
                     )}
                   </Button>
                 </form>
+              </CardContent>
+            </Card>
+
+            {/* Payment QR Code */}
+            <Card className="shadow-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <QrCode className="h-5 w-5" />
+                  Payment QR Code
+                </CardTitle>
+                <CardDescription>
+                  Upload a UPI / payment QR code. Delivery persons see this when collecting payment at the door.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {paymentSettingsData?.paymentQrUrl ? (
+                  <div className="flex flex-col sm:flex-row items-start gap-4">
+                    <img
+                      src={paymentSettingsData.paymentQrUrl}
+                      alt="Payment QR"
+                      className="w-40 h-40 object-contain border rounded-lg bg-white p-2"
+                    />
+                    <div className="flex flex-col gap-2">
+                      <p className="text-sm text-muted-foreground">Current QR code is active.</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => qrFileInputRef.current?.click()}
+                        disabled={isUploadingQr}
+                      >
+                        {isUploadingQr ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Upload className="h-4 w-4 mr-2" />
+                        )}
+                        Replace QR
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        onClick={handleQrDelete}
+                        disabled={isUploadingQr}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Remove QR
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
+                    onClick={() => qrFileInputRef.current?.click()}
+                  >
+                    {isUploadingQr ? (
+                      <Loader2 className="h-8 w-8 mx-auto mb-2 animate-spin text-muted-foreground" />
+                    ) : (
+                      <QrCode className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                    )}
+                    <p className="text-sm font-medium">{isUploadingQr ? 'Uploading…' : 'Click to upload QR code'}</p>
+                    <p className="text-xs text-muted-foreground mt-1">PNG, JPG, WebP — max 5 MB</p>
+                  </div>
+                )}
+                <input
+                  ref={qrFileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  className="hidden"
+                  onChange={handleQrUpload}
+                />
               </CardContent>
             </Card>
           </TabsContent>

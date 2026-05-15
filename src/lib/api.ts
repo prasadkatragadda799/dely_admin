@@ -1173,6 +1173,18 @@ export const settingsAPI = {
     return response.data;
   },
 
+  uploadPaymentQr: async (file: File) => {
+    const formData = new FormData();
+    formData.append('qrImage', file);
+    const response = await apiClient.post<ApiResponse<{ paymentQrUrl: string }>>('/admin/settings/payment/qr-upload', formData);
+    return response.data;
+  },
+
+  deletePaymentQr: async () => {
+    const response = await apiClient.delete<ApiResponse<void>>('/admin/settings/payment/qr');
+    return response.data;
+  },
+
   // Delivery settings
   getDeliverySettings: async () => {
     const response = await apiClient.get<ApiResponse<any>>('/admin/settings/delivery');
