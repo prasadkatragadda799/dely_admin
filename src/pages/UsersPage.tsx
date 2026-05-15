@@ -1,8 +1,8 @@
 import { useState, useMemo, type FormEvent } from 'react';
-import { 
-  Search, 
-  Filter, 
-  MoreHorizontal, 
+import {
+  Search,
+  Filter,
+  MoreHorizontal,
   Eye,
   Download,
   UserPlus,
@@ -10,10 +10,8 @@ import {
   UserCheck,
   UserX,
   Shield,
-  Mail,
   Phone,
   Loader2,
-  CheckCircle2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -58,7 +56,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 
 export default function UsersPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -67,8 +64,6 @@ export default function UsersPage() {
   const [page, setPage] = useState(1);
   const [blockingUserId, setBlockingUserId] = useState<string | null>(null);
   const [blockReason, setBlockReason] = useState('');
-  const [verifyingUserId, setVerifyingUserId] = useState<string | null>(null);
-  const [verifyComments, setVerifyComments] = useState('');
   const [viewingUserId, setViewingUserId] = useState<string | null>(null);
   const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState<{ title: string; url: string } | null>(null);
@@ -446,38 +441,6 @@ export default function UsersPage() {
     setViewingUserId(userId);
   };
 
-  // Fetch user's KYC submission when verifying
-  const { data: userKYCSubmission, isLoading: isLoadingUserKYC } = useQuery({
-    queryKey: ['user-kyc', verifyingUserId],
-    queryFn: async () => {
-      if (!verifyingUserId) return null;
-      // First, try to get KYC by user ID
-      try {
-        const response = await kycAPI.getKYCByUserId(verifyingUserId);
-        return response.data;
-      } catch (error: any) {
-        // If endpoint doesn't exist, try getting all KYC and filter
-        const response = await kycAPI.getKYCSubmissions({ search: verifyingUserId });
-        const items = response.data?.items || response.data || [];
-        const userKYC = Array.isArray(items) 
-          ? items.find((k: any) => k.userId === verifyingUserId || k.user_id === verifyingUserId)
-          : null;
-        return userKYC || null;
-      }
-    },
-    enabled: !!verifyingUserId,
-  });
-
-  const { data: verifyUserKYCDocuments } = useQuery({
-    queryKey: ['user-kyc-documents-verify', userKYCSubmission?.id],
-    queryFn: async () => {
-      if (!userKYCSubmission?.id) return null;
-      const response = await kycAPI.getKYCDocuments(userKYCSubmission.id);
-      return response.data;
-    },
-    enabled: !!verifyingUserId && !!userKYCSubmission?.id,
-  });
-
   // Fetch user details for "View Profile" modal
   const { data: viewedUser, isLoading: isLoadingViewedUser } = useQuery({
     queryKey: ['user', viewingUserId],
@@ -532,69 +495,6 @@ export default function UsersPage() {
       return !(hasShop && hasFssai);
     })(),
   });
-
-  // Verify KYC mutation
-  const verifyKYCMutation = useMutation({
-    mutationFn: ({ kycId, comments }: { kycId: string; comments?: string }) =>
-      kycAPI.verifyKYC(kycId, comments),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-      queryClient.invalidateQueries({ queryKey: ['kyc'] });
-      queryClient.invalidateQueries({ queryKey: ['user-kyc'] });
-      toast({
-        title: 'KYC verified',
-        description: 'User KYC has been verified successfully',
-      });
-      setVerifyingUserId(null);
-      setVerifyComments('');
-    },
-    onError: (error: any) => {
-      const detail: string | undefined =
-        error?.response?.data?.detail ||
-        error?.response?.data?.message ||
-        error?.response?.data?.error?.message ||
-        error?.message;
-
-      // Backend returns 400 when KYC is already verified; treat it as a non-error UX.
-      if (typeof detail === 'string' && detail.toLowerCase().includes('already verified')) {
-        toast({
-          title: 'KYC already verified',
-          description: detail,
-        });
-        queryClient.invalidateQueries({ queryKey: ['users'] });
-        queryClient.invalidateQueries({ queryKey: ['kyc'] });
-        queryClient.invalidateQueries({ queryKey: ['user-kyc'] });
-        setVerifyingUserId(null);
-        setVerifyComments('');
-        return;
-      }
-
-      toast({
-        title: 'Error',
-        description: detail || 'Failed to verify KYC',
-        variant: 'destructive',
-      });
-    },
-  });
-
-  const handleVerifyKYC = (userId: string) => {
-    setVerifyingUserId(userId);
-  };
-
-  const confirmVerifyKYC = () => {
-    if (userKYCSubmission?.id) {
-      verifyKYCMutation.mutate({
-        kycId: userKYCSubmission.id,
-        comments: verifyComments || undefined,
-      });
-    } else {
-      toast({
-        title: 'Error',
-        description: 'KYC submission not found for this user',
-        variant: 'destructive',
-      });
-    }
-  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -756,7 +656,6 @@ export default function UsersPage() {
                       // Handle both camelCase and snake_case field names
                       const userId = user.id;
                       const userName = user.name || user.fullName || 'Unknown User';
-                      const userEmail = user.email || '';
                       const userPhone = user.phone || user.phoneNumber || '';
                       const businessName = user.businessName || user.business_name || user.companyName || '-';
                       const gstNumber = user.gstNumber || user.gst_number || user.gst || '-';
@@ -782,20 +681,12 @@ export default function UsersPage() {
                             </div>
                           </td>
                           <td className="py-4 px-4">
-                            <div className="space-y-1">
-                              {userEmail && (
-                                <p className="text-sm text-foreground flex items-center gap-1">
-                                  <Mail className="h-3 w-3 text-muted-foreground" />
-                                  {userEmail}
-                                </p>
-                              )}
-                              {userPhone && (
-                                <p className="text-sm text-muted-foreground flex items-center gap-1">
-                                  <Phone className="h-3 w-3" />
-                                  {userPhone}
-                                </p>
-                              )}
-                            </div>
+                            {userPhone && (
+                              <p className="text-sm text-muted-foreground flex items-center gap-1">
+                                <Phone className="h-3 w-3" />
+                                {userPhone}
+                              </p>
+                            )}
                           </td>
                           <td className="py-4 px-4">
                             <p className="font-medium text-foreground">{businessName}</p>
@@ -824,12 +715,6 @@ export default function UsersPage() {
                                   <Eye className="h-4 w-4 mr-2" />
                                   View Profile
                                 </DropdownMenuItem>
-                                {String(kycStatus).toLowerCase() !== 'verified' && (
-                                  <DropdownMenuItem onClick={() => handleVerifyKYC(userId)}>
-                                    <Shield className="h-4 w-4 mr-2" />
-                                    Verify KYC
-                                  </DropdownMenuItem>
-                                )}
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem 
                                   className={isActive ? "text-destructive focus:text-destructive" : ""}
@@ -1012,252 +897,6 @@ export default function UsersPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Verify KYC Dialog */}
-      <Dialog open={!!verifyingUserId} onOpenChange={(open) => {
-        if (!open && !verifyKYCMutation.isPending) {
-          setVerifyingUserId(null);
-          setVerifyComments('');
-        }
-      }}>
-        <DialogContent className="max-w-3xl max-h-[92vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Verify KYC</DialogTitle>
-            <DialogDescription>
-              {userKYCSubmission ? (
-                <>Verify KYC for {userKYCSubmission.user?.name || userKYCSubmission.userName || userKYCSubmission.user_name || 'this user'}</>
-              ) : (
-                <>Loading KYC information...</>
-              )}
-            </DialogDescription>
-          </DialogHeader>
-          {isLoadingUserKYC ? (
-            <div className="py-8 text-center">
-              <Loader2 className="h-8 w-8 mx-auto animate-spin text-primary mb-4" />
-              <p className="text-muted-foreground">Loading KYC information...</p>
-            </div>
-          ) : userKYCSubmission ? (
-            <>
-              {(() => {
-                const kyc = userKYCSubmission;
-                const reg = (kyc.registrationDocuments || {}) as Record<string, string | undefined>;
-                const shopUrl = getShopImageUrl(kyc, verifyUserKYCDocuments);
-                const fssaiUrl = getFssaiLicenseImageUrl(kyc, verifyUserKYCDocuments);
-                const shopResolved = resolveMediaUrl(shopUrl);
-                const fssaiResolved = resolveMediaUrl(fssaiUrl);
-
-                const addrObj = kyc.address || kyc.kycAddress;
-                let addressText = '—';
-                if (addrObj && typeof addrObj === 'object' && !Array.isArray(addrObj)) {
-                  const o = addrObj as Record<string, unknown>;
-                  const line1 = String(o.address_line1 ?? o.addressLine1 ?? o.address ?? '').trim();
-                  const line2 = String(o.address_line2 ?? o.addressLine2 ?? '').trim();
-                  const city = String(o.city ?? kyc.userCity ?? kyc.user_city ?? '').trim();
-                  const state = String(o.state ?? kyc.userState ?? kyc.user_state ?? '').trim();
-                  const pin = String(o.pincode ?? kyc.userPincode ?? kyc.user_pincode ?? '').trim();
-                  const parts = [line1, line2, [city, state, pin].filter(Boolean).join(', ')].filter(Boolean);
-                  addressText = parts.length ? parts.join(' · ') : '—';
-                } else if (kyc.userCity || kyc.userState || kyc.userPincode) {
-                  addressText = [kyc.userCity || kyc.user_city, kyc.userState || kyc.user_state, kyc.userPincode || kyc.user_pincode]
-                    .filter(Boolean)
-                    .join(', ');
-                }
-
-                const regDocs: { label: string; keys: string[] }[] = [
-                  { label: 'GST certificate', keys: ['gstCertificate', 'gst_certificate'] },
-                  { label: 'FSSAI license', keys: ['fssaiLicense', 'fssai_license'] },
-                  { label: 'Udyam registration', keys: ['udyamRegistration', 'udyam_registration'] },
-                  { label: 'Trade certificate', keys: ['tradeCertificate', 'trade_certificate'] },
-                  { label: 'Shop photo', keys: ['shopPhoto', 'shop_photo_url'] },
-                  { label: 'User ID', keys: ['userIdDocument', 'user_id_document_url'] },
-                ];
-
-                const renderDocTile = (label: string, raw?: string) => {
-                  const resolved = resolveMediaUrl(raw);
-                  return (
-                    <div key={label} className="border rounded-md p-2 flex flex-col gap-2 min-h-[140px]">
-                      <p className="text-xs text-muted-foreground font-medium">{label}</p>
-                      {resolved ? (
-                        <button
-                          type="button"
-                          className="w-full text-left rounded-md overflow-hidden border bg-muted/30"
-                          onClick={() => openImagePreview(label, raw)}
-                        >
-                          <img src={resolved} alt={label} className="w-full h-28 object-cover" />
-                        </button>
-                      ) : raw && isUnsafeLocalDeviceUrl(raw) ? (
-                        <p className="text-xs text-amber-800 dark:text-amber-200 leading-snug">
-                          Device-only path in KYC record. Server copy should appear here after registration upload.
-                        </p>
-                      ) : (
-                        <p className="text-sm text-muted-foreground">Not uploaded</p>
-                      )}
-                      {resolved ? (
-                        <div className="flex gap-1">
-                          <Button type="button" variant="outline" size="sm" className="flex-1 text-xs h-8" onClick={() => openImagePreview(label, raw)}>
-                            View
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="flex-1 text-xs h-8"
-                            onClick={() => downloadFile(raw!, `${label.replace(/\s+/g, '-').toLowerCase()}-${kyc.id}`)}
-                          >
-                            <Download className="h-3 w-3 mr-1" />
-                            Save
-                          </Button>
-                        </div>
-                      ) : null}
-                    </div>
-                  );
-                };
-
-                return (
-                  <div className="space-y-4 py-4 max-h-[min(70vh,720px)] overflow-y-auto pr-1">
-                    <div className="space-y-2">
-                      <Label>Business name</Label>
-                      <p className="font-medium">{kyc.businessName || kyc.business_name || '—'}</p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>GST number</Label>
-                        <p className="font-mono text-sm">{kyc.gstNumber || kyc.gst_number || kyc.gst || '—'}</p>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>FMCG / FSSAI number</Label>
-                        <p className="font-mono text-sm">{kyc.fssaiNumber || kyc.fssai_number || kyc.fssai || '—'}</p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Address</Label>
-                      <p className="text-sm whitespace-pre-wrap">{addressText}</p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>KYC submission images</Label>
-                      <p className="text-xs text-muted-foreground">Effective URLs (registration fallback when the app sent a device path).</p>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="border rounded-md p-2 flex flex-col gap-2">
-                          <p className="text-xs text-muted-foreground font-medium">Shop image</p>
-                          {shopResolved ? (
-                            <button type="button" className="w-full rounded-md overflow-hidden border" onClick={() => openImagePreview('Shop image', shopUrl)}>
-                              <img src={shopResolved} alt="Shop" className="w-full h-28 object-cover" />
-                            </button>
-                          ) : shopUrl && isUnsafeLocalDeviceUrl(shopUrl) ? (
-                            <p className="text-xs text-amber-800 dark:text-amber-200">Device-only URI; using registration shop photo in grid below if present.</p>
-                          ) : (
-                            <p className="text-sm text-muted-foreground">Not available</p>
-                          )}
-                          {shopResolved ? (
-                            <div className="flex gap-1">
-                              <Button type="button" variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => openImagePreview('Shop image', shopUrl)}>
-                                View
-                              </Button>
-                              <Button type="button" variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => shopUrl && downloadFile(shopUrl, `shop-${kyc.id}`)}>
-                                <Download className="h-3 w-3 mr-1" />
-                                Save
-                              </Button>
-                            </div>
-                          ) : null}
-                        </div>
-                        <div className="border rounded-md p-2 flex flex-col gap-2">
-                          <p className="text-xs text-muted-foreground font-medium">FSSAI license image</p>
-                          {fssaiResolved ? (
-                            <button type="button" className="w-full rounded-md overflow-hidden border" onClick={() => openImagePreview('FSSAI license image', fssaiUrl)}>
-                              <img src={fssaiResolved} alt="FSSAI" className="w-full h-28 object-cover" />
-                            </button>
-                          ) : fssaiUrl && isUnsafeLocalDeviceUrl(fssaiUrl) ? (
-                            <p className="text-xs text-amber-800 dark:text-amber-200">Device-only URI; check FSSAI license in registration documents.</p>
-                          ) : (
-                            <p className="text-sm text-muted-foreground">Not available</p>
-                          )}
-                          {fssaiResolved ? (
-                            <div className="flex gap-1">
-                              <Button type="button" variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => openImagePreview('FSSAI license image', fssaiUrl)}>
-                                View
-                              </Button>
-                              <Button type="button" variant="outline" size="sm" className="flex-1 h-8 text-xs" onClick={() => fssaiUrl && downloadFile(fssaiUrl, `fssai-${kyc.id}`)}>
-                                <Download className="h-3 w-3 mr-1" />
-                                Save
-                              </Button>
-                            </div>
-                          ) : null}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Registration documents</Label>
-                      <p className="text-xs text-muted-foreground">Files captured at signup (same flow as the mobile app).</p>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                        {regDocs.map(({ label, keys }) => {
-                          const raw = keys.map((k) => reg[k]).find((u) => typeof u === 'string' && u.length > 0);
-                          return renderDocTile(label, raw);
-                        })}
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="verify-comments">Comments (optional)</Label>
-                      <Textarea
-                        id="verify-comments"
-                        placeholder="Add any comments about this verification"
-                        rows={3}
-                        value={verifyComments}
-                        onChange={(e) => setVerifyComments(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                );
-              })()}
-              <DialogFooter>
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    setVerifyingUserId(null);
-                    setVerifyComments('');
-                  }}
-                  disabled={verifyKYCMutation.isPending}
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  variant="gradient" 
-                  onClick={confirmVerifyKYC}
-                  disabled={verifyKYCMutation.isPending}
-                >
-                  {verifyKYCMutation.isPending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Verifying...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 className="h-4 w-4 mr-2" />
-                      Verify KYC
-                    </>
-                  )}
-                </Button>
-              </DialogFooter>
-            </>
-          ) : (
-            <div className="py-8 text-center">
-              <p className="text-muted-foreground mb-4">No KYC submission found for this user.</p>
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  setVerifyingUserId(null);
-                  setVerifyComments('');
-                }}
-              >
-                Close
-              </Button>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
 
       {/* View Profile Dialog */}
       <Dialog

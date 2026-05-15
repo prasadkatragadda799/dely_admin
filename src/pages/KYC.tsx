@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -252,21 +252,18 @@ export default function KYC() {
   // Calculate stats
   const stats = useMemo(() => {
     const total = pagination.total || kycSubmissions.length;
-    const pending = kycSubmissions.filter((k: any) => {
-      const status = k.status || k.kyc_status || 'pending';
-      return status === 'pending';
-    }).length;
-    const verified = kycSubmissions.filter((k: any) => {
-      const status = k.status || k.kyc_status || 'pending';
-      return status === 'verified';
-    }).length;
-    const rejected = kycSubmissions.filter((k: any) => {
-      const status = k.status || k.kyc_status || 'pending';
-      return status === 'rejected';
-    }).length;
+    const pendingCount = kycSubmissions.filter((k: any) => (k.status || k.kyc_status || 'pending') === 'pending').length;
+    const verifiedCount = kycSubmissions.filter((k: any) => (k.status || k.kyc_status || 'pending') === 'verified').length;
+    const rejectedCount = kycSubmissions.filter((k: any) => (k.status || k.kyc_status || 'pending') === 'rejected').length;
 
-    return { total, pending, verified, rejected };
-  }, [kycSubmissions, pagination]);
+    // When on a specific tab, the API returns only that status — use pagination.total for that tab's count
+    return {
+      total,
+      pending: activeTab === 'pending' ? pagination.total : pendingCount,
+      verified: activeTab === 'verified' ? pagination.total : verifiedCount,
+      rejected: activeTab === 'rejected' ? pagination.total : rejectedCount,
+    };
+  }, [kycSubmissions, pagination, activeTab]);
 
   const formatDate = (dateString: string | Date) => {
     if (!dateString) return '-';
