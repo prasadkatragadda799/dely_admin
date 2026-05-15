@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { companiesAPI } from '@/lib/api';
+import { companiesAPI, divisionsAPI } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,10 +18,12 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Upload, X, Building2 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 
 const companySchema = z.object({
   name: z.string().min(1, 'Company name is required'),
   description: z.string().optional(),
+  divisionId: z.string().optional(),
 });
 
 type CompanyFormData = z.infer<typeof companySchema>;
@@ -50,6 +52,16 @@ export function CompanyForm({ open, onOpenChange, companyId }: CompanyFormProps)
     resolver: zodResolver(companySchema),
   });
 
+  // Fetch divisions
+  const { data: divisionsData } = useQuery({
+    queryKey: ['divisions'],
+    queryFn: async () => {
+      const response = await divisionsAPI.getDivisions();
+      return response.data || [];
+    },
+    enabled: open,
+  });
+
   // Fetch company data if editing
   const { data: companyData, isLoading: isLoadingCompany } = useQuery({
     queryKey: ['company', companyId],
@@ -66,6 +78,7 @@ export function CompanyForm({ open, onOpenChange, companyId }: CompanyFormProps)
     if (companyData && open) {
       setValue('name', companyData.name || '');
       setValue('description', companyData.description || '');
+      setValue('divisionId', companyData.division?.id || companyData.divisionId || companyData.division_id || '');
       if (companyData.logoUrl || companyData.logo_url || companyData.logo) {
         setImagePreview(companyData.logoUrl || companyData.logo_url || companyData.logo);
       }
@@ -94,20 +107,24 @@ export function CompanyForm({ open, onOpenChange, companyId }: CompanyFormProps)
     setImagePreview(null);
   };
 
+  const divisions = divisionsData || [];
+  const divisionOptions = divisions.map((d: any) => ({ value: d.id, label: d.name }));
+
   // Create/Update company mutation
   const companyMutation = useMutation({
     mutationFn: async (data: CompanyFormData) => {
       const formData = new FormData();
-      
-      // Required field
+
       formData.append('name', data.name.trim());
-      
-      // Optional fields - only append if they have values
+
       if (data.description && data.description.trim()) {
         formData.append('description', data.description.trim());
       }
-      
-      // Optional file - only append if file is selected
+
+      if (data.divisionId && data.divisionId !== '') {
+        formData.append('division_id', data.divisionId);
+      }
+
       if (selectedFile) {
         formData.append('logo', selectedFile);
       }
@@ -132,8 +149,8 @@ export function CompanyForm({ open, onOpenChange, companyId }: CompanyFormProps)
       setImagePreview(null);
     },
     onError: (error: any) => {
-      const errorMessage = error.response?.data?.error?.message 
-        || error.response?.data?.message 
+      const errorMessage = error.response?.data?.error?.message
+        || error.response?.data?.message
         || 'Failed to save company';
       toast({
         title: 'Error',
@@ -173,7 +190,7 @@ export function CompanyForm({ open, onOpenChange, companyId }: CompanyFormProps)
           {/* Basic Information */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Basic Information</h3>
-            
+
             <div className="space-y-2">
               <Label htmlFor="name">Company Name *</Label>
               <Input
@@ -185,6 +202,18 @@ export function CompanyForm({ open, onOpenChange, companyId }: CompanyFormProps)
               {errors.name && (
                 <p className="text-sm text-destructive">{errors.name.message}</p>
               )}
+            </div>
+
+            {/* Division */}
+            <div className="space-y-2">
+              <Label>Division</Label>
+              <SearchableSelect
+                options={divisionOptions}
+                value={watch('divisionId') || ''}
+                onValueChange={(v) => setValue('divisionId', v)}
+                placeholder="Select division (FMCG / Home & Kitchen)"
+                searchPlaceholder="Search division..."
+              />
             </div>
 
             <div className="space-y-2">
@@ -201,7 +230,7 @@ export function CompanyForm({ open, onOpenChange, companyId }: CompanyFormProps)
           {/* Logo Upload */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Company Logo</h3>
-            
+
             <div className="space-y-4">
               {imagePreview ? (
                 <div className="relative">
@@ -235,9 +264,9 @@ export function CompanyForm({ open, onOpenChange, companyId }: CompanyFormProps)
                   onChange={handleImageSelect}
                   className="hidden"
                 />
-                <Button 
-                  type="button" 
-                  variant="outline" 
+                <Button
+                  type="button"
+                  variant="outline"
                   size="sm"
                   onClick={() => fileInputRef.current?.click()}
                 >
@@ -285,4 +314,3 @@ export function CompanyForm({ open, onOpenChange, companyId }: CompanyFormProps)
     </Dialog>
   );
 }
-

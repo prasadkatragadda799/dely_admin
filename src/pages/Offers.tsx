@@ -58,6 +58,7 @@ import { format } from 'date-fns';
 import { offersAPI } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const offerTypes = [
   { value: 'banner', label: 'Banner Offer', icon: ImageIcon },
@@ -589,12 +590,19 @@ export default function Offers() {
               </TableHeader>
               <TableBody>
                 {loadingOffers ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
-                      <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-                      Loading offers…
-                    </TableCell>
-                  </TableRow>
+                  <>
+                    {[...Array(5)].map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell><Skeleton className="h-16 w-32 rounded-lg" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                        <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
+                        <TableCell><Skeleton className="h-8 w-8 rounded" /></TableCell>
+                      </TableRow>
+                    ))}
+                  </>
                 ) : offersLoadError ? (
                   <TableRow>
                     <TableCell colSpan={7} className="py-12 text-center text-destructive">

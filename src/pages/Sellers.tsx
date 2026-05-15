@@ -42,6 +42,7 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { companiesAPI, sellersAPI } from '@/lib/api';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ROUTES } from '@/constants';
 
 type SellerFormMode = 'create' | 'edit';
@@ -256,8 +257,10 @@ export default function Sellers() {
           </div>
 
           {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <div className="space-y-3">
+              {[...Array(5)].map((_, i) => (
+                <Skeleton key={i} className="h-14 w-full" />
+              ))}
             </div>
           ) : (
             <div className="overflow-x-auto">

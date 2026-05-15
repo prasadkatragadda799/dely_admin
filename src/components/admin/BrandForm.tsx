@@ -2,17 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { brandsAPI, companiesAPI, categoriesAPI } from '@/lib/api';
+import { brandsAPI, companiesAPI, categoriesAPI, divisionsAPI } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -24,11 +17,13 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Upload, X, Tag } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 
 const brandSchema = z.object({
   name: z.string().min(1, 'Brand name is required'),
   companyId: z.string().optional(),
   categoryId: z.string().optional(),
+  divisionId: z.string().optional(),
 });
 
 type BrandFormData = z.infer<typeof brandSchema>;
@@ -44,7 +39,6 @@ export function BrandForm({ open, onOpenChange, brandId }: BrandFormProps) {
   const queryClient = useQueryClient();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [selectedCompany, setSelectedCompany] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
@@ -78,6 +72,16 @@ export function BrandForm({ open, onOpenChange, brandId }: BrandFormProps) {
     enabled: open,
   });
 
+  // Fetch divisions
+  const { data: divisionsData } = useQuery({
+    queryKey: ['divisions'],
+    queryFn: async () => {
+      const response = await divisionsAPI.getDivisions();
+      return response.data || [];
+    },
+    enabled: open,
+  });
+
   // Fetch brand data if editing
   const { data: brandData, isLoading: isLoadingBrand } = useQuery({
     queryKey: ['brand', brandId],
@@ -95,7 +99,7 @@ export function BrandForm({ open, onOpenChange, brandId }: BrandFormProps) {
       setValue('name', brandData.name || '');
       setValue('companyId', brandData.company?.id || brandData.companyId || '');
       setValue('categoryId', brandData.category?.id || brandData.categoryId || '');
-      setSelectedCompany(brandData.company?.id || brandData.companyId || '');
+      setValue('divisionId', brandData.division?.id || brandData.divisionId || brandData.division_id || '');
       if (brandData.logoUrl || brandData.logo_url || brandData.logo) {
         setImagePreview(brandData.logoUrl || brandData.logo_url || brandData.logo);
       }
@@ -103,17 +107,8 @@ export function BrandForm({ open, onOpenChange, brandId }: BrandFormProps) {
       reset();
       setSelectedFile(null);
       setImagePreview(null);
-      setSelectedCompany('');
     }
   }, [brandData, brandId, open, setValue, reset]);
-
-  // Handle company change
-  const handleCompanyChange = (value: string) => {
-    setSelectedCompany(value);
-    setValue('companyId', value === 'none' ? '' : value);
-    // Reset brand selection when company changes
-    setValue('categoryId', '');
-  };
 
   // Handle image selection
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -147,17 +142,25 @@ export function BrandForm({ open, onOpenChange, brandId }: BrandFormProps) {
 
   const categories = categoriesData ? flattenCategories(categoriesData) : [];
   const companies = companiesData || [];
+  const divisions = divisionsData || [];
+
+  const companyOptions = companies.map((c: any) => ({ value: c.id, label: c.name }));
+  const categoryOptions = categories.map((c: any) => ({ value: c.id, label: c.name }));
+  const divisionOptions = divisions.map((d: any) => ({ value: d.id, label: d.name }));
 
   // Create/Update brand mutation
   const brandMutation = useMutation({
     mutationFn: async (data: BrandFormData) => {
       const formData = new FormData();
       formData.append('name', data.name);
-      if (data.companyId && data.companyId !== 'none' && data.companyId !== '') {
+      if (data.companyId && data.companyId !== '') {
         formData.append('companyId', data.companyId);
       }
-      if (data.categoryId && data.categoryId !== 'none' && data.categoryId !== '') {
+      if (data.categoryId && data.categoryId !== '') {
         formData.append('categoryId', data.categoryId);
+      }
+      if (data.divisionId && data.divisionId !== '') {
+        formData.append('division_id', data.divisionId);
       }
       if (selectedFile) {
         formData.append('logo', selectedFile);
@@ -182,11 +185,10 @@ export function BrandForm({ open, onOpenChange, brandId }: BrandFormProps) {
       reset();
       setSelectedFile(null);
       setImagePreview(null);
-      setSelectedCompany('');
     },
     onError: (error: any) => {
-      const errorMessage = error.response?.data?.error?.message 
-        || error.response?.data?.message 
+      const errorMessage = error.response?.data?.error?.message
+        || error.response?.data?.message
         || 'Failed to save brand';
       toast({
         title: 'Error',
@@ -226,7 +228,7 @@ export function BrandForm({ open, onOpenChange, brandId }: BrandFormProps) {
           {/* Basic Information */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Basic Information</h3>
-            
+
             <div className="space-y-2">
               <Label htmlFor="name">Brand Name *</Label>
               <Input
@@ -240,45 +242,42 @@ export function BrandForm({ open, onOpenChange, brandId }: BrandFormProps) {
               )}
             </div>
 
+            {/* Division */}
+            <div className="space-y-2">
+              <Label>Division</Label>
+              <SearchableSelect
+                options={divisionOptions}
+                value={watch('divisionId') || ''}
+                onValueChange={(v) => setValue('divisionId', v)}
+                placeholder="Select division (FMCG / Home & Kitchen)"
+                searchPlaceholder="Search division..."
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="companyId">Company</Label>
-                <Select
-                  value={watch('companyId') || 'none'}
-                  onValueChange={handleCompanyChange}
-                >
-                  <SelectTrigger id="companyId">
-                    <SelectValue placeholder="Select company (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {companies.map((company: any) => (
-                      <SelectItem key={company.id} value={company.id}>
-                        {company.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Company</Label>
+                <SearchableSelect
+                  options={companyOptions}
+                  value={watch('companyId') || ''}
+                  onValueChange={(v) => {
+                    setValue('companyId', v);
+                    setValue('categoryId', '');
+                  }}
+                  placeholder="Select company"
+                  searchPlaceholder="Search company..."
+                />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="categoryId">Category</Label>
-                <Select
-                  value={watch('categoryId') || 'none'}
-                  onValueChange={(value) => setValue('categoryId', value === 'none' ? '' : value)}
-                >
-                  <SelectTrigger id="categoryId">
-                    <SelectValue placeholder="Select category (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {categories.map((category: any) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Category</Label>
+                <SearchableSelect
+                  options={categoryOptions}
+                  value={watch('categoryId') || ''}
+                  onValueChange={(v) => setValue('categoryId', v)}
+                  placeholder="Select category"
+                  searchPlaceholder="Search category..."
+                />
               </div>
             </div>
           </div>
@@ -286,7 +285,7 @@ export function BrandForm({ open, onOpenChange, brandId }: BrandFormProps) {
           {/* Logo Upload */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Brand Logo</h3>
-            
+
             <div className="space-y-4">
               {imagePreview ? (
                 <div className="relative">
@@ -320,9 +319,9 @@ export function BrandForm({ open, onOpenChange, brandId }: BrandFormProps) {
                   onChange={handleImageSelect}
                   className="hidden"
                 />
-                <Button 
-                  type="button" 
-                  variant="outline" 
+                <Button
+                  type="button"
+                  variant="outline"
                   size="sm"
                   onClick={() => fileInputRef.current?.click()}
                 >
@@ -370,4 +369,3 @@ export function BrandForm({ open, onOpenChange, brandId }: BrandFormProps) {
     </Dialog>
   );
 }
-

@@ -43,6 +43,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { companiesAPI, brandsAPI } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
+import { Skeleton } from '@/components/ui/skeleton';
 import { CompanyForm } from '@/components/admin/CompanyForm';
 import { BrandForm } from '@/components/admin/BrandForm';
 import { ExcelBulkImportSection } from '@/components/admin/ExcelBulkImportSection';
@@ -226,9 +227,11 @@ export default function Companies() {
                 <Building2 className="h-5 w-5 text-blue-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">
-                  {isLoadingCompanies ? '...' : companies.length}
-                </p>
+                {isLoadingCompanies ? (
+                  <Skeleton className="h-8 w-12 mt-1" />
+                ) : (
+                  <p className="text-2xl font-bold text-foreground">{companies.length}</p>
+                )}
                 <p className="text-xs text-muted-foreground">Total Companies</p>
               </div>
             </div>
@@ -241,9 +244,11 @@ export default function Companies() {
                 <Tag className="h-5 w-5 text-purple-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">
-                  {isLoadingBrands ? '...' : brands.length}
-                </p>
+                {isLoadingBrands ? (
+                  <Skeleton className="h-8 w-12 mt-1" />
+                ) : (
+                  <p className="text-2xl font-bold text-foreground">{brands.length}</p>
+                )}
                 <p className="text-xs text-muted-foreground">Total Brands</p>
               </div>
             </div>
@@ -256,9 +261,11 @@ export default function Companies() {
                 <Building2 className="h-5 w-5 text-emerald-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">
-                  {isLoadingCompanies ? '...' : totalProducts}
-                </p>
+                {isLoadingCompanies ? (
+                  <Skeleton className="h-8 w-12 mt-1" />
+                ) : (
+                  <p className="text-2xl font-bold text-foreground">{totalProducts}</p>
+                )}
                 <p className="text-xs text-muted-foreground">Total Products</p>
               </div>
             </div>
@@ -271,9 +278,11 @@ export default function Companies() {
                 <Tag className="h-5 w-5 text-amber-600" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">
-                  {isLoadingBrands ? '...' : totalBrandProducts}
-                </p>
+                {isLoadingBrands ? (
+                  <Skeleton className="h-8 w-12 mt-1" />
+                ) : (
+                  <p className="text-2xl font-bold text-foreground">{totalBrandProducts}</p>
+                )}
                 <p className="text-xs text-muted-foreground">Brand Products</p>
               </div>
             </div>
@@ -321,8 +330,10 @@ export default function Companies() {
           <TabsContent value="companies" className="m-0">
             <CardContent className="p-0">
               {isLoadingCompanies ? (
-                <div className="flex items-center justify-center p-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <div className="p-6 space-y-3">
+                  {[...Array(5)].map((_, i) => (
+                    <Skeleton key={i} className="h-14 w-full" />
+                  ))}
                 </div>
               ) : companiesError ? (
                 <div className="p-8 text-center text-destructive">
@@ -433,8 +444,10 @@ export default function Companies() {
           <TabsContent value="brands" className="m-0">
             <CardContent className="p-0">
               {isLoadingBrands ? (
-                <div className="flex items-center justify-center p-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <div className="p-6 space-y-3">
+                  {[...Array(5)].map((_, i) => (
+                    <Skeleton key={i} className="h-14 w-full" />
+                  ))}
                 </div>
               ) : brandsError ? (
                 <div className="p-8 text-center text-destructive">
