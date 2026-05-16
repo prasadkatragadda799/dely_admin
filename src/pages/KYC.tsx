@@ -546,6 +546,18 @@ export default function KYC() {
   const shopImageDisplay = resolveMediaUrl(shopImageUrl);
   const fssaiLicenseDisplay = resolveMediaUrl(fssaiLicenseImageUrl);
 
+  // Parse the full documents array returned by the /documents endpoint
+  const _allDocs: any[] = Array.isArray(kycDocuments?.data)
+    ? kycDocuments.data
+    : Array.isArray(kycDocuments)
+    ? kycDocuments
+    : [];
+  // Extra docs = everything that isn't the shop image (already rendered above)
+  const extraDocs = _allDocs.filter((d: any) => {
+    const t = (d?.type || '').toLowerCase();
+    return !t.includes('shop') && resolveMediaUrl(d?.url);
+  });
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Page Header */}
@@ -944,7 +956,7 @@ export default function KYC() {
               </div>
 
               {/* Documents */}
-              {(shopImageDisplay || fssaiLicenseDisplay) && (
+              {(shopImageDisplay || fssaiLicenseDisplay || extraDocs.length > 0) && (
                 <div className="space-y-4">
                   <h3 className="font-semibold text-foreground flex items-center gap-2">
                     <FileText className="h-4 w-4" />
