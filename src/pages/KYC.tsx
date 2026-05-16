@@ -1040,6 +1040,51 @@ export default function KYC() {
                         </CardContent>
                       </Card>
                     )}
+
+                    {extraDocs.map((doc: any) => {
+                      const docUrl: string = doc.url;
+                      const docDisplay = resolveMediaUrl(docUrl);
+                      const docName: string = doc.name || doc.type || 'Document';
+                      if (!docDisplay) return null;
+                      return (
+                        <Card key={doc.id || docUrl} className="border-2 border-dashed">
+                          <CardContent className="p-4">
+                            <p className="text-sm font-medium mb-2">{docName}</p>
+                            <button
+                              type="button"
+                              className="w-full"
+                              onClick={() => openImagePreview(docName, docUrl)}
+                            >
+                              <img
+                                src={docDisplay}
+                                alt={docName}
+                                className="w-full h-40 object-cover rounded-md border"
+                              />
+                            </button>
+                            <div className="flex gap-2 mt-3">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1"
+                                onClick={() => openImagePreview(docName, docUrl)}
+                              >
+                                <Eye className="h-4 w-4 mr-2" />
+                                Preview
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1"
+                                onClick={() => downloadFile(docUrl, `${doc.type || 'document'}-${displayKYC.id || 'kyc'}`)}
+                              >
+                                <Download className="h-4 w-4 mr-2" />
+                                Download
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                   </div>
                 </div>
               )}
