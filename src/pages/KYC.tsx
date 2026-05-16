@@ -1166,41 +1166,52 @@ export default function KYC() {
           </DialogHeader>
 
           <div className="space-y-3 py-4">
-            {(() => {
-              const shopUrl = getShopImageUrl(selectedKYC, kycDocuments);
-              const shopResolved = resolveMediaUrl(shopUrl);
-              const fssaiUrl = getFssaiLicenseImageUrl(selectedKYC, kycDocuments);
-              const fssaiResolved = resolveMediaUrl(fssaiUrl);
-              return (shopResolved || fssaiResolved) ? (
-                <div className="space-y-2">
-                  <Label>Documents</Label>
-                  <div className="grid grid-cols-2 gap-3">
-                    {shopResolved && (
-                      <div className="border rounded-md p-2 space-y-2">
-                        <p className="text-xs text-muted-foreground font-medium">Shop image</p>
-                        <button type="button" className="w-full rounded-md overflow-hidden border" onClick={() => openImagePreview('Shop image', shopUrl)}>
-                          <img src={shopResolved} alt="Shop" className="w-full h-24 object-cover" />
+            {(shopImageDisplay || fssaiLicenseDisplay || extraDocs.length > 0) && (
+              <div className="space-y-2">
+                <Label>Documents</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  {shopImageDisplay && (
+                    <div className="border rounded-md p-2 space-y-2">
+                      <p className="text-xs text-muted-foreground font-medium">Shop image</p>
+                      <button type="button" className="w-full rounded-md overflow-hidden border" onClick={() => openImagePreview('Shop image', shopImageUrl)}>
+                        <img src={shopImageDisplay} alt="Shop" className="w-full h-24 object-cover" />
+                      </button>
+                      <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => shopImageUrl && openImagePreview('Shop image', shopImageUrl)}>
+                        View
+                      </Button>
+                    </div>
+                  )}
+                  {fssaiLicenseDisplay && (
+                    <div className="border rounded-md p-2 space-y-2">
+                      <p className="text-xs text-muted-foreground font-medium">FSSAI license image</p>
+                      <button type="button" className="w-full rounded-md overflow-hidden border" onClick={() => openImagePreview('FSSAI license image', fssaiLicenseImageUrl)}>
+                        <img src={fssaiLicenseDisplay} alt="FSSAI" className="w-full h-24 object-cover" />
+                      </button>
+                      <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => fssaiLicenseImageUrl && openImagePreview('FSSAI license image', fssaiLicenseImageUrl)}>
+                        View
+                      </Button>
+                    </div>
+                  )}
+                  {extraDocs.map((doc: any) => {
+                    const docUrl: string = doc.url;
+                    const docDisplay = resolveMediaUrl(docUrl);
+                    const docName: string = doc.name || doc.type || 'Document';
+                    if (!docDisplay) return null;
+                    return (
+                      <div key={doc.id || docUrl} className="border rounded-md p-2 space-y-2">
+                        <p className="text-xs text-muted-foreground font-medium">{docName}</p>
+                        <button type="button" className="w-full rounded-md overflow-hidden border" onClick={() => openImagePreview(docName, docUrl)}>
+                          <img src={docDisplay} alt={docName} className="w-full h-24 object-cover" />
                         </button>
-                        <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => shopUrl && openImagePreview('Shop image', shopUrl)}>
+                        <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => openImagePreview(docName, docUrl)}>
                           View
                         </Button>
                       </div>
-                    )}
-                    {fssaiResolved && (
-                      <div className="border rounded-md p-2 space-y-2">
-                        <p className="text-xs text-muted-foreground font-medium">FSSAI license image</p>
-                        <button type="button" className="w-full rounded-md overflow-hidden border" onClick={() => openImagePreview('FSSAI license image', fssaiUrl)}>
-                          <img src={fssaiResolved} alt="FSSAI" className="w-full h-24 object-cover" />
-                        </button>
-                        <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => fssaiUrl && openImagePreview('FSSAI license image', fssaiUrl)}>
-                          View
-                        </Button>
-                      </div>
-                    )}
-                  </div>
+                    );
+                  })}
                 </div>
-              ) : null;
-            })()}
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="verify-comments">Comments (Optional)</Label>
