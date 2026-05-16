@@ -1047,52 +1047,45 @@ export default function UsersPage() {
                       const fssaiUrl = getFssaiLicenseImageUrl(viewedUserKYC, viewedUserKYCDocuments);
                       const shopResolved = resolveMediaUrl(shopUrl);
                       const fssaiResolved = resolveMediaUrl(fssaiUrl);
+                      if (!shopResolved && !fssaiResolved) return null;
                       return (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label className="text-muted-foreground">Shop image</Label>
-                            {shopResolved ? (
+                          {shopResolved && (
+                            <div className="space-y-2">
+                              <Label className="text-muted-foreground">Shop image</Label>
                               <button type="button" className="w-full" onClick={() => openImagePreview('Shop image', shopUrl)}>
                                 <img src={shopResolved} alt="Shop" className="w-full h-40 object-cover rounded-md border" />
                               </button>
-                            ) : (
-                              <div className="h-40 rounded-md border flex items-center justify-center text-muted-foreground text-sm px-2 text-center">
-                                {shopUrl && isUnsafeLocalDeviceUrl(shopUrl) ? 'Device-only path in DB' : 'Missing'}
+                              <div className="flex gap-2">
+                                <Button variant="outline" size="sm" className="flex-1" onClick={() => shopUrl && openImagePreview('Shop image', shopUrl)}>
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  Preview
+                                </Button>
+                                <Button variant="outline" size="sm" className="flex-1" onClick={() => shopUrl && downloadFile(shopUrl, `shop-image-${viewedUserKYC.id}`)}>
+                                  <Download className="h-4 w-4 mr-2" />
+                                  Download
+                                </Button>
                               </div>
-                            )}
-                            <div className="flex gap-2">
-                              <Button variant="outline" size="sm" className="flex-1" disabled={!shopResolved} onClick={() => shopUrl && openImagePreview('Shop image', shopUrl)}>
-                                <Eye className="h-4 w-4 mr-2" />
-                                Preview
-                              </Button>
-                              <Button variant="outline" size="sm" className="flex-1" disabled={!shopResolved} onClick={() => shopUrl && downloadFile(shopUrl, `shop-image-${viewedUserKYC.id}`)}>
-                                <Download className="h-4 w-4 mr-2" />
-                                Download
-                              </Button>
                             </div>
-                          </div>
-                          <div className="space-y-2">
-                            <Label className="text-muted-foreground">FSSAI license image</Label>
-                            {fssaiResolved ? (
+                          )}
+                          {fssaiResolved && (
+                            <div className="space-y-2">
+                              <Label className="text-muted-foreground">FSSAI license image</Label>
                               <button type="button" className="w-full" onClick={() => openImagePreview('FSSAI license image', fssaiUrl)}>
                                 <img src={fssaiResolved} alt="FSSAI License" className="w-full h-40 object-cover rounded-md border" />
                               </button>
-                            ) : (
-                              <div className="h-40 rounded-md border flex items-center justify-center text-muted-foreground text-sm px-2 text-center">
-                                {fssaiUrl && isUnsafeLocalDeviceUrl(fssaiUrl) ? 'Device-only path in DB' : 'Missing'}
+                              <div className="flex gap-2">
+                                <Button variant="outline" size="sm" className="flex-1" onClick={() => fssaiUrl && openImagePreview('FSSAI license image', fssaiUrl)}>
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  Preview
+                                </Button>
+                                <Button variant="outline" size="sm" className="flex-1" onClick={() => fssaiUrl && downloadFile(fssaiUrl, `fssai-license-${viewedUserKYC.id}`)}>
+                                  <Download className="h-4 w-4 mr-2" />
+                                  Download
+                                </Button>
                               </div>
-                            )}
-                            <div className="flex gap-2">
-                              <Button variant="outline" size="sm" className="flex-1" disabled={!fssaiResolved} onClick={() => fssaiUrl && openImagePreview('FSSAI license image', fssaiUrl)}>
-                                <Eye className="h-4 w-4 mr-2" />
-                                Preview
-                              </Button>
-                              <Button variant="outline" size="sm" className="flex-1" disabled={!fssaiResolved} onClick={() => fssaiUrl && downloadFile(fssaiUrl, `fssai-license-${viewedUserKYC.id}`)}>
-                                <Download className="h-4 w-4 mr-2" />
-                                Download
-                              </Button>
                             </div>
-                          </div>
+                          )}
                         </div>
                       );
                     })()}
