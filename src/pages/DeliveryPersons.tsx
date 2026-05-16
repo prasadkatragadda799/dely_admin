@@ -56,6 +56,7 @@ export default function DeliveryPersons() {
   const [mode, setMode] = useState<Mode>('create');
   const [editing, setEditing] = useState<any | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [createdCredentials, setCreatedCredentials] = useState<{ name: string; phone: string; password: string; employeeId?: string } | null>(null);
 
   // form state
   const [name, setName] = useState('');
@@ -85,7 +86,7 @@ export default function DeliveryPersons() {
     },
   });
 
-  const persons = personsResp?.items || personsResp?.data?.items || personsResp || [];
+  const persons = personsResp?.items || (personsResp as any)?.data?.items || [];
 
   const openCreate = () => {
     setMode('create');
@@ -129,10 +130,16 @@ export default function DeliveryPersons() {
         vehicleType,
       });
     },
-    onSuccess: () => {
+    onSuccess: (resp) => {
       queryClient.invalidateQueries({ queryKey: ['delivery-persons'] });
       setIsDialogOpen(false);
-      toast({ title: 'Created', description: 'Delivery person created successfully' });
+      const d = (resp as any)?.data ?? {};
+      setCreatedCredentials({
+        name,
+        phone,
+        password,
+        employeeId: d.employeeId || employeeId || undefined,
+      });
     },
     onError: (e: any) => {
       toast({ title: 'Error', description: e?.response?.data?.message || e.message || 'Failed', variant: 'destructive' });
@@ -407,6 +414,46 @@ export default function DeliveryPersons() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Credentials dialog — shown once after creation */}
+      <Dialog open={!!createdCredentials} onOpenChange={() => setCreatedCredentials(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delivery Person Created ✓</DialogTitle>
+            <DialogDescription>
+              Share these login credentials with the delivery person. The password will not be shown again.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="rounded-lg border bg-muted/50 p-4 space-y-2 font-mono text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Name</span>
+                <span className="font-semibold">{createdCredentials?.name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Login ID (Phone)</span>
+                <span className="font-semibold">{createdCredentials?.phone}</span>
+              </div>
+              {createdCredentials?.employeeId && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Employee ID</span>
+                  <span className="font-semibold">{createdCredentials.employeeId}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Password</span>
+                <span className="font-semibold text-blue-600">{createdCredentials?.password}</span>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              App login: use phone number as ID and the password above.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setCreatedCredentials(null)}>Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

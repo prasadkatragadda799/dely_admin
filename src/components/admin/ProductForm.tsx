@@ -127,6 +127,8 @@ const productSchema = z.object({
   metaDescription: z.string().optional(),
   manufacturerName: z.string().optional(),
   manufacturerAddress: z.string().optional(),
+  cancelPolicy: z.string().optional(),
+  returnPolicy: z.string().optional(),
   // Multiple size / pack variants like in Excel sheet
   variants: z
     .array(variantSchema)
@@ -398,6 +400,8 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
         metaDescription: productData.metaDescription || '',
         manufacturerName: productData.manufacturerName || productData.manufacturer_name || '',
         manufacturerAddress: productData.manufacturerAddress || productData.manufacturer_address || '',
+        cancelPolicy: productData.cancelPolicy || productData.cancel_policy || '',
+        returnPolicy: productData.returnPolicy || productData.return_policy || '',
       });
       setSelectedCompany(companyId || '');
       setImageSlots((prev) => {
@@ -579,6 +583,8 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
       // Bill From (manufacturer/supplier) fields
       formData.append('manufacturerName', data.manufacturerName?.trim() || '');
       formData.append('manufacturerAddress', data.manufacturerAddress?.trim() || '');
+      formData.append('cancelPolicy', data.cancelPolicy?.trim() || '');
+      formData.append('returnPolicy', data.returnPolicy?.trim() || '');
       
       // Images: on update, tell backend which existing rows to keep, then append new files.
       const localSlots = imageSlots.filter((s): s is Extract<ProductImageSlot, { kind: 'local' }> => s.kind === 'local');
@@ -1295,6 +1301,34 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
                 id="manufacturerAddress"
                 {...register('manufacturerAddress')}
                 placeholder="e.g. adibaran pur harihar pur azamgarh, State: 09-Uttar Pradesh"
+                rows={3}
+              />
+            </div>
+          </div>
+
+          {/* Policies */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold">Policies</h3>
+            <p className="text-sm text-muted-foreground">
+              Shown to customers on the product page.
+            </p>
+
+            <div className="space-y-2">
+              <Label htmlFor="cancelPolicy">Cancellation Policy</Label>
+              <Textarea
+                id="cancelPolicy"
+                {...register('cancelPolicy')}
+                placeholder="e.g. Order can be cancelled within 24 hours of placing."
+                rows={3}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="returnPolicy">Return Policy</Label>
+              <Textarea
+                id="returnPolicy"
+                {...register('returnPolicy')}
+                placeholder="e.g. Returns accepted within 7 days if product is damaged."
                 rows={3}
               />
             </div>
