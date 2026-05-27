@@ -1329,6 +1329,68 @@ export default function Products() {
                   </div>
                 </div>
               )}
+
+              {Array.isArray(viewingProduct.variants) && viewingProduct.variants.length > 0 && (
+                <div>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Variants ({viewingProduct.variants.length})
+                  </p>
+                  <div className="space-y-3">
+                    {viewingProduct.variants.map((v: any, vIdx: number) => {
+                      const vImages: string[] = (Array.isArray(v?.images) ? v.images : [])
+                        .map((img: any) =>
+                          String(
+                            typeof img === 'string'
+                              ? img
+                              : img?.image_url || img?.imageUrl || img?.url || '',
+                          ).trim(),
+                        )
+                        .filter(Boolean);
+                      const label = formatVariantPackagingLine(v) || `Variant ${vIdx + 1}`;
+                      const sp = v?.specialPrice ?? v?.special_price;
+                      const mrp = v?.mrp;
+                      return (
+                        <div
+                          key={v?.id ?? `variant-${vIdx}`}
+                          className="rounded-md border p-3 bg-muted/20"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="font-medium">{label}</p>
+                            <p className="text-sm">
+                              {sp != null ? formatCurrency(Number(sp)) : '—'}
+                              {mrp != null && Number(mrp) > Number(sp ?? 0) ? (
+                                <span className="text-muted-foreground line-through ml-2">
+                                  {formatCurrency(Number(mrp))}
+                                </span>
+                              ) : null}
+                            </p>
+                          </div>
+                          {vImages.length > 0 ? (
+                            <div className="grid grid-cols-6 gap-2 mt-2">
+                              {vImages.map((url, idx) => (
+                                <div
+                                  key={`${url}-${idx}`}
+                                  className="rounded border p-1 bg-white"
+                                >
+                                  <img
+                                    src={url}
+                                    alt={`${label} image ${idx + 1}`}
+                                    className="w-full h-14 object-contain rounded"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              No variant images
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
