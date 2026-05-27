@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -85,6 +85,7 @@ const normalizePiecesPerSetForUnit = (unit?: string, piecesPerSet?: number) => {
 };
 
 const variantSchema = z.object({
+  id: z.string().optional(), // backend variant id (round-tripped so updates upsert instead of recreate)
   hsnCode: z.string().optional(),
   packagingLabelType: z.string().optional(),
   setPieces: z.string().optional(),
@@ -170,12 +171,21 @@ type ProductImageSlot =
   | { kind: 'remote'; id: string; url: string }
   | { kind: 'local'; file: File; preview: string };
 
-function revokeLocalPreviews(slots: ProductImageSlot[]) {
+/** Per-variant gallery slot. Remote slots carry the owning variant id so removals can be synced. */
+type VariantImageSlot =
+  | { kind: 'remote'; id: string; url: string; variantId: string }
+  | { kind: 'local'; file: File; preview: string };
+
+function revokeLocalPreviews(slots: Array<ProductImageSlot | VariantImageSlot>) {
   slots.forEach((s) => {
     if (s.kind === 'local' && s.preview.startsWith('blob:')) {
       URL.revokeObjectURL(s.preview);
     }
   });
+}
+
+function revokeAllVariantPreviews(map: Record<string, VariantImageSlot[]>) {
+  Object.values(map).forEach((slots) => revokeLocalPreviews(slots));
 }
 
 export function ProductForm({ open, onOpenChange, productId }: ProductFormProps) {
@@ -184,6 +194,14 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
   const { user } = useAuth();
   const isSeller = user?.role === 'seller';
   const [imageSlots, setImageSlots] = useState<ProductImageSlot[]>([]);
+  // Per-variant image galleries, keyed by the useFieldArray row id (field.id).
+  const [variantImageSlots, setVariantImageSlots] = useState<Record<string, VariantImageSlot[]>>({});
+  // Remote variant images the user removed while editing → deleted on save.
+  const [removedVariantImages, setRemovedVariantImages] = useState<Array<{ variantId: string; imageId: string }>>([]);
+  // Server variant images keyed by backend variant id, captured at load (used to seed slots once fields exist).
+  const serverVariantImagesRef = useRef<Record<string, VariantImageSlot[]>>({});
+  // Tracks which product's variant images we've already seeded into state.
+  const variantImagesInitKeyRef = useRef<string | null>(null);
   const [selectedCompany, setSelectedCompany] = useState<string>('');
 
   const {
@@ -225,6 +243,8 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
   } = useFieldArray({
     control,
     name: 'variants',
+    // Use a non-'id' key so RHF's row key doesn't clobber our variant `id` field.
+    keyName: 'rowKey',
   });
 
   // Fetch categories
@@ -374,6 +394,7 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
         isAvailable,
         variants: (productData.variants && Array.isArray(productData.variants) && productData.variants.length > 0)
           ? productData.variants.map((v: any) => ({
+              id: (v.id ?? '').toString() || undefined,
               hsnCode: v.hsnCode || v.hsn_code || '',
               packagingLabelType:
                 v.packagingLabelType?.toString() || v.packaging_label_type?.toString() || '',
@@ -422,6 +443,32 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
           }))
           .filter((s) => s.id && s.url);
       });
+
+      // Capture each variant's server image gallery, keyed by backend variant id.
+      // A separate effect seeds these into variantImageSlots once useFieldArray rows exist.
+      const variantImagesByVariantId: Record<string, VariantImageSlot[]> = {};
+      if (Array.isArray(productData.variants)) {
+        productData.variants.forEach((v: any) => {
+          const vid = (v.id ?? '').toString();
+          if (!vid) return;
+          const imgs = Array.isArray(v.images) ? v.images : [];
+          variantImagesByVariantId[vid] = imgs
+            .map((img: any): VariantImageSlot => ({
+              kind: 'remote' as const,
+              id: String(img.id ?? ''),
+              url: String(img.imageUrl || img.image_url || img.url || ''),
+              variantId: vid,
+            }))
+            .filter((s: VariantImageSlot) => s.kind === 'remote' && s.id && s.url);
+        });
+      }
+      serverVariantImagesRef.current = variantImagesByVariantId;
+      variantImagesInitKeyRef.current = null; // force re-seed for this product
+      setVariantImageSlots((prev) => {
+        revokeAllVariantPreviews(prev);
+        return {};
+      });
+      setRemovedVariantImages([]);
     } else if (!productId && open) {
       reset({
         companyId: '',
@@ -437,9 +484,34 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
         revokeLocalPreviews(prev);
         return [];
       });
+      setVariantImageSlots((prev) => {
+        revokeAllVariantPreviews(prev);
+        return {};
+      });
+      setRemovedVariantImages([]);
+      serverVariantImagesRef.current = {};
+      variantImagesInitKeyRef.current = null;
       setSelectedCompany('');
     }
   }, [productData, productId, open, reset]);
+
+  // Seed per-variant image galleries into state once useFieldArray rows exist for
+  // the loaded product. Keyed by the RHF row key (field.rowKey); matched to server
+  // images via each row's backend variant id (field.id).
+  useEffect(() => {
+    if (!productId) return;
+    if (variantImagesInitKeyRef.current === productId) return;
+    if (!variantFields.length) return;
+    const seeded: Record<string, VariantImageSlot[]> = {};
+    variantFields.forEach((field: any) => {
+      const backendId = (field.id ?? '').toString();
+      seeded[field.rowKey] = backendId
+        ? (serverVariantImagesRef.current[backendId] ?? [])
+        : [];
+    });
+    variantImagesInitKeyRef.current = productId;
+    setVariantImageSlots(seeded);
+  }, [productId, variantFields]);
 
   // Handle company change to filter brands
   const handleCompanyChange = (companyId: string) => {
@@ -491,6 +563,128 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
       }
       return prev.filter((_, i) => i !== index);
     });
+  };
+
+  // ── Per-variant image handlers ───────────────────────────────────────────
+  const VARIANT_IMAGE_MAX = 5;
+
+  const handleVariantFileChange = (rowKey: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const validFiles = files.filter((file) => {
+      if (!file.type.startsWith('image/')) {
+        toast({ title: 'Invalid file type', description: 'Please select image files only', variant: 'destructive' });
+        return false;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        toast({ title: 'File too large', description: 'Image size must be less than 5MB', variant: 'destructive' });
+        return false;
+      }
+      return true;
+    });
+    setVariantImageSlots((prev) => {
+      const current = prev[rowKey] ?? [];
+      const room = VARIANT_IMAGE_MAX - current.length;
+      if (room <= 0) return prev;
+      const next = [...current];
+      for (const file of validFiles.slice(0, room)) {
+        next.push({ kind: 'local', file, preview: URL.createObjectURL(file) });
+      }
+      return { ...prev, [rowKey]: next };
+    });
+    // Allow re-selecting the same file later.
+    e.target.value = '';
+  };
+
+  const removeVariantImage = (rowKey: string, index: number) => {
+    setVariantImageSlots((prev) => {
+      const current = prev[rowKey] ?? [];
+      const slot = current[index];
+      if (slot?.kind === 'local' && slot.preview.startsWith('blob:')) {
+        URL.revokeObjectURL(slot.preview);
+      }
+      if (slot?.kind === 'remote') {
+        setRemovedVariantImages((r) => [...r, { variantId: slot.variantId, imageId: slot.id }]);
+      }
+      return { ...prev, [rowKey]: current.filter((_, i) => i !== index) };
+    });
+  };
+
+  // Wrap field-array remove so a deleted variant row drops its image slots too.
+  const removeVariantRow = (index: number) => {
+    const field: any = variantFields[index];
+    const rowKey = field?.rowKey as string | undefined;
+    if (rowKey) {
+      setVariantImageSlots((prev) => {
+        const current = prev[rowKey] ?? [];
+        current.forEach((s) => {
+          if (s.kind === 'remote') {
+            setRemovedVariantImages((r) => [...r, { variantId: s.variantId, imageId: s.id }]);
+          }
+        });
+        revokeLocalPreviews(current);
+        const { [rowKey]: _drop, ...rest } = prev;
+        return rest;
+      });
+    }
+    removeVariant(index);
+  };
+
+  /**
+   * Phase-2 save: push each variant's newly-picked images and remove the ones the
+   * user deleted. `result` is the create/update API response (AdminProductResponse);
+   * `data` is the submitted form. Variants align by index (backend returns them in
+   * sort_order == submission order). Best-effort: image failures warn but don't
+   * roll back the already-saved product.
+   */
+  const syncVariantImages = async (result: any, data: ProductFormData) => {
+    const product = result?.data ?? result;
+    const resolvedProductId: string | undefined = productId ?? product?.id;
+    if (!resolvedProductId) return;
+
+    const serverVariants: any[] = Array.isArray(product?.variants) ? product.variants : [];
+    const formVariants = data.variants ?? [];
+    let hadError = false;
+
+    // Delete removed remote images first (skip ones already gone via cascade).
+    for (const { variantId, imageId } of removedVariantImages) {
+      try {
+        await productsAPI.deleteVariantImage(resolvedProductId, variantId, imageId);
+      } catch {
+        // Variant may have been deleted (images cascade) — safe to ignore.
+      }
+    }
+
+    // Upload new local files per variant row.
+    for (let i = 0; i < formVariants.length; i++) {
+      const serverVariant = serverVariants[i];
+      const variantId: string | undefined = serverVariant?.id ? String(serverVariant.id) : undefined;
+      const rowKey = (variantFields[i] as any)?.rowKey as string | undefined;
+      if (!variantId || !rowKey) continue;
+
+      const slots = variantImageSlots[rowKey] ?? [];
+      const localFiles = slots
+        .filter((s): s is Extract<VariantImageSlot, { kind: 'local' }> => s.kind === 'local')
+        .map((s) => s.file);
+      if (!localFiles.length) continue;
+
+      const hasRemote = slots.some((s) => s.kind === 'remote');
+      const firstIsLocal = slots[0]?.kind === 'local';
+      const primaryIndex = !hasRemote && firstIsLocal ? 0 : undefined;
+
+      try {
+        await productsAPI.uploadVariantImages(resolvedProductId, variantId, localFiles, primaryIndex);
+      } catch {
+        hadError = true;
+      }
+    }
+
+    if (hadError) {
+      toast({
+        title: 'Some variant images failed to upload',
+        description: 'The product was saved, but please re-check variant images.',
+        variant: 'destructive',
+      });
+    }
   };
 
   // Create/Update product mutation
@@ -601,9 +795,12 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
         formData.append('primaryIndex', '0');
       }
 
-      // Add variants as JSON so backend can create separate rows per variant
+      // Add variants as JSON so backend can create separate rows per variant.
+      // `id` is round-tripped so the backend upserts (keeps variant ids + their
+      // image galleries stable) instead of delete-and-recreate.
       if (data.variants && data.variants.length > 0) {
         const cleanedVariants = data.variants.map((v) => ({
+          id: v.id || undefined,
           hsnCode: v.hsnCode || '',
           packagingLabelType: (v.packagingLabelType || '').trim() || undefined,
           setPieces: v.setPieces || '',
@@ -615,17 +812,25 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
         formData.append('variants', JSON.stringify(cleanedVariants));
       }
 
+      let result: any;
       if (productId) {
-        // Update product
-        return await (isSeller
+        result = await (isSeller
           ? sellerProductsAPI.updateProduct(productId, formData)
           : productsAPI.updateProduct(productId, formData));
       } else {
-        // Create product
-        return await (isSeller
+        result = await (isSeller
           ? sellerProductsAPI.createProduct(formData)
           : productsAPI.createProduct(formData));
       }
+
+      // Phase 2 — per-variant image galleries (admin only; sellers can't manage variants).
+      // Variants come back in submission order (backend sorts by sort_order), so we
+      // map form row i → response variant i to learn each row's authoritative id.
+      if (!isSeller) {
+        await syncVariantImages(result, data);
+      }
+
+      return result;
     },
     onSuccess: async (response, variables) => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -641,6 +846,13 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
         revokeLocalPreviews(prev);
         return [];
       });
+      setVariantImageSlots((prev) => {
+        revokeAllVariantPreviews(prev);
+        return {};
+      });
+      setRemovedVariantImages([]);
+      serverVariantImagesRef.current = {};
+      variantImagesInitKeyRef.current = null;
     },
     onError: (error: any) => {
       const errorMessage = error.response?.data?.error?.message 
@@ -1112,7 +1324,7 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
 
             {variantFields.map((field, index) => (
               <div
-                key={field.id}
+                key={(field as any).rowKey}
                 className="rounded-lg border border-border bg-card/50 p-4 space-y-3">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-sm font-semibold text-foreground">Variant {index + 1}</span>
@@ -1122,7 +1334,7 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
                       variant="ghost"
                       size="sm"
                       className="text-destructive hover:text-destructive"
-                      onClick={() => removeVariant(index)}>
+                      onClick={() => removeVariantRow(index)}>
                       Remove
                     </Button>
                   ) : null}
@@ -1190,6 +1402,46 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
                   <div className="space-y-2 sm:col-span-2">
                     <Label>Free item note</Label>
                     <Input {...register(`variants.${index}.freeItem`)} />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label>Variant images (Max 5, 5MB each)</Label>
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="cursor-pointer"
+                      disabled={(variantImageSlots[(field as any).rowKey]?.length ?? 0) >= VARIANT_IMAGE_MAX}
+                      onChange={(e) => handleVariantFileChange((field as any).rowKey, e)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Images specific to this variant. Shown on the product page when this option is selected.
+                    </p>
+                    {(variantImageSlots[(field as any).rowKey]?.length ?? 0) > 0 && (
+                      <div className="grid grid-cols-4 gap-3">
+                        {(variantImageSlots[(field as any).rowKey] ?? []).map((slot, imgIdx) => (
+                          <div
+                            key={slot.kind === 'remote' ? slot.id : `${slot.preview}-${imgIdx}`}
+                            className="relative">
+                            <img
+                              src={slot.kind === 'remote' ? slot.url : slot.preview}
+                              alt={`Variant ${index + 1} image ${imgIdx + 1}`}
+                              className="w-full h-20 object-cover rounded-lg border"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeVariantImage((field as any).rowKey, imgIdx)}
+                              className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1">
+                              <X className="h-3 w-3" />
+                            </button>
+                            {imgIdx === 0 && (
+                              <div className="absolute bottom-0 left-0 right-0 bg-primary text-primary-foreground text-[10px] text-center py-0.5">
+                                Primary
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

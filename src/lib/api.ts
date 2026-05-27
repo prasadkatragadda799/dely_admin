@@ -393,6 +393,38 @@ export const productsAPI = {
     );
     return response.data;
   },
+
+  uploadVariantImages: async (
+    productId: string,
+    variantId: string,
+    images: File[],
+    primaryIndex?: number,
+  ) => {
+    const pid = formatUUID(productId);
+    const vid = formatUUID(variantId);
+    const formData = new FormData();
+    images.forEach((image) => {
+      formData.append('images', image);
+    });
+    if (primaryIndex !== undefined) {
+      formData.append('primaryIndex', String(primaryIndex));
+    }
+    const response = await apiClient.post<ApiResponse<any>>(
+      `/admin/products/${pid}/variants/${vid}/images`,
+      formData,
+    );
+    return response.data;
+  },
+
+  deleteVariantImage: async (productId: string, variantId: string, imageId: string) => {
+    const pid = formatUUID(productId);
+    const vid = formatUUID(variantId);
+    const iid = formatUUID(imageId);
+    const response = await apiClient.delete<ApiResponse<void>>(
+      `/admin/products/${pid}/variants/${vid}/images/${iid}`,
+    );
+    return response.data;
+  },
 };
 
 // Orders API
