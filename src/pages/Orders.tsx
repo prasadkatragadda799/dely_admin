@@ -33,7 +33,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { adminDeliveryAPI, ordersAPI } from '@/lib/api';
+import { adminDeliveryAPI, ordersAPI, returnsAPI } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -81,6 +81,14 @@ export default function Orders() {
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const limit = 20;
+
+  // Returns tab state
+  const [returnsStatusFilter, setReturnsStatusFilter] = useState('requested');
+  const [rejectReturnId, setRejectReturnId] = useState<string | null>(null);
+  const [rejectNotes, setRejectNotes] = useState('');
+  const [assignReturnId, setAssignReturnId] = useState<string | null>(null);
+  const [assignReturnDeliveryPersonId, setAssignReturnDeliveryPersonId] = useState('');
+  const [isAssignReturnDialogOpen, setIsAssignReturnDialogOpen] = useState(false);
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -248,6 +256,34 @@ export default function Orders() {
       });
       setCancellingOrderId(null);
     },
+  });
+
+  // Returns query & mutations
+  const { data: returnsData, isLoading: isReturnsLoading, refetch: refetchReturns } = useQuery({
+    queryKey: ['admin-returns', returnsStatusFilter],
+    queryFn: () => returnsAPI.getReturns({ status: returnsStatusFilter === 'all' ? undefined : returnsStatusFilter, page_size: 50 }),
+  });
+  const returnsList: any[] = returnsData?.data?.returns ?? [];
+
+  const approveReturnMutation = useMutation({
+    mutationFn: ({ returnId, notes }: { returnId: string; notes?: string }) =>
+      returnsAPI.approveReturn(returnId, notes),
+    onSuccess: () => { refetchReturns(); toast({ title: 'Return approved' }); },
+    onError: (e: any) => toast({ title: 'Error', description: e.response?.data?.detail ?? 'Failed', variant: 'destructive' }),
+  });
+
+  const rejectReturnMutation = useMutation({
+    mutationFn: ({ returnId, notes }: { returnId: string; notes: string }) =>
+      returnsAPI.rejectReturn(returnId, notes),
+    onSuccess: () => { refetchReturns(); setRejectReturnId(null); setRejectNotes(''); toast({ title: 'Return rejected' }); },
+    onError: (e: any) => toast({ title: 'Error', description: e.response?.data?.detail ?? 'Failed', variant: 'destructive' }),
+  });
+
+  const assignReturnPickupMutation = useMutation({
+    mutationFn: ({ returnId, deliveryPersonId }: { returnId: string; deliveryPersonId: string }) =>
+      returnsAPI.assignPickup(returnId, deliveryPersonId),
+    onSuccess: () => { refetchReturns(); setIsAssignReturnDialogOpen(false); setAssignReturnId(null); setAssignReturnDeliveryPersonId(''); toast({ title: 'Pickup assigned' }); },
+    onError: (e: any) => toast({ title: 'Error', description: e.response?.data?.detail ?? 'Failed', variant: 'destructive' }),
   });
 
   // Calculate stats: total from pagination, status counts from current page orders
@@ -721,17 +757,117 @@ const orderStats = [
               >
                 Delivered
               </TabsTrigger>
-              <TabsTrigger 
+              <TabsTrigger
                 value="cancelled"
                 className="data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-0"
               >
                 Cancelled
               </TabsTrigger>
+              <TabsTrigger
+                value="returns"
+                className="data-[state=active]:bg-transparent data-[state=active]:text-violet-600 data-[state=active]:border-b-2 data-[state=active]:border-violet-600 rounded-none px-0"
+              >
+                Returns
+              </TabsTrigger>
             </TabsList>
           </div>
 
           <CardContent className="p-0">
-            {isLoading && !ordersResponse ? (
+            {/* ── Returns Tab ── */}
+            {activeTab === 'returns' && (
+              <div className="p-4 space-y-4">
+                <div className="flex gap-2 flex-wrap">
+                  {['requested', 'approved', 'rejected', 'pickup_assigned', 'picked_up', 'received_at_hub', 'all'].map(s => (
+                    <button
+                      key={s}
+                      onClick={() => setReturnsStatusFilter(s)}
+                      className={`px-3 py-1 rounded-full text-xs font-bold border transition-colors ${
+                        returnsStatusFilter === s
+                          ? 'bg-violet-600 text-white border-violet-600'
+                          : 'bg-white text-violet-700 border-violet-300 hover:bg-violet-50'
+                      }`}
+                    >
+                      {s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                    </button>
+                  ))}
+                </div>
+
+                {isReturnsLoading ? (
+                  <div className="space-y-3">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}</div>
+                ) : returnsList.length === 0 ? (
+                  <div className="py-12 text-center text-muted-foreground">No return requests found.</div>
+                ) : (
+                  <div className="space-y-3">
+                    {returnsList.map((ret: any) => (
+                      <div key={ret.returnId} className="border border-violet-200 rounded-xl p-4 bg-violet-50/40 space-y-2">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <div>
+                            <span className="font-bold text-sm text-violet-900">Order #{(ret.orderNumber ?? ret.orderId ?? '').slice(-12)}</span>
+                            <span className="ml-2 text-xs text-muted-foreground">{ret.customerName} · {ret.customerPhone ?? ''}</span>
+                          </div>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                            ret.status === 'requested' ? 'bg-amber-100 text-amber-700' :
+                            ret.status === 'approved' || ret.status === 'pickup_assigned' ? 'bg-blue-100 text-blue-700' :
+                            ret.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                            ret.status === 'picked_up' ? 'bg-indigo-100 text-indigo-700' :
+                            'bg-green-100 text-green-700'
+                          }`}>
+                            {ret.status.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-700"><span className="font-semibold">Reason:</span> {ret.reason}</p>
+                        {ret.adminNotes && <p className="text-xs text-gray-500"><span className="font-semibold">Admin notes:</span> {ret.adminNotes}</p>}
+                        {ret.bankAccountNumber && (
+                          <p className="text-xs text-gray-600">
+                            <span className="font-semibold">Bank:</span> {ret.bankAccountHolder} · {ret.bankName} · A/C {ret.bankAccountNumber} · IFSC {ret.bankIfscCode}
+                          </p>
+                        )}
+                        {ret.mediaUrls?.length > 0 && (
+                          <div className="flex gap-2 flex-wrap">
+                            {ret.mediaUrls.map((m: any, idx: number) => (
+                              <a key={idx} href={m.url} target="_blank" rel="noopener noreferrer" className="text-xs text-violet-600 underline">
+                                {m.type === 'video' ? '▶ Video' : `📷 Image ${idx + 1}`}
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                        {ret.status === 'requested' && (
+                          <div className="flex gap-2 pt-1">
+                            <Button
+                              size="sm"
+                              className="bg-green-600 hover:bg-green-700 text-white"
+                              disabled={approveReturnMutation.isPending}
+                              onClick={() => approveReturnMutation.mutate({ returnId: ret.returnId })}
+                            >
+                              {approveReturnMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Approve'}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => { setRejectReturnId(ret.returnId); setRejectNotes(''); }}
+                            >
+                              Reject
+                            </Button>
+                          </div>
+                        )}
+                        {ret.status === 'approved' && (
+                          <Button
+                            size="sm"
+                            className="bg-violet-600 hover:bg-violet-700 text-white"
+                            onClick={() => { setAssignReturnId(ret.returnId); setAssignReturnDeliveryPersonId(''); setIsAssignReturnDialogOpen(true); }}
+                          >
+                            Assign Pickup
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Regular Orders Table (hidden when Returns tab active) ── */}
+            {activeTab !== 'returns' && (isLoading && !ordersResponse ? (
               <div className="p-8 space-y-4">
                 {[...Array(5)].map((_, i) => (
                   <Skeleton key={i} className="h-16 w-full" />
@@ -898,7 +1034,7 @@ const orderStats = [
               </div>
             </div>
               </>
-            )}
+            ))}
           </CardContent>
         </Tabs>
       </Card>
@@ -1493,6 +1629,66 @@ const orderStats = [
               ) : (
                 'Assign'
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Reject Return Dialog */}
+      <AlertDialog open={!!rejectReturnId} onOpenChange={() => { if (!rejectReturnMutation.isPending) setRejectReturnId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reject Return</AlertDialogTitle>
+            <AlertDialogDescription>Provide a reason for rejecting this return request.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-2">
+            <textarea
+              className="w-full border rounded-lg p-2 text-sm min-h-[80px]"
+              placeholder="Reason for rejection (required)"
+              value={rejectNotes}
+              onChange={e => setRejectNotes(e.target.value)}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={rejectReturnMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={rejectReturnMutation.isPending || !rejectNotes.trim()}
+              onClick={() => rejectReturnId && rejectReturnMutation.mutate({ returnId: rejectReturnId, notes: rejectNotes })}
+            >
+              {rejectReturnMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Reject'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Assign Pickup Dialog */}
+      <Dialog open={isAssignReturnDialogOpen} onOpenChange={setIsAssignReturnDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Assign Return Pickup</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Label>Select Delivery Person</Label>
+            <AssignSelect value={assignReturnDeliveryPersonId} onValueChange={setAssignReturnDeliveryPersonId}>
+              <AssignSelectTrigger>
+                <AssignSelectValue placeholder={isLoadingDeliveryPersons ? 'Loading...' : 'Select person'} />
+              </AssignSelectTrigger>
+              <AssignSelectContent>
+                {deliveryPersons.map((p: any) => (
+                  <AssignSelectItem key={p.id} value={p.id}>{p.name} · {p.phone}</AssignSelectItem>
+                ))}
+              </AssignSelectContent>
+            </AssignSelect>
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setIsAssignReturnDialogOpen(false)} disabled={assignReturnPickupMutation.isPending}>Cancel</Button>
+            <Button
+              className="bg-violet-600 hover:bg-violet-700 text-white"
+              disabled={assignReturnPickupMutation.isPending || !assignReturnDeliveryPersonId}
+              onClick={() => assignReturnId && assignReturnPickupMutation.mutate({ returnId: assignReturnId, deliveryPersonId: assignReturnDeliveryPersonId })}
+            >
+              {assignReturnPickupMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Assign
             </Button>
           </DialogFooter>
         </DialogContent>

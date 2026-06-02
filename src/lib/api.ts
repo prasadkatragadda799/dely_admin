@@ -480,6 +480,25 @@ export const ordersAPI = {
   },
 };
 
+export const returnsAPI = {
+  getReturns: async (params?: { status?: string; page?: number; page_size?: number }) => {
+    const response = await apiClient.get('/admin/returns', { params });
+    return response.data;
+  },
+  approveReturn: async (returnId: string, notes?: string) => {
+    const response = await apiClient.put(`/admin/returns/${returnId}/approve`, { notes: notes ?? '' });
+    return response.data;
+  },
+  rejectReturn: async (returnId: string, notes: string) => {
+    const response = await apiClient.put(`/admin/returns/${returnId}/reject`, { notes });
+    return response.data;
+  },
+  assignPickup: async (returnId: string, deliveryPersonId: string) => {
+    const response = await apiClient.put(`/admin/returns/${returnId}/assign-pickup`, { delivery_person_id: deliveryPersonId });
+    return response.data;
+  },
+};
+
 // Delivery System APIs
 export const adminDeliveryAPI = {
   // Delivery persons
