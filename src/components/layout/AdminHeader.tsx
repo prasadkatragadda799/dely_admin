@@ -99,7 +99,7 @@ export function AdminHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-50 flex h-16 min-w-0 shrink-0 items-center justify-between gap-2 border-b border-border bg-card px-4">
+    <header className="sticky top-0 z-50 flex h-16 min-w-0 shrink-0 items-center justify-between gap-2 border-b border-border bg-card/80 px-4 backdrop-blur-lg supports-[backdrop-filter]:bg-card/65">
       <div className="flex min-w-0 flex-1 items-center gap-4">
         <SidebarTrigger className="h-9 w-9 shrink-0">
           <Menu className="h-5 w-5" />
@@ -109,7 +109,7 @@ export function AdminHeader() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search products, orders, users..."
-            className="w-full min-w-0 pl-10 bg-secondary/50 border-0 focus-visible:ring-primary"
+            className="w-full min-w-0 rounded-full border border-transparent bg-secondary/60 pl-10 focus-visible:border-primary/30 focus-visible:bg-card focus-visible:ring-primary/30"
           />
         </div>
       </div>

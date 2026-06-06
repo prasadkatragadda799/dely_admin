@@ -14,8 +14,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         <AdminSidebar />
         <div className="flex min-h-screen min-w-0 flex-1 flex-col">
           <AdminHeader />
-          <main className="min-w-0 flex-1 overflow-x-auto overflow-y-auto p-6">
-            {children}
+          <main className="min-w-0 flex-1 overflow-x-auto overflow-y-auto">
+            <div className="mx-auto w-full max-w-[1440px] px-5 py-6 lg:px-8 lg:py-8">
+              {children}
+            </div>
           </main>
         </div>
       </div>
