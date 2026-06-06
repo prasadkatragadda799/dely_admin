@@ -327,9 +327,11 @@ export default function Dashboard() {
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+            {isSeller ? 'Seller Dashboard' : `Welcome back, ${user?.name?.split(' ')[0] || 'Admin'} 👋`}
+          </h1>
           <p className="mt-1 text-muted-foreground">
-            {isSeller ? "Your sales overview for this month." : "Welcome back! Here's what's happening today."}
+            {isSeller ? 'Your sales overview for this month.' : "Here's what's happening with your business today."}
           </p>
         </div>
         {!isSeller && !isAdminOnly && (
