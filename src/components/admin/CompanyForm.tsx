@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { companiesAPI, divisionsAPI } from '@/lib/api';
+import { companiesAPI, divisionsAPI, zonesAPI } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,7 +24,10 @@ const companySchema = z.object({
   name: z.string().min(1, 'Company name is required'),
   description: z.string().optional(),
   divisionId: z.string().optional(),
+  zoneId: z.string().optional(),
 });
+
+const ZONE_NONE = '__none__';
 
 type CompanyFormData = z.infer<typeof companySchema>;
 
@@ -62,6 +65,13 @@ export function CompanyForm({ open, onOpenChange, companyId }: CompanyFormProps)
     enabled: open,
   });
 
+  // Fetch active delivery zones for assignment
+  const { data: zonesData } = useQuery({
+    queryKey: ['zones-active'],
+    queryFn: async () => (await zonesAPI.getZones(true)).data || [],
+    enabled: open,
+  });
+
   // Fetch company data if editing
   const { data: companyData, isLoading: isLoadingCompany } = useQuery({
     queryKey: ['company', companyId],
@@ -79,6 +89,7 @@ export function CompanyForm({ open, onOpenChange, companyId }: CompanyFormProps)
       setValue('name', companyData.name || '');
       setValue('description', companyData.description || '');
       setValue('divisionId', companyData.division?.id || companyData.divisionId || companyData.division_id || '');
+      setValue('zoneId', companyData.zoneId || companyData.zone_id || ZONE_NONE);
       if (companyData.logoUrl || companyData.logo_url || companyData.logo) {
         setImagePreview(companyData.logoUrl || companyData.logo_url || companyData.logo);
       }
@@ -109,6 +120,11 @@ export function CompanyForm({ open, onOpenChange, companyId }: CompanyFormProps)
 
   const divisions = divisionsData || [];
   const divisionOptions = divisions.map((d: any) => ({ value: d.id, label: d.name }));
+  const zones = zonesData || [];
+  const zoneOptions = [
+    { value: ZONE_NONE, label: 'Global — deliver everywhere (no zone)' },
+    ...zones.map((z: any) => ({ value: z.id, label: z.name })),
+  ];
 
   // Create/Update company mutation
   const companyMutation = useMutation({
@@ -124,6 +140,9 @@ export function CompanyForm({ open, onOpenChange, companyId }: CompanyFormProps)
       if (data.divisionId && data.divisionId !== '') {
         formData.append('division_id', data.divisionId);
       }
+
+      // Zone assignment: a real id assigns; "" unassigns (Global).
+      formData.append('zoneId', data.zoneId && data.zoneId !== ZONE_NONE ? data.zoneId : '');
 
       if (selectedFile) {
         formData.append('logo', selectedFile);
@@ -214,6 +233,22 @@ export function CompanyForm({ open, onOpenChange, companyId }: CompanyFormProps)
                 placeholder="Select division (FMCG / Home & Kitchen)"
                 searchPlaceholder="Search division..."
               />
+            </div>
+
+            {/* Delivery Zone */}
+            <div className="space-y-2">
+              <Label>Delivery Zone</Label>
+              <SearchableSelect
+                options={zoneOptions}
+                value={watch('zoneId') || ZONE_NONE}
+                onValueChange={(v) => setValue('zoneId', v)}
+                placeholder="Assign a delivery zone"
+                searchPlaceholder="Search zones..."
+              />
+              <p className="text-xs text-muted-foreground">
+                This seller's products are only deliverable to pincodes in the selected zone.
+                Choose “Global” for no zone restriction.
+              </p>
             </div>
 
             <div className="space-y-2">

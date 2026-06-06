@@ -10,6 +10,8 @@ import UsersPage from '@/pages/UsersPage';
 import Categories from '@/pages/Categories';
 import Divisions from '@/pages/Divisions';
 import Companies from '@/pages/Companies';
+import Zones from '@/pages/Zones';
+import Returns from '@/pages/Returns';
 import Offers from '@/pages/Offers';
 import KYC from '@/pages/KYC';
 import Analytics from '@/pages/Analytics';
@@ -112,6 +114,30 @@ export function AppRoutes() {
               <BlockSupportRoute>
                 <Companies />
               </BlockSupportRoute>
+            </BlockSellerRoute>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path={ROUTES.ZONES}
+        element={
+          <ProtectedRoute>
+            <BlockSellerRoute>
+              <BlockSupportRoute>
+                <Zones />
+              </BlockSupportRoute>
+            </BlockSellerRoute>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path={ROUTES.RETURNS}
+        element={
+          <ProtectedRoute>
+            <BlockSellerRoute>
+              <Returns />
             </BlockSellerRoute>
           </ProtectedRoute>
         }

@@ -425,6 +425,13 @@ export const productsAPI = {
     );
     return response.data;
   },
+
+  migrateLegacyVariants: async () => {
+    const response = await apiClient.post<ApiResponse<{ migrated: number; skipped: number }>>(
+      '/admin/products/migrate-legacy-variants',
+    );
+    return response.data;
+  },
 };
 
 // Orders API
@@ -734,6 +741,128 @@ export const companiesAPI = {
   deleteCompany: async (id: string) => {
     const formattedId = formatUUID(id);
     const response = await apiClient.delete<ApiResponse<void>>(`/admin/companies/${formattedId}`);
+    return response.data;
+  },
+};
+
+// ── Delivery Zones ────────────────────────────────────────────────────────
+export interface ZonePincode {
+  id: string;
+  pincode: string;
+  city?: string | null;
+  state?: string | null;
+}
+
+export interface Zone {
+  id: string;
+  name: string;
+  description?: string | null;
+  isActive: boolean;
+  pincodes?: ZonePincode[];
+  totalPincodes?: number;
+  totalCompanies?: number;
+  companies?: Array<{ id: string; name: string; logoUrl?: string | null }>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const zonesAPI = {
+  getZones: async (activeOnly = false) => {
+    const response = await apiClient.get<ApiResponse<Zone[]>>('/admin/zones', {
+      params: activeOnly ? { active_only: true } : undefined,
+    });
+    return response.data;
+  },
+
+  getZone: async (id: string) => {
+    const response = await apiClient.get<ApiResponse<Zone>>(`/admin/zones/${formatUUID(id)}`);
+    return response.data;
+  },
+
+  createZone: async (data: { name: string; description?: string; is_active?: boolean }) => {
+    const response = await apiClient.post<ApiResponse<Zone>>('/admin/zones', data);
+    return response.data;
+  },
+
+  updateZone: async (
+    id: string,
+    data: { name?: string; description?: string; is_active?: boolean },
+  ) => {
+    const response = await apiClient.put<ApiResponse<Zone>>(`/admin/zones/${formatUUID(id)}`, data);
+    return response.data;
+  },
+
+  deleteZone: async (id: string) => {
+    const response = await apiClient.delete<ApiResponse<void>>(`/admin/zones/${formatUUID(id)}`);
+    return response.data;
+  },
+
+  addPincodes: async (
+    id: string,
+    pincodes: Array<{ pincode: string; city?: string; state?: string }>,
+  ) => {
+    const response = await apiClient.post<ApiResponse<Zone>>(
+      `/admin/zones/${formatUUID(id)}/pincodes`,
+      { pincodes },
+    );
+    return response.data;
+  },
+
+  deletePincode: async (id: string, pincode: string) => {
+    const response = await apiClient.delete<ApiResponse<void>>(
+      `/admin/zones/${formatUUID(id)}/pincodes/${pincode}`,
+    );
+    return response.data;
+  },
+};
+
+// ── Order Returns ─────────────────────────────────────────────────────────
+export type ReturnStatus =
+  | 'requested' | 'approved' | 'rejected' | 'pickup_assigned' | 'picked_up' | 'received_at_hub';
+
+export interface OrderReturn {
+  returnId: string;
+  orderId: string;
+  orderNumber?: string | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  status: ReturnStatus;
+  reason: string;
+  mediaUrls?: Array<{ url: string; type?: string }>;
+  bankAccountNumber?: string | null;
+  bankIfscCode?: string | null;
+  bankAccountHolder?: string | null;
+  bankName?: string | null;
+  adminNotes?: string | null;
+  deliveryPersonId?: string | null;
+  deliveryPersonName?: string | null;
+  pickedUpAt?: string | null;
+  receivedAtHubAt?: string | null;
+  orderTotal?: number | null;
+  paymentMethod?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const returnsAPI = {
+  listReturns: async (params?: { status?: string; page?: number; page_size?: number }) => {
+    const response = await apiClient.get<ApiResponse<{ returns: OrderReturn[]; total: number; page: number; pageSize: number }>>(
+      '/admin/returns', { params },
+    );
+    return response.data;
+  },
+  approveReturn: async (id: string, notes?: string) => {
+    const response = await apiClient.put<ApiResponse<{ status: string }>>(`/admin/returns/${id}/approve`, { notes });
+    return response.data;
+  },
+  rejectReturn: async (id: string, notes: string) => {
+    const response = await apiClient.put<ApiResponse<{ status: string }>>(`/admin/returns/${id}/reject`, { notes });
+    return response.data;
+  },
+  assignPickup: async (id: string, deliveryPersonId: string) => {
+    const response = await apiClient.put<ApiResponse<{ status: string; deliveryPersonName: string }>>(
+      `/admin/returns/${id}/assign-pickup`, { delivery_person_id: deliveryPersonId },
+    );
     return response.data;
   },
 };

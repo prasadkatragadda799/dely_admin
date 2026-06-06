@@ -1,16 +1,17 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { 
-  Plus, 
-  Search, 
-  Filter, 
-  MoreHorizontal, 
-  Edit, 
-  Trash2, 
+import {
+  Plus,
+  Search,
+  Filter,
+  MoreHorizontal,
+  Edit,
+  Trash2,
   Eye,
   Download,
   Package,
-  Loader2
+  Loader2,
+  Layers,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -105,6 +106,7 @@ export default function Products() {
   const [isBulkStatusOpen, setIsBulkStatusOpen] = useState(false);
   const [bulkStockValue, setBulkStockValue] = useState('');
   const [bulkStatusValue, setBulkStatusValue] = useState<'available' | 'unavailable'>('available');
+  const [isMigrateConfirmOpen, setIsMigrateConfirmOpen] = useState(false);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const createdByFromUrl = (searchParams.get('created_by') || '').trim();
@@ -113,6 +115,21 @@ export default function Products() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const isSeller = user?.role === 'seller';
+
+  const migrateMutation = useMutation({
+    mutationFn: () => productsAPI.migrateLegacyVariants(),
+    onSuccess: (res) => {
+      const d = (res as any)?.data ?? {};
+      toast({
+        title: 'Migration complete',
+        description: `${d.migrated ?? 0} product(s) seeded with a default variant. ${d.skipped ? `${d.skipped} skipped.` : ''}`,
+      });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+    onError: () => {
+      toast({ title: 'Migration failed', description: 'Could not migrate products. Please try again.', variant: 'destructive' });
+    },
+  });
 
   useEffect(() => {
     if (isSeller || !createdByFromUrl) return;
@@ -627,6 +644,21 @@ export default function Products() {
             )}
             Export
           </Button>
+          {!isSeller && (
+            <Button
+              variant="outline"
+              onClick={() => setIsMigrateConfirmOpen(true)}
+              disabled={migrateMutation.isPending}
+              title="Create a default variant for any product that has none"
+            >
+              {migrateMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Layers className="h-4 w-4 mr-2" />
+              )}
+              Migrate Variants
+            </Button>
+          )}
           <ExcelBulkImportSection entity="products" invalidateQueryKeys={[['products']]} />
           <Button variant="gradient" onClick={handleAddProduct}>
             <Plus className="h-4 w-4 mr-2" />
@@ -1397,6 +1429,35 @@ export default function Products() {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isMigrateConfirmOpen} onOpenChange={setIsMigrateConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Migrate legacy products to variants</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will create a default first variant for every product that currently has no variants,
+              using the product's existing price and unit data. Products that already have variants are
+              not affected. This operation is safe to run multiple times.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => { setIsMigrateConfirmOpen(false); migrateMutation.mutate(); }}
+              disabled={migrateMutation.isPending}
+            >
+              {migrateMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Migrating...
+                </>
+              ) : (
+                'Run Migration'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog open={!!deletingProductId} onOpenChange={() => setDeletingProductId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>

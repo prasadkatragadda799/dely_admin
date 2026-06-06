@@ -16,6 +16,7 @@ import {
   FileText,
   Truck,
   MapPin,
+  RotateCcw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -47,6 +48,7 @@ const mainNavItems: NavItem[] = [
   { title: 'Dashboard', url: ROUTES.DASHBOARD, icon: LayoutDashboard },
   { title: 'Products', url: ROUTES.PRODUCTS, icon: Package },
   { title: 'Orders', url: ROUTES.ORDERS, icon: ShoppingCart },
+  { title: 'Returns', url: ROUTES.RETURNS, icon: RotateCcw },
   { title: 'Users', url: ROUTES.USERS, icon: Users },
 ];
 
@@ -54,6 +56,7 @@ const managementItems: NavItem[] = [
   { title: 'Delivery Persons', url: ROUTES.DELIVERY_PERSONS, icon: Truck },
   { title: 'Delivery Tracking', url: ROUTES.DELIVERY_TRACKING, icon: MapPin },
   { title: 'Companies & Brands', url: ROUTES.COMPANIES, icon: Building2 },
+  { title: 'Delivery Zones', url: ROUTES.ZONES, icon: MapPin },
   { title: 'Categories', url: ROUTES.CATEGORIES, icon: FolderTree },
   { title: 'Divisions', url: ROUTES.DIVISIONS, icon: Layers },
   { title: 'Offers', url: ROUTES.OFFERS, icon: Tag },
