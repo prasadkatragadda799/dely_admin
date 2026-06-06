@@ -327,8 +327,8 @@ export default function Dashboard() {
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Dashboard</h1>
+          <p className="mt-1 text-muted-foreground">
             {isSeller ? "Your sales overview for this month." : "Welcome back! Here's what's happening today."}
           </p>
         </div>
@@ -362,16 +362,16 @@ export default function Dashboard() {
           ))
         ) : (
           metrics.map((metric, index) => (
-            <Card key={index} className="shadow-card hover:shadow-card-hover transition-shadow duration-200">
+            <Card key={index} className="rounded-2xl shadow-card hover:shadow-card-hover hover:-translate-y-0.5 transition-all duration-200">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between">
-                  <div className="p-2 rounded-lg bg-secondary">
+                  <div className="rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 p-2.5 ring-1 ring-primary/10">
                     <metric.icon className="h-5 w-5 text-primary" />
                   </div>
                   {metric.change && (
-                    <div className={`flex items-center gap-1 text-xs font-medium ${
-                      metric.trend === 'up' ? 'text-emerald-600' :
-                      metric.trend === 'down' ? 'text-red-500' : 'text-muted-foreground'
+                    <div className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${
+                      metric.trend === 'up' ? 'bg-emerald-50 text-emerald-600' :
+                      metric.trend === 'down' ? 'bg-red-50 text-red-500' : 'bg-secondary text-muted-foreground'
                     }`}>
                       {metric.trend === 'up' && <TrendingUp className="h-3 w-3" />}
                       {metric.trend === 'down' && <TrendingDown className="h-3 w-3" />}
@@ -379,9 +379,9 @@ export default function Dashboard() {
                     </div>
                   )}
                 </div>
-                <div className="mt-3">
-                  <p className="text-2xl font-bold text-foreground">{metric.value}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{metric.title}</p>
+                <div className="mt-4">
+                  <p className="text-3xl font-bold tracking-tight text-foreground">{metric.value}</p>
+                  <p className="mt-1 text-xs font-medium text-muted-foreground">{metric.title}</p>
                 </div>
               </CardContent>
             </Card>
