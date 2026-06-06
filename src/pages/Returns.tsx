@@ -75,7 +75,7 @@ export default function Returns() {
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['returns', tab],
     queryFn: async () =>
-      (await returnsAPI.listReturns(tab === 'all' ? { page_size: 100 } : { status: tab, page_size: 100 })).data,
+      ((await returnsAPI.getReturns(tab === 'all' ? { page_size: 100 } : { status: tab, page_size: 100 })) as any).data,
     retry: 1,
   });
   const returns = data?.returns ?? [];

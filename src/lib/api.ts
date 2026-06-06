@@ -844,29 +844,6 @@ export interface OrderReturn {
   updatedAt: string;
 }
 
-export const returnsAPI = {
-  listReturns: async (params?: { status?: string; page?: number; page_size?: number }) => {
-    const response = await apiClient.get<ApiResponse<{ returns: OrderReturn[]; total: number; page: number; pageSize: number }>>(
-      '/admin/returns', { params },
-    );
-    return response.data;
-  },
-  approveReturn: async (id: string, notes?: string) => {
-    const response = await apiClient.put<ApiResponse<{ status: string }>>(`/admin/returns/${id}/approve`, { notes });
-    return response.data;
-  },
-  rejectReturn: async (id: string, notes: string) => {
-    const response = await apiClient.put<ApiResponse<{ status: string }>>(`/admin/returns/${id}/reject`, { notes });
-    return response.data;
-  },
-  assignPickup: async (id: string, deliveryPersonId: string) => {
-    const response = await apiClient.put<ApiResponse<{ status: string; deliveryPersonName: string }>>(
-      `/admin/returns/${id}/assign-pickup`, { delivery_person_id: deliveryPersonId },
-    );
-    return response.data;
-  },
-};
-
 export type BulkImportEntity = 'categories' | 'companies' | 'brands' | 'products';
 
 export type BulkImportResult = {
