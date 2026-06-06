@@ -104,6 +104,7 @@ export default function Products() {
   const [listingScope, setListingScope] = useState<'all' | 'seller' | 'platform'>('all');
   const [isBulkStockOpen, setIsBulkStockOpen] = useState(false);
   const [isBulkStatusOpen, setIsBulkStatusOpen] = useState(false);
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const [bulkStockValue, setBulkStockValue] = useState('');
   const [bulkStatusValue, setBulkStatusValue] = useState<'available' | 'unavailable'>('available');
   const [isMigrateConfirmOpen, setIsMigrateConfirmOpen] = useState(false);
@@ -387,6 +388,27 @@ export default function Products() {
         variant: 'destructive',
       });
       setDeletingProductId(null);
+    },
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async () => {
+      const del = (id: string) =>
+        isSeller ? sellerProductsAPI.deleteProduct(id) : productsAPI.deleteProduct(id);
+      await Promise.all(selectedProducts.map(del));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      toast({ title: 'Products deleted', description: `Deleted ${selectedProducts.length} product(s).` });
+      setSelectedProducts([]);
+      setIsBulkDeleteOpen(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Bulk delete failed',
+        description: error.response?.data?.error?.message || 'Some products could not be deleted.',
+        variant: 'destructive',
+      });
     },
   });
 
@@ -884,13 +906,7 @@ export default function Products() {
             <Button
               variant="destructive"
               size="sm"
-              onClick={() => {
-                // Handle bulk delete
-                toast({
-                  title: 'Bulk delete',
-                  description: 'Bulk delete functionality coming soon',
-                });
-              }}
+              onClick={() => setIsBulkDeleteOpen(true)}
             >
               Delete Selected
             </Button>
@@ -1554,6 +1570,28 @@ export default function Products() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Bulk Delete confirmation */}
+      <AlertDialog open={isBulkDeleteOpen} onOpenChange={setIsBulkDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedProducts.length} product(s)?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes the selected products. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkDeleteMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(e) => { e.preventDefault(); bulkDeleteMutation.mutate(); }}
+              disabled={bulkDeleteMutation.isPending}
+            >
+              {bulkDeleteMutation.isPending ? 'Deleting…' : `Delete ${selectedProducts.length}`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

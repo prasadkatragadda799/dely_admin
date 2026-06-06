@@ -72,6 +72,7 @@ export default function Orders() {
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
+  const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
   const [newStatus, setNewStatus] = useState<string>('');
   const [statusNotes, setStatusNotes] = useState('');
   const [invoiceOrder, setInvoiceOrder] = useState<any | null>(null);
@@ -204,6 +205,15 @@ export default function Orders() {
   });
 
   const orders = ordersResponse?.items || [];
+
+  // Full order detail for the view-details modal.
+  const { data: orderDetailRes, isFetching: isOrderDetailLoading } = useQuery({
+    queryKey: ['admin-order-detail', detailOrderId],
+    queryFn: async () => (await ordersAPI.getOrder(detailOrderId as string)).data,
+    enabled: !!detailOrderId,
+  });
+  const orderDetail: any = orderDetailRes ?? null;
+
   const pagination = ordersResponse?.pagination || {
     page: 1,
     limit: 20,
@@ -366,11 +376,7 @@ const orderStats = [
   };
 
   const handleViewDetails = (orderId: string) => {
-    // TODO: Implement order detail view/modal
-    toast({
-      title: 'View Order',
-      description: 'Order detail view coming soon',
-    });
+    setDetailOrderId(orderId);
   };
 
   const handleUpdateStatus = (orderId: string) => {
@@ -1038,6 +1044,97 @@ const orderStats = [
           </CardContent>
         </Tabs>
       </Card>
+
+      {/* Order detail modal */}
+      <Dialog open={!!detailOrderId} onOpenChange={(o) => !o && setDetailOrderId(null)}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Order #{String(orderDetail?.order_number ?? orderDetail?.orderNumber ?? detailOrderId ?? '').slice(-12)}
+            </DialogTitle>
+          </DialogHeader>
+          {isOrderDetailLoading ? (
+            <div className="py-10 flex items-center justify-center text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading order…
+            </div>
+          ) : !orderDetail ? (
+            <div className="py-10 text-center text-muted-foreground">Could not load this order.</div>
+          ) : (
+            <div className="space-y-4 text-sm">
+              <div className="flex items-center justify-between">
+                {getStatusBadge(orderDetail.status || orderDetail.order_status || 'pending')}
+                <span className="text-muted-foreground">
+                  {formatDate(orderDetail.created_at || orderDetail.createdAt || '')}
+                </span>
+              </div>
+
+              <div className="rounded-lg border border-border p-3 space-y-1.5">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Customer</span>
+                  <span className="font-medium">{orderDetail.customer?.name || orderDetail.customer_name || orderDetail.customerName || 'Unknown'}</span>
+                </div>
+                {(orderDetail.customer?.phone || orderDetail.customer_phone) ? (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Phone</span>
+                    <span className="font-medium">{orderDetail.customer?.phone || orderDetail.customer_phone}</span>
+                  </div>
+                ) : null}
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Payment</span>
+                  <span className="font-medium">{formatPaymentMethod(orderDetail.payment_method || orderDetail.paymentMethod)}</span>
+                </div>
+              </div>
+
+              {(() => {
+                const addr = orderDetail.delivery_address || orderDetail.deliveryAddress;
+                const addrText = typeof addr === 'string'
+                  ? addr
+                  : addr
+                    ? [addr.address_line1 || addr.addressLine1, addr.address_line2 || addr.addressLine2, [addr.city, addr.state, addr.pincode].filter(Boolean).join(', ')].filter(Boolean).join(', ')
+                    : '';
+                return addrText ? (
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase mb-1">Delivery address</p>
+                    <p className="rounded-lg bg-secondary/40 border border-border p-2.5">{addrText}</p>
+                  </div>
+                ) : null;
+              })()}
+
+              {(() => {
+                const items = orderDetail.items || orderDetail.order_items || [];
+                return Array.isArray(items) && items.length > 0 ? (
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase mb-1">Items ({items.length})</p>
+                    <div className="rounded-lg border border-border divide-y divide-border">
+                      {items.map((it: any, i: number) => {
+                        const name = it.product?.name || it.product_name || it.productName || it.name || 'Item';
+                        const qty = it.quantity ?? it.qty ?? 1;
+                        const price = it.total ?? it.total_amount ?? it.price ?? it.unit_price ?? 0;
+                        return (
+                          <div key={i} className="flex items-center justify-between p-2.5">
+                            <span className="flex-1">{name} <span className="text-muted-foreground">× {qty}</span></span>
+                            <span className="font-medium">{formatCurrency(parseFloat(String(price)) || 0)}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null;
+              })()}
+
+              <div className="flex items-center justify-between border-t border-border pt-3">
+                <span className="font-semibold">Total</span>
+                <span className="text-lg font-bold">
+                  {formatCurrency(parseFloat(String(orderDetail.total_amount ?? orderDetail.total ?? orderDetail.amount ?? 0)) || 0)}
+                </span>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDetailOrderId(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Update Status Dialog */}
       <AlertDialog open={!!updatingOrderId} onOpenChange={() => {

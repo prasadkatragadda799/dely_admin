@@ -6,71 +6,71 @@
 
 @layer base {
   :root {
-    /* Background Colors */
-    --background: 0 0% 98%;
-    --foreground: 0 0% 10%;
-    
+    /* Base surfaces — clean, cool slate */
+    --background: 220 24% 97%;
+    --foreground: 222 47% 11%;
+
     /* Surface Colors */
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 10%;
-    
+    --card-foreground: 222 47% 11%;
+
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 10%;
-    
-    /* Primary - Dely Blue (#1E6DD8) */
-    --primary: 214 78% 48%;
+    --popover-foreground: 222 47% 11%;
+
+    /* Primary - refined Dely Blue */
+    --primary: 221 83% 53%;
     --primary-foreground: 0 0% 100%;
-    --primary-dark: 214 70% 40%;
-    --primary-light: 214 100% 65%;
-    --primary-lighter: 214 100% 85%;
-    
+    --primary-dark: 224 76% 45%;
+    --primary-light: 217 91% 60%;
+    --primary-lighter: 214 95% 88%;
+
     /* Secondary */
-    --secondary: 214 100% 97%;
-    --secondary-foreground: 214 78% 48%;
-    
+    --secondary: 220 16% 96%;
+    --secondary-foreground: 222 40% 24%;
+
     /* Muted */
-    --muted: 214 20% 96%;
+    --muted: 220 16% 95%;
     --muted-foreground: 215 16% 47%;
-    
+
     /* Accent */
-    --accent: 214 100% 95%;
-    --accent-foreground: 214 78% 40%;
-    
+    --accent: 221 83% 96%;
+    --accent-foreground: 221 75% 42%;
+
     /* Destructive */
-    --destructive: 0 84% 60%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    
+
     /* Status Colors */
     --success: 160 84% 39%;
     --success-foreground: 0 0% 100%;
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 10%;
-    --info: 214 78% 48%;
+    --info: 221 83% 53%;
     --info-foreground: 0 0% 100%;
-    
+
     /* Borders & Inputs */
-    --border: 214 20% 91%;
-    --input: 214 20% 91%;
-    --ring: 214 78% 48%;
-    
-    --radius: 0.75rem;
-    
+    --border: 220 18% 90%;
+    --input: 220 18% 90%;
+    --ring: 221 83% 53%;
+
+    --radius: 0.7rem;
+
     /* Sidebar */
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 215 16% 47%;
-    --sidebar-primary: 214 78% 48%;
+    --sidebar-foreground: 215 16% 42%;
+    --sidebar-primary: 221 83% 53%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 214 100% 97%;
-    --sidebar-accent-foreground: 214 78% 48%;
-    --sidebar-border: 214 20% 93%;
-    --sidebar-ring: 214 78% 48%;
-    
+    --sidebar-accent: 221 83% 96%;
+    --sidebar-accent-foreground: 221 75% 42%;
+    --sidebar-border: 220 18% 92%;
+    --sidebar-ring: 221 83% 53%;
+
     /* Chart Colors */
-    --chart-1: 214 78% 48%;
+    --chart-1: 221 83% 53%;
     --chart-2: 160 84% 39%;
     --chart-3: 38 92% 50%;
     --chart-4: 262 83% 58%;
-    --chart-5: 0 84% 60%;
+    --chart-5: 0 72% 51%;
   }
 
   .dark {
@@ -83,7 +83,7 @@
     --popover: 222 47% 8%;
     --popover-foreground: 210 40% 98%;
     
-    --primary: 214 78% 55%;
+    --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
     
     --secondary: 217 33% 17%;
@@ -161,11 +161,16 @@
 
   /* Shadow utilities */
   .shadow-card {
-    box-shadow: 0 1px 3px hsl(var(--primary) / 0.08), 0 1px 2px hsl(var(--primary) / 0.06);
+    box-shadow: 0 1px 2px hsl(222 47% 11% / 0.04), 0 1px 3px hsl(222 47% 11% / 0.06);
   }
-  
+
   .shadow-card-hover {
-    box-shadow: 0 4px 12px hsl(var(--primary) / 0.12), 0 2px 4px hsl(var(--primary) / 0.08);
+    box-shadow: 0 6px 16px hsl(222 47% 11% / 0.10), 0 2px 6px hsl(222 47% 11% / 0.06);
+  }
+
+  /* Premium primary glow for brand/logo marks and key CTAs */
+  .shadow-blue {
+    box-shadow: 0 8px 20px hsl(var(--primary) / 0.28);
   }
 
   /* Status badge styles */
