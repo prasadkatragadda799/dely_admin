@@ -867,6 +867,16 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
   });
 
   const onSubmit = (data: ProductFormData) => {
+    // On create the product-level Pricing section is hidden (pricing is entered per
+    // variant), so derive a representative product price from the first variant.
+    if (!productId && data.variants && data.variants.length > 0) {
+      const v = data.variants[0];
+      data = {
+        ...data,
+        mrp: data.mrp > 0 ? data.mrp : Number(v.mrp || 0),
+        sellingPrice: data.sellingPrice > 0 ? data.sellingPrice : Number(v.specialPrice || v.mrp || 0),
+      };
+    }
     productMutation.mutate(data);
   };
 
@@ -1045,7 +1055,8 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
             </div>
           </div>
 
-          {/* Pricing */}
+          {/* Pricing — only shown when editing; on create, pricing is entered per variant below */}
+          {productId && (
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Pricing</h3>
             
@@ -1178,6 +1189,7 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
               </div>
             )}
           </div>
+          )}
 
           {/* Stock & Inventory */}
           <div className="space-y-4">
