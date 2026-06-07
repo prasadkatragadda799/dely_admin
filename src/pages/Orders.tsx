@@ -1629,36 +1629,38 @@ const orderStats = [
                     </div>
                   </div>
 
+                  {/* Dynamic UPI QR — scan to pay the exact invoice amount */}
+                  <div className="flex justify-end mt-3">
+                    <div className="flex flex-col items-center shrink-0">
+                      {inv.upiQr?.qrImage ? (
+                        <>
+                          <img src={inv.upiQr.qrImage} alt="UPI QR Code" className="h-32 w-32 rounded bg-white p-1 border border-black" />
+                          <p className="mt-1 text-[10px] font-semibold">Scan to pay ₹ {Number(inv.upiQr.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                          <p className="text-[9px] text-muted-foreground">{inv.upiQr.vpa}</p>
+                          <p className="text-[9px] text-muted-foreground">Ref: {inv.upiQr.invoiceNumber}</p>
+                        </>
+                      ) : (
+                        <div className="h-32 w-32 rounded bg-muted flex items-center justify-center text-center text-[9px] text-muted-foreground px-2">
+                          Set Merchant UPI ID in Settings to show the QR code
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   {/* Grand total section */}
-                  <div className="flex justify-between items-center mt-2 text-[11px]">
+                  <div className="flex justify-between items-center mt-3 text-[11px]">
                     <div>
                       <p className="font-semibold">FOR {billFromName.toUpperCase()}</p>
                     </div>
                     <div className="text-right">
-                      <p>Grand Total:</p>
+                      <p>Sub Total Amount Pay:</p>
                       <p className="font-semibold text-base">₹ {totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-xs">To Pay:</p>
+                      <p className="text-xs">Amount Pay:</p>
                       <p className="font-bold text-xl">₹ {totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     </div>
                   </div>
-
-                  {/* Dynamic UPI QR — scan to pay the exact invoice amount */}
-                  {inv.upiQr?.qrImage ? (
-                    <div className="mt-4 flex items-center justify-center gap-4 rounded-lg border border-border bg-muted/30 p-3">
-                      <img src={inv.upiQr.qrImage} alt="UPI QR" className="h-28 w-28 rounded bg-white p-1" />
-                      <div className="text-[11px] leading-tight">
-                        <p className="font-bold text-sm">
-                          Scan to pay ₹ {Number(inv.upiQr.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </p>
-                        <p className="text-muted-foreground mt-0.5">Pay via any UPI app (GPay / PhonePe / Paytm)</p>
-                        <p className="mt-1 font-semibold">{inv.upiQr.payeeName}</p>
-                        <p className="text-muted-foreground">{inv.upiQr.vpa}</p>
-                        <p className="text-muted-foreground mt-1">Ref: {inv.upiQr.invoiceNumber}</p>
-                      </div>
-                    </div>
-                  ) : null}
 
                   {/* Footer */}
                   <div className="mt-6 flex justify-between items-start text-[9px]">
