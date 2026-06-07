@@ -1431,8 +1431,9 @@ const orderStats = [
                     <div className="border-b border-black bg-gray-100 px-3 py-2 font-semibold text-[11px]">
                       Description
                     </div>
-                    <div className="grid grid-cols-[2fr,0.7fr,0.7fr,0.7fr,0.4fr,0.8fr,0.5fr,0.5fr,0.8fr] text-[10px] border-b border-black bg-gray-100">
+                    <div className="grid grid-cols-[2fr,0.8fr,0.7fr,0.7fr,0.7fr,0.4fr,0.8fr,0.5fr,0.5fr,0.8fr] text-[10px] border-b border-black bg-gray-100">
                       <div className="px-2 py-1 border-r border-black"> </div>
+                      <div className="px-2 py-1 border-r border-black text-right">HSN Code</div>
                       <div className="px-2 py-1 border-r border-black text-right">Original Rate</div>
                       <div className="px-2 py-1 border-r border-black text-right">Unit Discount</div>
                       <div className="px-2 py-1 border-r border-black text-right">Rate</div>
@@ -1470,15 +1471,14 @@ const orderStats = [
                           return (
                             <div
                               key={item.id || index}
-                              className="grid grid-cols-[2fr,0.7fr,0.7fr,0.7fr,0.4fr,0.8fr,0.5fr,0.5fr,0.8fr] text-[10px] border-b border-black">
+                              className="grid grid-cols-[2fr,0.8fr,0.7fr,0.7fr,0.7fr,0.4fr,0.8fr,0.5fr,0.5fr,0.8fr] text-[10px] border-b border-black">
                               <div className="px-2 py-2 border-r border-black">
                                 {productName}
                                 {productDescription ? `: ${productDescription}` : ''}
                                 <br />
-                                {variantLabel ? `${variantLabel}, ` : ''}HSN: {hsnCode}, {taxLabel}
-                                <br />
-                                <span className="font-semibold">HSN Code: {hsnCode}</span>
+                                {variantLabel ? `${variantLabel}, ` : ''}{taxLabel}
                               </div>
+                              <div className="px-2 py-2 border-r border-black text-right">{hsnCode}</div>
                               <div className="px-2 py-2 border-r border-black text-right">
                                 {mrp.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </div>
@@ -1554,16 +1554,15 @@ const orderStats = [
                         return (
                           <div
                             key={index}
-                            className="grid grid-cols-[2fr,0.7fr,0.7fr,0.7fr,0.4fr,0.8fr,0.5fr,0.5fr,0.8fr] text-[10px] border-b border-black">
+                            className="grid grid-cols-[2fr,0.8fr,0.7fr,0.7fr,0.7fr,0.4fr,0.8fr,0.5fr,0.5fr,0.8fr] text-[10px] border-b border-black">
                             <div className="px-2 py-2 border-r border-black">
                               {productName}
                               {productDescription && `: ${productDescription}`}
                               <br />
-                              {unit} (Set of {setPieces}), HSN: {hsnCode}, CGST@ {Number(cgstRate).toFixed(1)}%, SGST@{' '}
+                              {unit} (Set of {setPieces}), CGST@ {Number(cgstRate).toFixed(1)}%, SGST@{' '}
                               {Number(sgstRate).toFixed(1)}%
-                              <br />
-                              <span className="font-semibold">HSN Code: {hsnCode}</span>
                             </div>
+                            <div className="px-2 py-2 border-r border-black text-right">{hsnCode}</div>
                             <div className="px-2 py-2 border-r border-black text-right">
                               {Number(mrp).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </div>
@@ -1605,13 +1604,12 @@ const orderStats = [
                         );
                       })
                     ) : (
-                      <div className="grid grid-cols-[2fr,0.7fr,0.7fr,0.7fr,0.4fr,0.8fr,0.5fr,0.5fr,0.8fr] text-[10px] border-b border-black">
+                      <div className="grid grid-cols-[2fr,0.8fr,0.7fr,0.7fr,0.7fr,0.4fr,0.8fr,0.5fr,0.5fr,0.8fr] text-[10px] border-b border-black">
                         <div className="px-2 py-2 border-r border-black">
                           4G Premium Quality Pulses Sortex Clean (Masoor Black Whole) 30 kg India Bopp Bag:
-                          EACH (Set of 1), HSN: 07139090, CGST@ 0.0%, SGST@ 0.0%
-                          <br />
-                          <span className="font-semibold">HSN Code: 07139090</span>
+                          EACH (Set of 1), CGST@ 0.0%, SGST@ 0.0%
                         </div>
+                        <div className="px-2 py-2 border-r border-black text-right">07139090</div>
                         <div className="px-2 py-2 border-r border-black text-right">2,197.32</div>
                         <div className="px-2 py-2 border-r border-black text-right">0.00</div>
                         <div className="px-2 py-2 border-r border-black text-right">2,197.32</div>
