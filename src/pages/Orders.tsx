@@ -1644,6 +1644,22 @@ const orderStats = [
                     </div>
                   </div>
 
+                  {/* Dynamic UPI QR — scan to pay the exact invoice amount */}
+                  {inv.upiQr?.qrImage ? (
+                    <div className="mt-4 flex items-center justify-center gap-4 rounded-lg border border-border bg-muted/30 p-3">
+                      <img src={inv.upiQr.qrImage} alt="UPI QR" className="h-28 w-28 rounded bg-white p-1" />
+                      <div className="text-[11px] leading-tight">
+                        <p className="font-bold text-sm">
+                          Scan to pay ₹ {Number(inv.upiQr.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                        <p className="text-muted-foreground mt-0.5">Pay via any UPI app (GPay / PhonePe / Paytm)</p>
+                        <p className="mt-1 font-semibold">{inv.upiQr.payeeName}</p>
+                        <p className="text-muted-foreground">{inv.upiQr.vpa}</p>
+                        <p className="text-muted-foreground mt-1">Ref: {inv.upiQr.invoiceNumber}</p>
+                      </div>
+                    </div>
+                  ) : null}
+
                   {/* Footer */}
                   <div className="mt-6 flex justify-between items-start text-[9px]">
                     <div className="max-w-md">

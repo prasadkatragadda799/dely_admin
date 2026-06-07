@@ -73,6 +73,8 @@ const generalSettingsSchema = z.object({
 
 const paymentSettingsSchema = z.object({
   cashOnDeliveryEnabled: z.boolean(),
+  upiId: z.string().optional(),
+  upiPayeeName: z.string().optional(),
 });
 
 const deliverySettingsSchema = z.object({
@@ -932,8 +934,29 @@ export default function Settings() {
                       />
                     </div>
                   </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="upi-id">Merchant UPI ID</Label>
+                    <Input
+                      id="upi-id"
+                      placeholder="e.g. delycart@okhdfcbank"
+                      {...paymentForm.register('upiId')}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Powers the dynamic "scan to pay" QR on every invoice — customers pay the exact amount to this UPI ID. No payment gateway/API key needed.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="upi-payee">Payee name (shown on the QR)</Label>
+                    <Input
+                      id="upi-payee"
+                      placeholder="e.g. DelyCart"
+                      {...paymentForm.register('upiPayeeName')}
+                    />
+                  </div>
+
                   <p className="text-xs text-muted-foreground">
-                    UPI, card, bank transfer, and credit are disabled globally in backend.
+                    Checkout stays Cash-on-Delivery; the UPI ID above only generates the invoice "scan to pay" QR.
                   </p>
                   <Button
                     type="submit"
