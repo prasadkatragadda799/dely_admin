@@ -801,6 +801,7 @@ export default function Settings() {
               </CardHeader>
               <CardContent>
                 <form onSubmit={generalForm.handleSubmit(handleGeneralSubmit)} className="space-y-6">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Identity Settings</h4>
                   <div className="space-y-2">
                     <Label htmlFor="app-name">App Name</Label>
                     <Input
@@ -846,6 +847,7 @@ export default function Settings() {
                     </div>
                   </div>
                   <Separator />
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Support Contact Info</h4>
                   <div className="space-y-2">
                     <Label htmlFor="contact-email">Contact Email</Label>
                     <Input
@@ -873,6 +875,8 @@ export default function Settings() {
                       </p>
                     )}
                   </div>
+                  <Separator />
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Physical Address</h4>
                   <div className="space-y-2">
                     <Label htmlFor="address">Business Address</Label>
                     <Textarea

@@ -333,6 +333,16 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
   const categories = categoriesData ? flattenCategories(categoriesData) : [];
   const companies = (companiesData || []) as Company[];
   const brands = (brandsData || []) as Brand[];
+  // Only active divisions belong in the picker; resolve the legacy 'default' sentinel
+  // to the FOOD & FMCG division (slug 'default') so it shows as selected.
+  const activeDivisions = (divisionsData || []).filter(
+    (d: any) => d.isActive !== false && d.is_active !== false,
+  );
+  const watchedDivision = watch('divisionId');
+  const resolvedDivisionValue =
+    watchedDivision && watchedDivision !== 'default'
+      ? watchedDivision
+      : (activeDivisions.find((d: any) => d.slug === 'default')?.id ?? '');
 
   // Load product data when editing
   useEffect(() => {
@@ -981,19 +991,16 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
             <div className="space-y-2">
               <Label htmlFor="divisionId">Division</Label>
               <Select
-                value={watch('divisionId') || 'default'}
+                value={resolvedDivisionValue}
                 onValueChange={(value) => setValue('divisionId', value)}
               >
                 <SelectTrigger id="divisionId">
-                  <SelectValue placeholder="Select division" />
+                  <SelectValue placeholder="Select a division" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="default" disabled>
-                    Grocery (disabled — select a division below)
-                  </SelectItem>
-                  {(divisionsData || []).map((d) => (
+                  {activeDivisions.map((d) => (
                     <SelectItem key={d.id} value={d.id}>
-                      {d.icon ? `${d.icon} ` : ''}{d.name} ({d.slug})
+                      {d.icon ? `${d.icon} ` : ''}{d.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
