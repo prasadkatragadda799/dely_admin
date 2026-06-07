@@ -1245,7 +1245,7 @@ const orderStats = [
 
       {/* Invoice Dialog */}
       <Dialog open={!!invoiceOrder} onOpenChange={(open) => !open && setInvoiceOrder(null)}>
-        <DialogContent className="max-w-5xl p-0 bg-white text-black">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-0 bg-white text-black">
           <DialogHeader className="px-6 pt-4 pb-2 border-b">
             <DialogTitle className="text-lg font-semibold">Invoice</DialogTitle>
           </DialogHeader>
