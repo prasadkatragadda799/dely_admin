@@ -215,6 +215,8 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
   } = useForm<ProductFormData>({
     resolver: zodResolver(productSchema),
     defaultValues: {
+      mrp: 0,
+      sellingPrice: 0,
       minOrderQuantity: 1,
       piecesPerSet: 1,
       commissionCost: 0,
@@ -473,12 +475,25 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
       reset({
         companyId: '',
         brandId: 'none',
+        mrp: 0,
+        sellingPrice: 0,
         minOrderQuantity: 1,
         piecesPerSet: 1,
         commissionCost: 0,
         isFeatured: false,
         isAvailable: true,
         unit: 'piece',
+        variants: [
+          {
+            hsnCode: '',
+            packagingLabelType: '',
+            setPieces: '',
+            weight: '',
+            mrp: 0,
+            specialPrice: 0,
+            freeItem: '',
+          },
+        ],
       });
       setImageSlots((prev) => {
         revokeLocalPreviews(prev);
