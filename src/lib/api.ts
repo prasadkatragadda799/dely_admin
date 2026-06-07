@@ -1325,6 +1325,8 @@ export const settingsAPI = {
     cashOnDeliveryEnabled?: boolean;
     defaultCreditLimit?: number;
     paymentTermsDays?: number;
+    upiId?: string;
+    upiPayeeName?: string;
   }) => {
     const response = await apiClient.put<ApiResponse<void>>('/admin/settings/payment', settings);
     return response.data;
