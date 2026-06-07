@@ -131,6 +131,7 @@ export default function Settings() {
   const logoFileInputRef = useRef<HTMLInputElement>(null);
   const [selectedLogoFile, setSelectedLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [isLogoDragging, setIsLogoDragging] = useState(false);
   const qrFileInputRef = useRef<HTMLInputElement>(null);
   const [isUploadingQr, setIsUploadingQr] = useState(false);
   const [isAdminDialogOpen, setIsAdminDialogOpen] = useState(false);
@@ -591,16 +592,26 @@ export default function Settings() {
   });
 
   // Handlers
+  const processLogoFile = (file: File) => {
+    if (!file || !file.type.startsWith('image/')) return;
+    setSelectedLogoFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setLogoPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleLogoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setSelectedLogoFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setLogoPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
+    if (file) processLogoFile(file);
+  };
+
+  const handleLogoDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsLogoDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) processLogoFile(file);
   };
 
   const handleGeneralSubmit = (data: GeneralSettingsForm) => {
