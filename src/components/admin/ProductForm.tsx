@@ -940,11 +940,6 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
     });
   };
 
-  const discount = watch('mrp') && watch('sellingPrice')
-    ? ((watch('mrp') - watch('sellingPrice')) / watch('mrp')) * 100
-    : 0;
-  const finalSellingPrice = Number(watch('sellingPrice') || 0) + Number(watch('commissionCost') || 0);
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -1122,141 +1117,6 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
             </div>
           </div>
 
-          {/* Pricing — only shown when editing; on create, pricing is entered per variant below */}
-          {productId && (
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Pricing</h3>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="mrp">
-                  MRP (₹) <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="mrp"
-                  type="number"
-                  step="0.01"
-                  {...register('mrp', { valueAsNumber: true })}
-                  placeholder="0.00"
-                />
-                {errors.mrp && (
-                  <p className="text-sm text-destructive">{errors.mrp.message}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="sellingPrice">
-                  Selling Price (₹) <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="sellingPrice"
-                  type="number"
-                  step="0.01"
-                  {...register('sellingPrice', { valueAsNumber: true })}
-                  placeholder="0.00"
-                />
-                {errors.sellingPrice && (
-                  <p className="text-sm text-destructive">{errors.sellingPrice.message}</p>
-                )}
-                {discount > 0 && (
-                  <p className="text-sm text-emerald-600">
-                    Discount: {discount.toFixed(1)}%
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <p className="text-sm text-muted-foreground">
-              Optional <strong>Set</strong> and <strong>Remaining</strong> prices let customers pick a price tier in the
-              mobile app. Leave empty to hide a tier.
-            </p>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="setSellingPrice">Set selling (₹)</Label>
-                <Input
-                  id="setSellingPrice"
-                  type="number"
-                  step="0.01"
-                  {...register('setSellingPrice', { valueAsNumber: true })}
-                  placeholder="Optional"
-                />
-                {errors.setSellingPrice && (
-                  <p className="text-sm text-destructive">{errors.setSellingPrice.message}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="setMrp">Set MRP (₹)</Label>
-                <Input
-                  id="setMrp"
-                  type="number"
-                  step="0.01"
-                  {...register('setMrp', { valueAsNumber: true })}
-                  placeholder="Optional"
-                />
-                {errors.setMrp && (
-                  <p className="text-sm text-destructive">{errors.setMrp.message}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="remainingSellingPrice">Remaining selling (₹)</Label>
-                <Input
-                  id="remainingSellingPrice"
-                  type="number"
-                  step="0.01"
-                  {...register('remainingSellingPrice', { valueAsNumber: true })}
-                  placeholder="Optional"
-                />
-                {errors.remainingSellingPrice && (
-                  <p className="text-sm text-destructive">
-                    {errors.remainingSellingPrice.message}
-                  </p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="remainingMrp">Remaining MRP (₹)</Label>
-                <Input
-                  id="remainingMrp"
-                  type="number"
-                  step="0.01"
-                  {...register('remainingMrp', { valueAsNumber: true })}
-                  placeholder="Optional"
-                />
-                {errors.remainingMrp && (
-                  <p className="text-sm text-destructive">{errors.remainingMrp.message}</p>
-                )}
-              </div>
-            </div>
-
-            {!isSeller && (
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="commissionCost">Admin Commission (₹)</Label>
-                  <Input
-                    id="commissionCost"
-                    type="number"
-                    step="0.01"
-                    {...register('commissionCost', { valueAsNumber: true })}
-                    placeholder="0.00"
-                  />
-                  {errors.commissionCost && (
-                    <p className="text-sm text-destructive">{errors.commissionCost.message}</p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="finalSellingPrice">Final Selling Price (₹)</Label>
-                  <Input
-                    id="finalSellingPrice"
-                    type="number"
-                    step="0.01"
-                    value={Number.isFinite(finalSellingPrice) ? finalSellingPrice : 0}
-                    readOnly
-                    disabled
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-          )}
 
           {/* Stock & Inventory */}
           <div className="space-y-4">
@@ -1392,8 +1252,8 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
                     packagingLabelType: '',
                     setPieces: '',
                     weight: '',
-                    mrp: watch('mrp') || 0,
-                    specialPrice: watch('sellingPrice') || 0,
+                    mrp: 0,
+                    specialPrice: 0,
                     freeItem: '',
                   })
                 }>

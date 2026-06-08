@@ -1322,24 +1322,6 @@ export default function Products() {
                       (viewingProduct?.division?.slug === 'kitchen' ? 'Kitchen' : 'Grocery')}
                   </p>
                 </div>
-                <div>
-                  <p className="text-muted-foreground">MRP</p>
-                  <p className="font-medium">{formatCurrency(Number(viewingProduct.mrp || 0))}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Selling Price</p>
-                  <p className="font-medium">
-                    {formatCurrency(Number(viewingProduct.sellingPrice || viewingProduct.selling_price || 0))}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Stock</p>
-                  <p className="font-medium">{viewingProduct.stockQuantity || viewingProduct.stock_quantity || 0}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Expiry</p>
-                  <p className="font-medium">{formatExpiry(viewingProduct)}</p>
-                </div>
               </div>
 
               {getProductImageUrls(viewingProduct).length > 0 && (
