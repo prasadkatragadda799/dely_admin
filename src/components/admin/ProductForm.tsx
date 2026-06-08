@@ -7,6 +7,7 @@ import {
   companiesAPI,
   brandsAPI,
   divisionsAPI,
+  zonesAPI,
   productsAPI,
   sellerProductsAPI,
   sellerResourcesAPI,
@@ -107,6 +108,7 @@ const productSchema = z.object({
   description: z.string().optional(),
   categoryId: z.string().min(1, 'Category is required'),
   divisionId: z.string().optional(),
+  zoneId: z.string().optional(),
   companyId: z.string().min(1, 'Company is required'),
   brandId: z.string().optional(),
   hsnCode: z.string().optional(),
@@ -271,6 +273,17 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
     enabled: open,
   });
 
+  // Fetch zones (for product-level zone assignment)
+  const { data: zonesData } = useQuery({
+    queryKey: ['zones'],
+    queryFn: async () => {
+      const response = await zonesAPI.getZones();
+      return (response.data || []) as Array<{ id: string; name: string }>;
+    },
+    enabled: open,
+  });
+  const zones = zonesData || [];
+
   // Fetch companies
   const { data: companiesData } = useQuery({
     queryKey: ['companies'],
@@ -387,6 +400,7 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
         description: productData.description || '',
         categoryId,
         divisionId: divisionId || 'default',
+        zoneId: (productData.zoneId ?? productData.zone_id) ? String(productData.zoneId ?? productData.zone_id) : 'none',
         companyId: companyId || '',
         brandId: brandId || 'none',
         mrp,
@@ -735,7 +749,15 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
         // Ensure updates can clear division back to default
         if (productId) formData.append('division_id', '');
       }
-      
+
+      // Add zone (optional): "none" means no zone restriction (available everywhere)
+      if (data.zoneId && data.zoneId !== 'none') {
+        formData.append('zoneId', data.zoneId);
+      } else {
+        // Explicitly clear zone when updating
+        if (productId) formData.append('zoneId', '');
+      }
+
       // Add company (required) - backend expects 'company_id'
       if (!data.companyId || data.companyId === 'none' || data.companyId === '') {
         throw new Error('Company is required');
@@ -1007,6 +1029,29 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
               </Select>
               <p className="text-xs text-muted-foreground">
                 Grocery is used when division is empty. Pick Kitchen to keep products/cart/orders in that vertical.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="zoneId">Zone (delivery area)</Label>
+              <Select
+                value={watch('zoneId') || 'none'}
+                onValueChange={(value) => setValue('zoneId', value)}
+              >
+                <SelectTrigger id="zoneId">
+                  <SelectValue placeholder="No zone restriction" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No restriction — available everywhere</SelectItem>
+                  {zones.map((z) => (
+                    <SelectItem key={z.id} value={z.id}>
+                      {z.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Restrict this product to customers in a specific delivery zone. Leave empty to show it to everyone.
               </p>
             </div>
           </div>

@@ -8,7 +8,6 @@ import {
   Save,
   Upload,
   Users,
-  Globe,
   Loader2,
   Trash2,
   Edit,
@@ -828,33 +827,46 @@ export default function Settings() {
                   </div>
                   <div className="space-y-2">
                     <Label>App Logo</Label>
-                    <div className="flex items-center gap-4">
-                      <div className="h-20 w-20 rounded-lg bg-secondary border-2 border-dashed border-border flex items-center justify-center overflow-hidden">
-                        {logoPreview ? (
-                          <img src={logoPreview} alt="Logo" className="h-full w-full object-contain" />
-                        ) : (
-                          <Globe className="h-8 w-8 text-muted-foreground" />
-                        )}
-                      </div>
-                      <div>
-                        <input
-                          ref={logoFileInputRef}
-                          type="file"
-                          accept="image/*"
-                          onChange={handleLogoSelect}
-                          className="hidden"
-                        />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => logoFileInputRef.current?.click()}
-                          disabled={generalMutation.isPending}
-                        >
-                          <Upload className="h-4 w-4 mr-2" />
-                          Upload Logo
-                        </Button>
-                      </div>
+                    <input
+                      ref={logoFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoSelect}
+                      className="hidden"
+                    />
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => logoFileInputRef.current?.click()}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') logoFileInputRef.current?.click();
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setIsLogoDragging(true);
+                      }}
+                      onDragLeave={() => setIsLogoDragging(false)}
+                      onDrop={handleLogoDrop}
+                      className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-8 text-center transition-all ${
+                        isLogoDragging
+                          ? 'border-primary bg-primary/5 ring-4 ring-primary/10'
+                          : 'border-border hover:border-primary/50 hover:bg-secondary/40'
+                      }`}
+                    >
+                      {logoPreview ? (
+                        <>
+                          <img src={logoPreview} alt="Logo" className="h-16 w-16 rounded-lg object-contain" />
+                          <p className="text-xs font-medium text-muted-foreground">Click or drop a file to replace</p>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10">
+                            <Upload className="h-5 w-5 text-primary" />
+                          </div>
+                          <p className="text-sm font-semibold text-foreground">Drag &amp; drop your logo</p>
+                          <p className="text-xs text-muted-foreground">or click to browse · PNG, JPG, SVG up to 5MB</p>
+                        </>
+                      )}
                     </div>
                   </div>
                   <Separator />
