@@ -96,12 +96,6 @@ const variantSchema = z.object({
   freeItem: z.string().optional(),
 });
 
-/** Optional tier prices: empty / NaN → undefined (omit on save). */
-const optionalPositiveMoney = z.preprocess((v) => {
-  if (v === '' || v === null || v === undefined) return undefined;
-  if (typeof v === 'number' && Number.isNaN(v)) return undefined;
-  return v;
-}, z.number().positive().optional());
 
 const productSchema = z.object({
   name: z.string().min(1, 'Product name is required'),
@@ -112,13 +106,9 @@ const productSchema = z.object({
   companyId: z.string().min(1, 'Company is required'),
   brandId: z.string().optional(),
   hsnCode: z.string().optional(),
-  mrp: z.number().min(0, 'MRP must be greater than 0'),
-  sellingPrice: z.number().min(0, 'Selling price must be greater than 0'),
-  setSellingPrice: optionalPositiveMoney,
-  setMrp: optionalPositiveMoney,
-  remainingSellingPrice: optionalPositiveMoney,
-  remainingMrp: optionalPositiveMoney,
-  commissionCost: z.number().min(0, 'Commission cost must be 0 or greater').default(0),
+  mrp: z.number().min(0).optional(),
+  sellingPrice: z.number().min(0).optional(),
+  commissionCost: z.number().min(0).default(0).optional(),
   stockQuantity: z.number().int().min(0, 'Stock quantity must be 0 or greater'),
   minOrderQuantity: z.number().int().min(1, 'Minimum order quantity must be at least 1'),
   unit: z.string().min(1, 'Unit is required'),
@@ -137,34 +127,7 @@ const productSchema = z.object({
     .array(variantSchema)
     .min(1, 'At least one variant is required')
     .optional(),
-})
-  .refine((data) => data.sellingPrice <= data.mrp, {
-    message: 'Selling price must be less than or equal to MRP',
-    path: ['sellingPrice'],
-  })
-  .refine(
-    (data) => {
-      if (data.setSellingPrice == null) return true;
-      const cap = data.setMrp ?? data.mrp;
-      return data.setSellingPrice <= cap;
-    },
-    {
-      message: 'Set selling must be ≤ set MRP (or product MRP if set MRP is empty)',
-      path: ['setSellingPrice'],
-    },
-  )
-  .refine(
-    (data) => {
-      if (data.remainingSellingPrice == null) return true;
-      const cap = data.remainingMrp ?? data.mrp;
-      return data.remainingSellingPrice <= cap;
-    },
-    {
-      message:
-        'Remaining selling must be ≤ remaining MRP (or product MRP if remaining MRP is empty)',
-      path: ['remainingSellingPrice'],
-    },
-  );
+});
 
 type ProductFormData = z.infer<typeof productSchema>;
 
@@ -386,10 +349,6 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
       const stockQuantity = Number(productData.stockQuantity ?? productData.stock_quantity ?? 0);
       const minOrderQuantity = Number(productData.minOrderQuantity ?? productData.min_order_quantity ?? 1);
       const piecesPerSet = Number(productData.piecesPerSet ?? productData.pieces_per_set ?? 1);
-      const optMoney = (v: unknown) => {
-        const n = Number(v);
-        return Number.isFinite(n) && n > 0 ? n : undefined;
-      };
       const isFeatured = Boolean(productData.isFeatured ?? productData.is_featured ?? false);
       const isAvailable = productData.isAvailable !== undefined
         ? Boolean(productData.isAvailable)
@@ -405,12 +364,6 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
         brandId: brandId || 'none',
         mrp,
         sellingPrice,
-        setSellingPrice: optMoney(productData.setSellingPrice ?? productData.set_selling_price),
-        setMrp: optMoney(productData.setMrp ?? productData.set_mrp),
-        remainingSellingPrice: optMoney(
-          productData.remainingSellingPrice ?? productData.remaining_selling_price,
-        ),
-        remainingMrp: optMoney(productData.remainingMrp ?? productData.remaining_mrp),
         commissionCost,
         stockQuantity,
         minOrderQuantity,
@@ -768,23 +721,6 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
       if (data.brandId && data.brandId !== 'none' && data.brandId !== '') {
         formData.append('brand_id', data.brandId);
       }
-      
-      // Add base pricing (can represent default / primary variant)
-      formData.append('mrp', data.mrp.toString());
-      formData.append('sellingPrice', data.sellingPrice.toString());
-      if (typeof data.setSellingPrice === 'number' && data.setSellingPrice > 0) {
-        formData.append('setSellingPrice', data.setSellingPrice.toString());
-      }
-      if (typeof data.setMrp === 'number' && data.setMrp > 0) {
-        formData.append('setMrp', data.setMrp.toString());
-      }
-      if (typeof data.remainingSellingPrice === 'number' && data.remainingSellingPrice > 0) {
-        formData.append('remainingSellingPrice', data.remainingSellingPrice.toString());
-      }
-      if (typeof data.remainingMrp === 'number' && data.remainingMrp > 0) {
-        formData.append('remainingMrp', data.remainingMrp.toString());
-      }
-      formData.append('commissionCost', (data.commissionCost || 0).toString());
       
       // Add stock and order quantities (overall stock for all variants)
       formData.append('stockQuantity', (data.stockQuantity || 0).toString());
