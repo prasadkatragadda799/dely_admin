@@ -94,6 +94,7 @@ const variantSchema = z.object({
   mrp: z.number().min(0, 'MRP is required for each variant'),
   specialPrice: z.number().min(0, 'Special price is required for each variant'),
   freeItem: z.string().optional(),
+  minOrderQuantity: z.number().int().min(1).optional(),
 });
 
 
@@ -198,6 +199,7 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
           mrp: 0,
           specialPrice: 0,
           freeItem: '',
+          minOrderQuantity: 1,
         },
       ],
     },
@@ -382,6 +384,7 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
               mrp: Number(v.mrp || 0),
               specialPrice: Number(v.specialPrice || v.special_price || 0),
               freeItem: v.freeItem || v.free_item || '',
+              minOrderQuantity: Number(v.minOrderQuantity || v.min_order_quantity || 1),
             }))
           : [
               {
@@ -791,6 +794,7 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
           mrp: Number.isFinite(v.mrp) ? v.mrp : 0,
           specialPrice: Number.isFinite(v.specialPrice) ? v.specialPrice : 0,
           freeItem: v.freeItem || '',
+          minOrderQuantity: Number.isFinite(v.minOrderQuantity) && (v.minOrderQuantity ?? 0) >= 1 ? v.minOrderQuantity : 1,
         }));
         formData.append('variants', JSON.stringify(cleanedVariants));
       }
@@ -1110,21 +1114,6 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="minOrderQuantity">
-                  Min Order Qty <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="minOrderQuantity"
-                  type="number"
-                  {...register('minOrderQuantity', { valueAsNumber: true })}
-                  placeholder="1"
-                />
-                {errors.minOrderQuantity && (
-                  <p className="text-sm text-destructive">{errors.minOrderQuantity.message}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
                 <Label htmlFor="unit">
                   Unit <span className="text-destructive">*</span>
                 </Label>
@@ -1152,19 +1141,6 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="piecesPerSet">Pieces per sale unit</Label>
-              <Input
-                id="piecesPerSet"
-                type="number"
-                {...register('piecesPerSet', { valueAsNumber: true })}
-                placeholder="1"
-              />
-              <p className="text-xs text-muted-foreground">
-                How many individual pieces are inside one ordered unit (e.g. 12 for a 12-pack). The app
-                shows this next to the price and in the cart.
-              </p>
-            </div>
           </div>
 
           {/* Packaging variants — set/pcs label + optional price rows */}
@@ -1191,6 +1167,7 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
                     mrp: 0,
                     specialPrice: 0,
                     freeItem: '',
+                    minOrderQuantity: 1,
                   })
                 }>
                 Add variant row
@@ -1274,9 +1251,19 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
                       {...register(`variants.${index}.specialPrice`, { valueAsNumber: true })}
                     />
                   </div>
-                  <div className="space-y-2 sm:col-span-2">
+                  <div className="space-y-2">
                     <Label>Free item note</Label>
                     <Input {...register(`variants.${index}.freeItem`)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>
+                      Min Order Qty <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      type="number"
+                      placeholder="1"
+                      {...register(`variants.${index}.minOrderQuantity`, { valueAsNumber: true })}
+                    />
                   </div>
                   <div className="space-y-2 sm:col-span-2">
                     <Label>Variant images (Max 5, 5MB each)</Label>
