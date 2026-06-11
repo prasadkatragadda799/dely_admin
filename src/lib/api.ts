@@ -1344,6 +1344,22 @@ export const settingsAPI = {
     return response.data;
   },
 
+  // Bank / invoice settings
+  getBankSettings: async () => {
+    const response = await apiClient.get<ApiResponse<any>>('/admin/settings/bank');
+    return response.data;
+  },
+  updateBankSettings: async (settings: {
+    bankName?: string;
+    accountHolderName?: string;
+    accountNumber?: string;
+    ifscCode?: string;
+    branchName?: string;
+  }) => {
+    const response = await apiClient.put<ApiResponse<any>>('/admin/settings/bank', settings);
+    return response.data;
+  },
+
   // Delivery settings
   getDeliverySettings: async () => {
     const response = await apiClient.get<ApiResponse<any>>('/admin/settings/delivery');

@@ -1661,39 +1661,49 @@ const orderStats = [
                   </div>
 
                   {/* Footer */}
-                  <div className="mt-6 flex justify-between items-start text-[9px]">
-                    <div className="max-w-md">
-                      <p className="font-semibold mb-1">Authorised Signatory</p>
-                      <div className="mb-2 mt-1">
-                        <img src="/sign.png" alt="Signature" className="h-12 object-contain" />
+                  {(() => {
+                    const bank = inv.bankDetails || inv.bank_details || {};
+                    const hasBankDetails = bank.bankName || bank.accountNumber || bank.accountHolderName;
+                    return (
+                      <div className="mt-6 flex justify-between items-start text-[9px]">
+                        <div className="max-w-sm">
+                          {hasBankDetails && (
+                            <>
+                              <p className="font-semibold mb-1">Bank Details</p>
+                              {bank.bankName && <p>Bank Name: {bank.bankName}</p>}
+                              {bank.accountHolderName && <p>Account Holder: {bank.accountHolderName}</p>}
+                              {bank.accountNumber && <p>Account No: {bank.accountNumber}</p>}
+                              {bank.ifscCode && <p>IFSC: {bank.ifscCode}</p>}
+                              {bank.branchName && <p>Branch: {bank.branchName}</p>}
+                            </>
+                          )}
+                          <p className="mt-2">
+                            Is tax payable on reverse charge basis -{' '}
+                            {inv.tax_payable_reverse_charge === true ? 'YES' : 'NO'}
+                          </p>
+                          <p className="mt-1">
+                            DECLARATION: We declare that this document shows the actual price of the goods described and
+                            that the particulars are true and correct.
+                          </p>
+                          <p className="mt-1">
+                            {inv.terms ||
+                              'This is a computer-generated Bill of Supply.'}
+                          </p>
+                        </div>
+                        <div className="flex flex-col items-center space-y-2 mr-4">
+                          <img
+                            src="/dely-logo.png"
+                            alt="Delycart"
+                            className="h-11 w-11 rounded-lg object-contain"
+                          />
+                          <p className="text-[10px] font-semibold">Ordered Through</p>
+                          <p className="text-[11px] font-bold text-red-600">Delycart</p>
+                          <p className="font-semibold mt-2">Authorised Signatory</p>
+                          <p>{billFromName}</p>
+                        </div>
                       </div>
-                      <p className="mt-1">
-                        Is tax payable on reverse charge basis -{' '}
-                        {inv.tax_payable_reverse_charge === true ? 'YES' : 'NO'}
-                      </p>
-                      <p className="mt-1">
-                        DECLARATION: We declare that the invoice shows the actual price of the goods described and that the
-                        particulars are true and correct.
-                      </p>
-                      <p className="mt-1">
-                        {inv.terms ||
-                          'Note:- This transaction/sale is subject to TDS U/s 194-O hence TDS U/s 194Q is not applicable. This is a computer-generated invoice.'}
-                      </p>
-                      <p className="mt-1">
-                        For any issues, please contact DelyCart Customer Care team at 08045744101 or go to Your Biz &gt;
-                        Support section on Delycart app.
-                      </p>
-                    </div>
-                    <div className="flex flex-col items-center space-y-2 mr-4">
-                      <img
-                        src="/dely-logo.png"
-                        alt="Delycart"
-                        className="h-11 w-11 rounded-lg object-contain"
-                      />
-                      <p className="text-[10px] font-semibold">Ordered Through</p>
-                      <p className="text-[11px] font-bold text-red-600">Delycart</p>
-                    </div>
-                  </div>
+                    );
+                  })()}
                 </>
               );
             })()}

@@ -107,6 +107,14 @@ const notificationSettingsSchema = z.object({
   }),
 });
 
+const bankSettingsSchema = z.object({
+  bankName: z.string().optional(),
+  accountHolderName: z.string().optional(),
+  accountNumber: z.string().optional(),
+  ifscCode: z.string().optional(),
+  branchName: z.string().optional(),
+});
+
 const adminUserSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   email: z.string().email('Invalid email address'),
@@ -120,6 +128,7 @@ type PaymentSettingsForm = z.infer<typeof paymentSettingsSchema>;
 type DeliverySettingsForm = z.infer<typeof deliverySettingsSchema>;
 type TaxSettingsForm = z.infer<typeof taxSettingsSchema>;
 type NotificationSettingsForm = z.infer<typeof notificationSettingsSchema>;
+type BankSettingsForm = z.infer<typeof bankSettingsSchema>;
 type AdminUserForm = z.infer<typeof adminUserSchema>;
 
 export default function Settings() {
@@ -773,8 +782,53 @@ export default function Settings() {
     setServiceLocations(prev => prev.filter(l => l.pincode !== pincode));
   };
 
+  // Bank settings
+  const { data: bankSettingsData, isLoading: isLoadingBank } = useQuery({
+    queryKey: ['settings', 'bank'],
+    queryFn: async () => {
+      try {
+        const response = await settingsAPI.getBankSettings();
+        return response.data;
+      } catch {
+        return {};
+      }
+    },
+  });
+
+  const bankForm = useForm<BankSettingsForm>({
+    resolver: zodResolver(bankSettingsSchema),
+    defaultValues: bankSettingsData || {},
+  });
+
+  useEffect(() => {
+    if (bankSettingsData) {
+      bankForm.reset(bankSettingsData);
+    }
+  }, [bankSettingsData, bankForm]);
+
+  const bankMutation = useMutation({
+    mutationFn: async (data: BankSettingsForm) => {
+      return await settingsAPI.updateBankSettings(data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings', 'bank'] });
+      toast({ title: 'Success', description: 'Bank details saved successfully' });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to save bank details',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const handleBankSubmit = (data: BankSettingsForm) => {
+    bankMutation.mutate(data);
+  };
+
   const isLoading = isLoadingGeneral || isLoadingPayment || isLoadingDelivery ||
-                    isLoadingTax || isLoadingNotifications || isLoadingAdmins || isLoadingServiceLocations;
+                    isLoadingTax || isLoadingNotifications || isLoadingAdmins || isLoadingServiceLocations || isLoadingBank;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -792,13 +846,14 @@ export default function Settings() {
         </div>
       ) : (
         <Tabs defaultValue="general" className="space-y-4">
-          <TabsList className={`grid w-full ${isSuperAdmin ? 'grid-cols-7' : 'grid-cols-6'}`}>
+          <TabsList className={`grid w-full ${isSuperAdmin ? 'grid-cols-8' : 'grid-cols-7'}`}>
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="payment">Payment</TabsTrigger>
             <TabsTrigger value="delivery">Delivery</TabsTrigger>
             <TabsTrigger value="tax">Tax</TabsTrigger>
             <TabsTrigger value="notifications">Notifications</TabsTrigger>
             <TabsTrigger value="locations">Locations</TabsTrigger>
+            <TabsTrigger value="bank">Bank</TabsTrigger>
             {isSuperAdmin && <TabsTrigger value="admins">Admins</TabsTrigger>}
           </TabsList>
 
@@ -1461,6 +1516,74 @@ export default function Settings() {
           </TabsContent>
 
           {/* Admin Users */}
+          {/* Bank / Invoice Settings */}
+          <TabsContent value="bank" className="space-y-4">
+            <Card className="shadow-card">
+              <CardHeader>
+                <CardTitle>Bank Details</CardTitle>
+                <CardDescription>These details appear on invoices and Bills of Supply</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={bankForm.handleSubmit(handleBankSubmit)} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="bank-name">Bank Name</Label>
+                      <Input
+                        id="bank-name"
+                        placeholder="e.g. State Bank of India"
+                        {...bankForm.register('bankName')}
+                        disabled={bankMutation.isPending}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="account-holder">Account Holder Name</Label>
+                      <Input
+                        id="account-holder"
+                        placeholder="e.g. Dely Cart Pvt Ltd"
+                        {...bankForm.register('accountHolderName')}
+                        disabled={bankMutation.isPending}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="account-number">Account Number</Label>
+                      <Input
+                        id="account-number"
+                        placeholder="e.g. 1234567890"
+                        {...bankForm.register('accountNumber')}
+                        disabled={bankMutation.isPending}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="ifsc-code">IFSC Code</Label>
+                      <Input
+                        id="ifsc-code"
+                        placeholder="e.g. SBIN0001234"
+                        {...bankForm.register('ifscCode')}
+                        disabled={bankMutation.isPending}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="branch-name">Branch Name</Label>
+                      <Input
+                        id="branch-name"
+                        placeholder="e.g. Hyderabad Main Branch"
+                        {...bankForm.register('branchName')}
+                        disabled={bankMutation.isPending}
+                      />
+                    </div>
+                  </div>
+                  <Button type="submit" disabled={bankMutation.isPending}>
+                    {bankMutation.isPending ? (
+                      <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</>
+                    ) : (
+                      <><Save className="mr-2 h-4 w-4" />Save Bank Details</>
+                    )}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="admins" className="space-y-4">
             <Card className="shadow-card">
               <CardHeader className="flex flex-row items-center justify-between">
