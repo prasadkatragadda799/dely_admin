@@ -821,6 +821,9 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
     },
     onSuccess: async (response, variables) => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
+      if (productId) {
+        queryClient.invalidateQueries({ queryKey: ['product', productId] });
+      }
       toast({
         title: productId ? 'Product updated' : 'Product created',
         description: productId
