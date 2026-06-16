@@ -414,16 +414,19 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
           (Array.isArray(productData.product_images) && productData.product_images) ||
           (Array.isArray(productData.productImages) && productData.productImages) ||
           [];
+        console.log('[ProductForm] Seeding imageSlots from productData. gallery:', JSON.stringify(gallery));
         if (!gallery.length) {
           return [];
         }
-        return gallery
+        const seeded = gallery
           .map((img: any) => ({
             kind: 'remote' as const,
             id: String(img.id ?? ''),
             url: String(img.imageUrl || img.image_url || img.url || ''),
           }))
           .filter((s) => s.id && s.url);
+        console.log('[ProductForm] imageSlots seeded:', JSON.stringify(seeded));
+        return seeded;
       });
 
       // Capture each variant's server image gallery, keyed by backend variant id.
@@ -771,6 +774,8 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
       // Admin PUT supports keepImageIds; seller PUT is JSON-only (same FormData is a separate issue).
       if (productId && !isSeller) {
         const keepIds = imageSlots.filter((s) => s.kind === 'remote').map((s) => s.id);
+        console.log('[ProductForm] imageSlots at save:', JSON.stringify(imageSlots));
+        console.log('[ProductForm] keepIds being sent:', keepIds);
         formData.append('keepImageIds', JSON.stringify(keepIds));
       }
       localSlots.forEach((s) => {
