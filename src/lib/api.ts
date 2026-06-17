@@ -1186,6 +1186,7 @@ export const analyticsAPI = {
     period?: string;
     dateFrom?: string;
     dateTo?: string;
+    divisionId?: string;
   }) => {
     const response = await apiClient.get<ApiResponse<any>>('/admin/analytics/dashboard', { params });
     return response.data;
@@ -1195,6 +1196,7 @@ export const analyticsAPI = {
     period?: string;
     dateFrom?: string;
     dateTo?: string;
+    divisionId?: string;
   }) => {
     const response = await apiClient.get<ApiResponse<any[]>>('/admin/analytics/revenue', { params });
     return response.data;

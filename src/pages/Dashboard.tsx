@@ -14,6 +14,7 @@ import {
   Clock,
   Loader2,
   Download,
+  Layers,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,7 +31,7 @@ import {
   Pie,
   Cell,
 } from 'recharts';
-import { analyticsAPI, ordersAPI, sellerAnalyticsAPI } from '@/lib/api';
+import { analyticsAPI, divisionsAPI, ordersAPI, sellerAnalyticsAPI, type Division } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
@@ -68,9 +69,9 @@ export default function Dashboard() {
   const { toast } = useToast();
   const { user } = useAuth();
   const isSeller = user?.role === 'seller';
-  // admin manages operations only — no financial data shown
   const isAdminOnly = user?.role === 'admin';
   const [downloadingReport, setDownloadingReport] = useState(false);
+  const [selectedDivisionId, setSelectedDivisionId] = useState<string | null>(null);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -80,22 +81,36 @@ export default function Dashboard() {
     }).format(value);
   };
 
-  const { data: dashboardMetrics, isLoading: loadingMetrics } = useQuery({
-    queryKey: ['dashboard', 'metrics', isSeller ? 'seller' : 'admin'],
+  const { data: divisionsData = [] } = useQuery({
+    queryKey: ['divisions', 'active'],
     queryFn: async () => {
+      const res = await divisionsAPI.getActiveDivisions();
+      return (res.data || []) as Division[];
+    },
+    enabled: !isSeller,
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const { data: dashboardMetrics, isLoading: loadingMetrics } = useQuery({
+    queryKey: ['dashboard', 'metrics', isSeller ? 'seller' : 'admin', selectedDivisionId],
+    queryFn: async () => {
+      const params: any = { period: 'month' };
+      if (selectedDivisionId) params.divisionId = selectedDivisionId;
       const res = isSeller
         ? await sellerAnalyticsAPI.getDashboardMetrics({ period: 'month' })
-        : await analyticsAPI.getDashboardMetrics({ period: 'month' });
+        : await analyticsAPI.getDashboardMetrics(params);
       return res.data;
     },
   });
 
   const { data: revenueList = [], isLoading: loadingRevenue } = useQuery({
-    queryKey: ['dashboard', 'revenue', isSeller ? 'seller' : 'admin'],
+    queryKey: ['dashboard', 'revenue', isSeller ? 'seller' : 'admin', selectedDivisionId],
     queryFn: async () => {
+      const params: any = { period: 'week' };
+      if (selectedDivisionId) params.divisionId = selectedDivisionId;
       const res = isSeller
         ? await sellerAnalyticsAPI.getRevenueData({ period: 'week' })
-        : await analyticsAPI.getRevenueData({ period: 'week' });
+        : await analyticsAPI.getRevenueData(params);
       return Array.isArray(res.data) ? res.data : [];
     },
   });
@@ -334,8 +349,38 @@ export default function Dashboard() {
             {isSeller ? 'Your sales overview for this month.' : "Here's what's happening with your business today."}
           </p>
         </div>
-        {!isSeller && !isAdminOnly && (
-          <div className="flex gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Division filter pills — admin/manager only */}
+          {!isSeller && divisionsData.length > 0 && (
+            <div className="flex items-center gap-1.5 bg-secondary/40 rounded-xl p-1">
+              <button
+                onClick={() => setSelectedDivisionId(null)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  selectedDivisionId === null
+                    ? 'bg-background shadow text-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Layers className="h-3.5 w-3.5" />
+                All
+              </button>
+              {divisionsData.map((div) => (
+                <button
+                  key={div.id}
+                  onClick={() => setSelectedDivisionId(div.id)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    selectedDivisionId === div.id
+                      ? 'bg-background shadow text-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {div.icon && <span>{div.icon}</span>}
+                  {div.name}
+                </button>
+              ))}
+            </div>
+          )}
+          {!isSeller && !isAdminOnly && (
             <Button
               variant="outline"
               onClick={handleDownloadReport}
@@ -348,8 +393,8 @@ export default function Dashboard() {
               )}
               Download Report
             </Button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Metrics Grid */}
