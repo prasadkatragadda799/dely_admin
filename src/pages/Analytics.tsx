@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { 
+import {
   Download,
   Calendar,
   TrendingUp,
@@ -9,7 +9,8 @@ import {
   Users,
   Package,
   BarChart3,
-  Loader2
+  Loader2,
+  Layers
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -197,6 +198,25 @@ export default function Analytics() {
     retry: false,
   });
 
+  // Fetch division analytics from API
+  const { data: divisionDataResponse, isLoading: isLoadingDivisions } = useQuery({
+    queryKey: ['analytics', 'divisions', dateRange, dateRangeParams],
+    queryFn: async () => {
+      try {
+        const response = await analyticsAPI.getDivisionAnalytics({
+          period: dateRange,
+          ...dateRangeParams,
+        });
+        return response.data || [];
+      } catch (error) {
+        console.error('Error fetching division analytics:', error);
+        return [];
+      }
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+
   // Fetch order analytics from API
   const { data: orderDataResponse, isLoading: isLoadingOrders, isError: isOrderError } = useQuery({
     queryKey: ['analytics', 'orders', dateRange, dateRangeParams],
@@ -286,6 +306,21 @@ export default function Analytics() {
         }))
       : [];
 
+    const divisionData = Array.isArray(divisionDataResponse)
+      ? divisionDataResponse.map((item: any) => ({
+          name: item.name || 'Unknown',
+          slug: item.slug || '',
+          icon: item.icon || '',
+          revenue: item.revenue || 0,
+          orders: item.orders || 0,
+          itemsSold: item.itemsSold || 0,
+          avgOrderValue: item.avgOrderValue || 0,
+          revenueChange: item.revenueChange ?? 0,
+          ordersChange: item.ordersChange ?? 0,
+          topProducts: Array.isArray(item.topProducts) ? item.topProducts : [],
+        }))
+      : [];
+
     return {
       revenueData,
       productPerformance,
@@ -294,6 +329,7 @@ export default function Analytics() {
       userGrowthData,
       orderStatusData,
       paymentMethodData,
+      divisionData,
     };
   }, [
     revenueDataResponse,
@@ -302,6 +338,7 @@ export default function Analytics() {
     companyDataResponse,
     userDataResponse,
     orderDataResponse,
+    divisionDataResponse,
   ]);
 
   const isLoadingData = isLoadingRevenue || isLoadingProducts || isLoadingCategories ||
@@ -505,6 +542,7 @@ export default function Analytics() {
       <Tabs defaultValue="revenue" className="space-y-4">
         <TabsList>
           <TabsTrigger value="revenue">Revenue</TabsTrigger>
+          <TabsTrigger value="divisions">Divisions</TabsTrigger>
           <TabsTrigger value="products">Products</TabsTrigger>
           <TabsTrigger value="categories">Categories</TabsTrigger>
           <TabsTrigger value="companies">Companies</TabsTrigger>
@@ -558,6 +596,146 @@ export default function Analytics() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Divisions Tab */}
+        <TabsContent value="divisions" className="space-y-4">
+          {isLoadingDivisions ? (
+            <div className="h-40 flex items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : chartData.divisionData.length === 0 ? (
+            <Card className="shadow-card">
+              <CardContent className="p-8 text-center text-muted-foreground">
+                No division data available for this period.
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              {/* Per-division summary cards */}
+              <div className={`grid gap-4 ${chartData.divisionData.length <= 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'}`}>
+                {chartData.divisionData.map((div) => (
+                  <Card key={div.slug} className="shadow-card">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        {div.icon && <span className="text-xl">{div.icon}</span>}
+                        {div.name}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Revenue</p>
+                          <p className="text-lg font-bold">{formatCurrency(div.revenue)}</p>
+                          <p className={`text-xs flex items-center gap-1 mt-0.5 ${div.revenueChange >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                            {div.revenueChange >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                            {div.revenueChange >= 0 ? '+' : ''}{div.revenueChange.toFixed(1)}%
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Orders</p>
+                          <p className="text-lg font-bold">{div.orders.toLocaleString()}</p>
+                          <p className={`text-xs flex items-center gap-1 mt-0.5 ${div.ordersChange >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                            {div.ordersChange >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                            {div.ordersChange >= 0 ? '+' : ''}{div.ordersChange.toFixed(1)}%
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Avg Order</p>
+                          <p className="text-base font-semibold">{formatCurrency(div.avgOrderValue)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Items Sold</p>
+                          <p className="text-base font-semibold">{div.itemsSold.toLocaleString()}</p>
+                        </div>
+                      </div>
+                      {div.topProducts.length > 0 && (
+                        <div className="border-t pt-3">
+                          <p className="text-xs font-medium text-muted-foreground mb-2">Top Products</p>
+                          <div className="space-y-1.5">
+                            {div.topProducts.map((p: any, i: number) => (
+                              <div key={i} className="flex items-center justify-between text-xs">
+                                <span className="truncate text-foreground max-w-[60%]">{p.name}</span>
+                                <span className="text-muted-foreground ml-2 shrink-0">{formatCurrency(p.revenue)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Revenue share + comparison charts */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <Card className="shadow-card">
+                  <CardHeader>
+                    <CardTitle>Revenue Share by Division</CardTitle>
+                    <CardDescription>Contribution of each division to total revenue</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[280px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={chartData.divisionData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={65}
+                            outerRadius={105}
+                            paddingAngle={3}
+                            dataKey="revenue"
+                            nameKey="name"
+                            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                            labelLine={false}
+                          >
+                            {chartData.divisionData.map((_, index) => (
+                              <Cell
+                                key={`cell-${index}`}
+                                fill={['#1E6DD8', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'][index % 5]}
+                              />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            formatter={(value: number) => formatCurrency(value)}
+                            contentStyle={{ backgroundColor: '#fff', border: '1px solid #E5E7EB', borderRadius: '8px' }}
+                          />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="shadow-card">
+                  <CardHeader>
+                    <CardTitle>Division Comparison</CardTitle>
+                    <CardDescription>Revenue and orders side-by-side</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[280px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={chartData.divisionData} layout="vertical">
+                          <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                          <XAxis type="number" stroke="#6B7280" tickFormatter={(v) => `₹${v / 1000}k`} />
+                          <YAxis dataKey="name" type="category" stroke="#6B7280" width={90} />
+                          <Tooltip
+                            formatter={(value: number, name: string) =>
+                              name === 'revenue' ? [formatCurrency(value), 'Revenue'] : [value.toLocaleString(), 'Orders']
+                            }
+                            contentStyle={{ backgroundColor: '#fff', border: '1px solid #E5E7EB', borderRadius: '8px' }}
+                          />
+                          <Legend />
+                          <Bar dataKey="revenue" name="Revenue" fill="#1E6DD8" radius={[0, 6, 6, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </>
+          )}
         </TabsContent>
 
         {/* Products Tab */}

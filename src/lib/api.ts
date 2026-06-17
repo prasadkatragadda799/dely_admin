@@ -1241,6 +1241,15 @@ export const analyticsAPI = {
     return response.data;
   },
 
+  getDivisionAnalytics: async (params?: {
+    period?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }) => {
+    const response = await apiClient.get<ApiResponse<any[]>>('/admin/analytics/divisions', { params });
+    return response.data;
+  },
+
   exportAnalyticsReport: async (params?: {
     period?: string;
     dateFrom?: string;
