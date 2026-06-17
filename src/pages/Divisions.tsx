@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Plus, Edit, MoreHorizontal, Layers, Loader2 } from 'lucide-react';
+import { Plus, Edit, MoreHorizontal, Layers, Loader2, Trash2 } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { divisionsAPI, type Division } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
@@ -18,8 +18,19 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DivisionForm } from '@/components/admin/DivisionForm';
 
@@ -35,6 +46,7 @@ export default function Divisions() {
   const [tab, setTab] = useState<'all' | 'default' | 'kitchen'>('all');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingDivisionId, setEditingDivisionId] = useState<string | undefined>();
+  const [deletingDivision, setDeletingDivision] = useState<Division | null>(null);
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['divisions'],
@@ -70,6 +82,23 @@ export default function Divisions() {
     setEditingDivisionId(id);
     setIsFormOpen(true);
   };
+
+  const deleteDivision = useMutation({
+    mutationFn: async (id: string) => divisionsAPI.deleteDivision(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['divisions'] });
+      setDeletingDivision(null);
+      toast({ title: 'Division deleted', description: 'The division has been removed.' });
+    },
+    onError: (e: any) => {
+      setDeletingDivision(null);
+      toast({
+        title: 'Error',
+        description: e.response?.data?.error?.message || e.response?.data?.detail || 'Failed to delete division',
+        variant: 'destructive',
+      });
+    },
+  });
 
   const toggleActive = useMutation({
     mutationFn: async (division: Division) => {
@@ -249,6 +278,18 @@ export default function Divisions() {
                               {toggleActive.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
                               {d.isActive === false ? 'Set Active' : 'Set Inactive'}
                             </DropdownMenuItem>
+                            {d.slug !== 'default' && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => setDeletingDivision(d)}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -262,6 +303,28 @@ export default function Divisions() {
       </Card>
 
       <DivisionForm open={isFormOpen} onOpenChange={setIsFormOpen} divisionId={editingDivisionId} />
+
+      <AlertDialog open={!!deletingDivision} onOpenChange={(open) => { if (!open) setDeletingDivision(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete &quot;{deletingDivision?.name}&quot;?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the division. Products and categories assigned to it will lose their division link (set to NULL). This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteDivision.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deletingDivision && deleteDivision.mutate(deletingDivision.id)}
+              disabled={deleteDivision.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteDivision.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              Delete Division
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

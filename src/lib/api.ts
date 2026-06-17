@@ -1135,6 +1135,11 @@ export const divisionsAPI = {
     const response = await apiClient.patch<ApiResponse<any>>(`/admin/divisions/${formatUUID(id)}`, payload);
     return response.data;
   },
+
+  deleteDivision: async (id: string) => {
+    const response = await apiClient.delete<ApiResponse<any>>(`/admin/divisions/${formatUUID(id)}`);
+    return response.data;
+  },
 };
 
 // Offers API
