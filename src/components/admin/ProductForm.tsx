@@ -95,6 +95,8 @@ const variantSchema = z.object({
   specialPrice: z.number().min(0, 'Special price is required for each variant'),
   freeItem: z.string().optional(),
   minOrderQuantity: z.number().int().min(1).optional(),
+  cgst: z.number().min(0).max(50).default(0),
+  sgst: z.number().min(0).max(50).default(0),
 });
 
 
@@ -200,6 +202,8 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
           specialPrice: 0,
           freeItem: '',
           minOrderQuantity: 1,
+          cgst: 0,
+          sgst: 0,
         },
       ],
     },
@@ -385,6 +389,8 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
               specialPrice: Number(v.specialPrice || v.special_price || 0),
               freeItem: v.freeItem || v.free_item || '',
               minOrderQuantity: Number(v.minOrderQuantity || v.min_order_quantity || 1),
+              cgst: Number(v.cgst ?? 0),
+              sgst: Number(v.sgst ?? 0),
             }))
           : [
               {
@@ -395,6 +401,8 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
                 mrp,
                 specialPrice: sellingPrice,
                 freeItem: '',
+                cgst: 0,
+                sgst: 0,
               },
             ],
         hsnCode: productData.hsnCode || productData.hsn_code || '',
@@ -475,6 +483,8 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
             mrp: 0,
             specialPrice: 0,
             freeItem: '',
+            cgst: 0,
+            sgst: 0,
           },
         ],
       });
@@ -800,6 +810,8 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
           specialPrice: Number.isFinite(v.specialPrice) ? v.specialPrice : 0,
           freeItem: v.freeItem || '',
           minOrderQuantity: Number.isFinite(v.minOrderQuantity) && (v.minOrderQuantity ?? 0) >= 1 ? v.minOrderQuantity : 1,
+          cgst: Number.isFinite(v.cgst) ? v.cgst : 0,
+          sgst: Number.isFinite(v.sgst) ? v.sgst : 0,
         }));
         formData.append('variants', JSON.stringify(cleanedVariants));
       }
@@ -1176,6 +1188,8 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
                     specialPrice: 0,
                     freeItem: '',
                     minOrderQuantity: 1,
+                    cgst: 0,
+                    sgst: 0,
                   })
                 }>
                 Add variant row
@@ -1271,6 +1285,24 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
                       type="number"
                       placeholder="1"
                       {...register(`variants.${index}.minOrderQuantity`, { valueAsNumber: true })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>CGST (%)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="0"
+                      {...register(`variants.${index}.cgst`, { valueAsNumber: true })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>SGST (%)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="0"
+                      {...register(`variants.${index}.sgst`, { valueAsNumber: true })}
                     />
                   </div>
                   <div className="space-y-2 sm:col-span-2">
