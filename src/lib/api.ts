@@ -1206,6 +1206,7 @@ export const analyticsAPI = {
     period?: string;
     dateFrom?: string;
     dateTo?: string;
+    divisionId?: string;
   }) => {
     const response = await apiClient.get<ApiResponse<any>>('/admin/analytics/orders', { params });
     return response.data;
@@ -1216,6 +1217,7 @@ export const analyticsAPI = {
     dateFrom?: string;
     dateTo?: string;
     limit?: number;
+    divisionId?: string;
   }) => {
     const response = await apiClient.get<ApiResponse<any>>('/admin/analytics/products', { params });
     return response.data;

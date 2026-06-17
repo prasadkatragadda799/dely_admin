@@ -116,20 +116,24 @@ export default function Dashboard() {
   });
 
   const { data: orderAnalytics, isLoading: loadingOrderStats } = useQuery({
-    queryKey: ['dashboard', 'orderAnalytics'],
+    queryKey: ['dashboard', 'orderAnalytics', selectedDivisionId],
     enabled: !isSeller,
     queryFn: async () => {
-      const res = await analyticsAPI.getOrderAnalytics({ period: 'month' });
+      const params: any = { period: 'month' };
+      if (selectedDivisionId) params.divisionId = selectedDivisionId;
+      const res = await analyticsAPI.getOrderAnalytics(params);
       return res.data || {};
     },
   });
 
   const { data: productList = [], isLoading: loadingProducts } = useQuery({
-    queryKey: ['dashboard', 'products', isSeller ? 'seller' : 'admin'],
+    queryKey: ['dashboard', 'products', isSeller ? 'seller' : 'admin', selectedDivisionId],
     queryFn: async () => {
+      const params: any = { period: 'month', limit: 5 };
+      if (selectedDivisionId) params.divisionId = selectedDivisionId;
       const res = isSeller
         ? await sellerAnalyticsAPI.getProductAnalytics({ period: 'month', limit: 5 })
-        : await analyticsAPI.getProductAnalytics({ period: 'month', limit: 5 });
+        : await analyticsAPI.getProductAnalytics(params);
       const raw = res.data;
       return Array.isArray(raw) ? raw : (raw?.products ? raw.products : []);
     },
@@ -181,7 +185,6 @@ export default function Dashboard() {
   const ordersChange = dashboardMetrics?.ordersChange ?? 0;
   const usersChange = dashboardMetrics?.usersChange ?? 0;
   const activeProducts = dashboardMetrics?.activeProducts ?? 0;
-  const inactiveProducts = dashboardMetrics?.inactiveProducts ?? 0;
   const avgOrderValue = dashboardMetrics?.avgOrderValue ?? 0;
   const avgOrderValueChange = dashboardMetrics?.avgOrderValueChange ?? 0;
 
@@ -311,7 +314,6 @@ export default function Dashboard() {
     },
   ];
 
-  const isLoading = loadingMetrics || loadingRevenue || (!isSeller && loadingOrderStats) || loadingProducts || (!isSeller && loadingOrders);
 
   const handleDownloadReport = async () => {
     setDownloadingReport(true);
@@ -523,7 +525,7 @@ export default function Dashboard() {
                     paddingAngle={2}
                     dataKey="value"
                   >
-                    {orderStatusData.map((entry, index) => (
+                    {orderStatusData.map((entry: { color: string }, index: number) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />
                     ))}
                   </Pie>
@@ -539,7 +541,7 @@ export default function Dashboard() {
               )}
             </div>
             <div className="grid grid-cols-2 gap-2 mt-4">
-              {(orderStatusData.length ? orderStatusData : []).map((item) => (
+              {(orderStatusData.length ? orderStatusData : []).map((item: { name: string; value: number; color: string }) => (
                 <div key={item.name} className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
                   <span className="text-xs text-muted-foreground">{item.name}: {item.value}</span>
@@ -578,7 +580,7 @@ export default function Dashboard() {
               {topProducts.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-4">No product data for this period.</p>
               ) : (
-              topProducts.map((product, index) => (
+              topProducts.map((product: { name: string; sales: number; amount: number }, index: number) => (
                 <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors">
                   <div className="flex items-center gap-4">
                     <div className="h-10 w-10 rounded-lg bg-secondary flex items-center justify-center text-primary font-semibold">
