@@ -1,6 +1,14 @@
 {
   "rewrites": [
     {
+      "source": "/privacy-policy",
+      "destination": "/privacy-policy.html"
+    },
+    {
+      "source": "/terms-and-conditions",
+      "destination": "/terms-and-conditions.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
