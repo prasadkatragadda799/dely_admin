@@ -1498,22 +1498,22 @@ export interface NotificationsListResponse {
 
 export const notificationsAPI = {
   getList: async (params?: { page?: number; limit?: number; unread?: boolean }) => {
-    const response = await apiClient.get<ApiResponse<NotificationsListResponse>>('/v1/notifications', { params });
+    const response = await apiClient.get<ApiResponse<NotificationsListResponse>>('/api/v1/notifications', { params });
     return response.data;
   },
 
   markAllRead: async () => {
-    const response = await apiClient.put<ApiResponse<{ message: string }>>('/v1/notifications/read-all');
+    const response = await apiClient.put<ApiResponse<{ message: string }>>('/api/v1/notifications/read-all');
     return response.data;
   },
 
   markRead: async (id: string) => {
-    const response = await apiClient.put<ApiResponse<{ message: string }>>(`/v1/notifications/${id}/read`);
+    const response = await apiClient.put<ApiResponse<{ message: string }>>(`/api/v1/notifications/${id}/read`);
     return response.data;
   },
 
   delete: async (id: string) => {
-    const response = await apiClient.delete<ApiResponse<{ message: string }>>(`/v1/notifications/${id}`);
+    const response = await apiClient.delete<ApiResponse<{ message: string }>>(`/api/v1/notifications/${id}`);
     return response.data;
   },
 };
