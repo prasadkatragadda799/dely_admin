@@ -80,3 +80,18 @@ export function BlockSupportRoute({ children }: GuardProps) {
 
   return <>{children}</>;
 }
+
+/**
+ * Blocks office_staff from pages outside their allowed scope.
+ * Office staff can access: Products (listing), Orders, Returns, Companies, Categories, Delivery Persons.
+ */
+export function BlockOfficeStaffRoute({ children }: GuardProps) {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) return null;
+  if (user?.role === 'office_staff') {
+    return <Navigate to={ROUTES.DASHBOARD} replace />;
+  }
+
+  return <>{children}</>;
+}

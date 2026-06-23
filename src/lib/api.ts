@@ -1456,7 +1456,7 @@ export const settingsAPI = {
     name: string;
     email: string;
     password: string;
-    role: 'super_admin' | 'admin' | 'manager' | 'support';
+    role: 'super_admin' | 'admin' | 'manager' | 'office_staff' | 'support';
   }) => {
     const response = await apiClient.post<ApiResponse<any>>('/admin/admins', adminData);
     return response.data;
@@ -1466,7 +1466,7 @@ export const settingsAPI = {
     name?: string;
     email?: string;
     password?: string;
-    role?: 'super_admin' | 'admin' | 'manager' | 'support';
+    role?: 'super_admin' | 'admin' | 'manager' | 'office_staff' | 'support';
     status?: 'active' | 'inactive';
   }) => {
     const response = await apiClient.put<ApiResponse<any>>(`/admin/admins/${formatUUID(id)}`, adminData);

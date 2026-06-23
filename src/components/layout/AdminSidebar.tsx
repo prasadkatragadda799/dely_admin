@@ -84,6 +84,7 @@ export function AdminSidebar() {
   const isSeller = role === 'seller';
   const isSupport = role === 'support';
   const isManager = role === 'manager';
+  const isOfficeStaff = role === 'office_staff';
   const isAdmin = role === 'admin' || role === 'super_admin';
 
   const visibleMainItems = (() => {
@@ -108,11 +109,26 @@ export function AdminSidebar() {
         { title: 'Users', url: ROUTES.USERS, icon: Users },
       ];
     }
+    if (isOfficeStaff) {
+      return [
+        { title: 'Dashboard', url: ROUTES.DASHBOARD, icon: LayoutDashboard },
+        { title: 'Products', url: ROUTES.PRODUCTS, icon: Package },
+        { title: 'Orders', url: ROUTES.ORDERS, icon: ShoppingCart },
+        { title: 'Returns', url: ROUTES.RETURNS, icon: RotateCcw },
+      ];
+    }
     return mainNavItems;
   })();
 
   const visibleManagementItems = (() => {
     if (isSeller || isManager || isSupport) return [];
+    if (isOfficeStaff) {
+      return [
+        { title: 'Companies & Brands', url: ROUTES.COMPANIES, icon: Building2 },
+        { title: 'Categories', url: ROUTES.CATEGORIES, icon: FolderTree },
+        { title: 'Delivery Persons', url: ROUTES.DELIVERY_PERSONS, icon: Truck },
+      ];
+    }
     const items = [...managementItems];
     if (isAdmin) {
       items.unshift({ title: 'Sellers', url: ROUTES.SELLERS, icon: Users });
@@ -121,7 +137,7 @@ export function AdminSidebar() {
   })();
 
   const visibleSystemItems = (() => {
-    if (isSeller || isManager || isSupport) return [];
+    if (isSeller || isManager || isSupport || isOfficeStaff) return [];
     return systemItems;
   })();
 

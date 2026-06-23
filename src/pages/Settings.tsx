@@ -120,7 +120,7 @@ const adminUserSchema = z.object({
   email: z.string().email('Invalid email address'),
   // Empty string = keep existing password (edit mode); min(6) enforced on non-empty values
   password: z.union([z.string().min(6, 'Password must be at least 6 characters'), z.literal(''), z.undefined()]),
-  role: z.enum(['super_admin', 'admin', 'manager', 'support']),
+  role: z.enum(['super_admin', 'admin', 'manager', 'office_staff', 'support']),
 });
 
 type GeneralSettingsForm = z.infer<typeof generalSettingsSchema>;
@@ -740,6 +740,7 @@ export default function Settings() {
       super_admin: { label: 'Super Admin', variant: 'delivered' },
       admin: { label: 'Admin', variant: 'confirmed' },
       manager: { label: 'Manager', variant: 'pending' },
+      office_staff: { label: 'Office Staff', variant: 'outline' },
       support: { label: 'Support', variant: 'secondary' },
     };
     const roleInfo = variants[role] || { label: role, variant: 'secondary' };
@@ -1710,6 +1711,7 @@ export default function Settings() {
                   <SelectItem value="super_admin">Super Admin</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
                   <SelectItem value="manager">Manager</SelectItem>
+                  <SelectItem value="office_staff">Office Staff</SelectItem>
                   <SelectItem value="support">Support</SelectItem>
                 </SelectContent>
               </Select>
