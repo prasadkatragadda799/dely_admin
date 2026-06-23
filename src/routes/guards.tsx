@@ -95,3 +95,17 @@ export function BlockOfficeStaffRoute({ children }: GuardProps) {
 
   return <>{children}</>;
 }
+
+/**
+ * Restricts access to admin, super_admin, and office_staff.
+ */
+export function AdminOrOfficeStaffRoute({ children }: GuardProps) {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) return null;
+  if (user?.role !== 'admin' && user?.role !== 'super_admin' && user?.role !== 'office_staff') {
+    return <Navigate to={ROUTES.DASHBOARD} replace />;
+  }
+
+  return <>{children}</>;
+}

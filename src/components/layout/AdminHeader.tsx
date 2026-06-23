@@ -22,12 +22,15 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 export function AdminHeader() {
   const { user, logout } = useAuth();
   const queryClient = useQueryClient();
+  // Admin JWTs are not valid on /api/v1/notifications (customer user auth).
+  // Keep notifications disabled until an admin notifications endpoint exists.
   const { data, isLoading } = useQuery({
     queryKey: ['notifications'],
     queryFn: async () => {
       const res = await notificationsAPI.getList({ page: 1, limit: 20 });
       return res.data;
     },
+    enabled: false,
   });
   const notifications = data?.notifications ?? [];
   const unreadCount = data?.unreadCount ?? 0;
@@ -93,6 +96,7 @@ export function AdminHeader() {
       super_admin: 'Super Admin',
       admin: 'Admin',
       manager: 'Manager',
+      office_staff: 'Office Staff',
       seller: 'Seller',
       support: 'Support',
     };

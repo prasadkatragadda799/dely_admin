@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { ProtectedRoute, PublicRoute, BlockSellerRoute, AdminOnlyRoute, BlockSupportRoute } from './guards';
+import { ProtectedRoute, PublicRoute, BlockSellerRoute, AdminOnlyRoute, AdminOrOfficeStaffRoute, BlockSupportRoute } from './guards';
 import { ROUTES } from '@/constants';
 
 import Login from '@/pages/Login';
@@ -243,9 +243,9 @@ export function AppRoutes() {
         path={ROUTES.DELIVERY_PERSONS}
         element={
           <ProtectedRoute>
-            <AdminOnlyRoute>
+            <AdminOrOfficeStaffRoute>
               <DeliveryPersons />
-            </AdminOnlyRoute>
+            </AdminOrOfficeStaffRoute>
           </ProtectedRoute>
         }
       />

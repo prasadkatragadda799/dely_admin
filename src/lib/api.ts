@@ -73,12 +73,19 @@ apiClient.interceptors.response.use(
     if (error.response) {
       // Handle specific error status codes
       switch (error.response.status) {
-        case 401:
-          // Unauthorized - Clear token and redirect to login
-          localStorage.removeItem(config.storageKeys.token);
-          localStorage.removeItem(config.storageKeys.user);
-          window.location.href = '/login';
+        case 401: {
+          // Only force logout for admin API auth failures. Customer/mobile endpoints
+          // (/api/v1/*) expect a user JWT — admin tokens will 401 there and must not
+          // clear the admin session (e.g. notifications bell in AdminHeader).
+          const requestUrl = error.config?.url || '';
+          const isCustomerApi = requestUrl.includes('/api/v1/');
+          if (!isCustomerApi) {
+            localStorage.removeItem(config.storageKeys.token);
+            localStorage.removeItem(config.storageKeys.user);
+            window.location.href = '/login';
+          }
           break;
+        }
         case 403:
           // Forbidden - Show access denied message
           console.error('Access denied');
