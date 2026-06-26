@@ -409,26 +409,12 @@ const orderStats = [
   };
 
   const handlePrintInvoice = async (orderId: string) => {
-    try {
-      const blob = await ordersAPI.getInvoice(orderId);
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `invoice-${orderId}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      toast({
-        title: 'Invoice downloaded',
-        description: 'Invoice has been downloaded successfully',
-      });
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.response?.data?.error?.message || 'Failed to download invoice',
-        variant: 'destructive',
-      });
+    // Open the invoice dialog — the "Download PDF" button inside the dialog handles printing
+    const order = orders.find((o: any) => o.id === orderId || o.order_number === orderId);
+    if (order) {
+      await handleViewInvoice(order);
+    } else {
+      toast({ title: 'Error', description: 'Order not found', variant: 'destructive' });
     }
   };
 
@@ -1246,11 +1232,37 @@ const orderStats = [
       {/* Invoice Dialog */}
       <Dialog open={!!invoiceOrder} onOpenChange={(open) => !open && setInvoiceOrder(null)}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-0 bg-white text-black">
-          <DialogHeader className="px-6 pt-4 pb-2 border-b">
+          <DialogHeader className="px-6 pt-4 pb-2 border-b flex flex-row items-center justify-between">
             <DialogTitle className="text-lg font-semibold">Invoice</DialogTitle>
+            <button
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+              onClick={() => {
+                const el = document.getElementById('invoice-print-area');
+                if (!el) return;
+                const win = window.open('', '_blank', 'width=900,height=700');
+                if (!win) return;
+                win.document.write(`<!DOCTYPE html><html><head><title>Invoice</title><style>
+                  * { box-sizing: border-box; }
+                  body { font-family: Arial, sans-serif; font-size: 11px; padding: 24px; color: #000; }
+                  table { border-collapse: collapse; width: 100%; }
+                  td, th { border: 1px solid #000; padding: 4px 6px; }
+                  .text-right { text-align: right; }
+                  .font-semibold { font-weight: 600; }
+                  .font-bold { font-weight: 700; }
+                  img { max-height: 42px; object-fit: contain; }
+                  @media print { body { padding: 8px; } }
+                </style></head><body>${el.innerHTML}</body></html>`);
+                win.document.close();
+                win.focus();
+                setTimeout(() => { win.print(); }, 400);
+              }}
+            >
+              <Download className="h-3.5 w-3.5" />
+              Download PDF
+            </button>
           </DialogHeader>
           {/* Udaan-style invoice layout */}
-          <div className="p-6 space-y-4 text-xs leading-relaxed">
+          <div id="invoice-print-area" className="p-6 space-y-4 text-xs leading-relaxed">
             {/* Extract order data - Standardized format handler */}
             {(() => {
               const order = invoiceOrder || {};
@@ -1407,6 +1419,7 @@ const orderStats = [
                         {billFromLine2 ? <p>{billFromLine2}</p> : null}
                         {billFromCityLine ? <p>{billFromCityLine}</p> : null}
                         <p>GSTIN: {billFromGst}</p>
+                        {seller?.fssai ? <p>FSSAI: {seller.fssai as string}</p> : null}
                         {seller?.phone ? <p>Phone: {seller.phone}</p> : null}
                         {seller?.email ? <p className="break-all">{seller.email}</p> : null}
                       </div>
