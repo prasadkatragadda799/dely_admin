@@ -1232,29 +1232,39 @@ const orderStats = [
       {/* Invoice Dialog */}
       <Dialog open={!!invoiceOrder} onOpenChange={(open) => !open && setInvoiceOrder(null)}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-0 bg-white text-black">
-          <DialogHeader className="px-6 pt-4 pb-2 border-b flex flex-row items-center justify-between">
+          <DialogHeader className="px-6 pt-4 pb-2 border-b flex flex-row items-center justify-between pr-12">
             <DialogTitle className="text-lg font-semibold">Invoice</DialogTitle>
             <button
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-gray-300 rounded hover:bg-gray-50 transition-colors"
               onClick={() => {
                 const el = document.getElementById('invoice-print-area');
                 if (!el) return;
-                const win = window.open('', '_blank', 'width=900,height=700');
+                const win = window.open('', '_blank', 'width=960,height=800');
                 if (!win) return;
-                win.document.write(`<!DOCTYPE html><html><head><title>Invoice</title><style>
-                  * { box-sizing: border-box; }
-                  body { font-family: Arial, sans-serif; font-size: 11px; padding: 24px; color: #000; }
-                  table { border-collapse: collapse; width: 100%; }
-                  td, th { border: 1px solid #000; padding: 4px 6px; }
-                  .text-right { text-align: right; }
-                  .font-semibold { font-weight: 600; }
-                  .font-bold { font-weight: 700; }
-                  img { max-height: 42px; object-fit: contain; }
-                  @media print { body { padding: 8px; } }
-                </style></head><body>${el.innerHTML}</body></html>`);
+                win.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8"/>
+  <title>Invoice</title>
+  <script src="https://cdn.tailwindcss.com"><\/script>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; background: #fff; color: #000; }
+    img { max-height: 42px; object-fit: contain; }
+    @page { margin: 1.2cm; }
+    @media print {
+      body { font-size: 10px; }
+    }
+  </style>
+</head>
+<body class="p-6 text-xs leading-relaxed text-black bg-white">
+${el.innerHTML}
+</body>
+</html>`);
                 win.document.close();
-                win.focus();
-                setTimeout(() => { win.print(); }, 400);
+                win.addEventListener('load', () => {
+                  setTimeout(() => { win.focus(); win.print(); }, 600);
+                });
               }}
             >
               <Download className="h-3.5 w-3.5" />
