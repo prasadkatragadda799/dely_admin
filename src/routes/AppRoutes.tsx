@@ -84,11 +84,9 @@ export function AppRoutes() {
         path={ROUTES.CATEGORIES}
         element={
           <ProtectedRoute>
-            <BlockSellerRoute>
-              <BlockSupportRoute>
-                <Categories />
-              </BlockSupportRoute>
-            </BlockSellerRoute>
+            <BlockSupportRoute>
+              <Categories />
+            </BlockSupportRoute>
           </ProtectedRoute>
         }
       />
@@ -110,11 +108,9 @@ export function AppRoutes() {
         path={ROUTES.COMPANIES}
         element={
           <ProtectedRoute>
-            <BlockSellerRoute>
-              <BlockSupportRoute>
-                <Companies />
-              </BlockSupportRoute>
-            </BlockSellerRoute>
+            <BlockSupportRoute>
+              <Companies />
+            </BlockSupportRoute>
           </ProtectedRoute>
         }
       />
