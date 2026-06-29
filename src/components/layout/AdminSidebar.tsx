@@ -123,8 +123,8 @@ export function AdminSidebar() {
   const visibleManagementItems = (() => {
     if (isSeller) {
       return [
+        { title: 'Companies & Brands', url: ROUTES.COMPANIES, icon: Building2 },
         { title: 'Categories', url: ROUTES.CATEGORIES, icon: FolderTree },
-        { title: 'Brands', url: ROUTES.COMPANIES, icon: Tag },
       ];
     }
     if (isManager || isSupport) return [];

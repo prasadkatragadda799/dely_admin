@@ -41,7 +41,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { companiesAPI, sellersAPI } from '@/lib/api';
+import { sellersAPI } from '@/lib/api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ROUTES } from '@/constants';
 
@@ -61,19 +61,8 @@ export default function Sellers() {
   // form state
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [companyId, setCompanyId] = useState('');
   const [password, setPassword] = useState('');
   const [isActive, setIsActive] = useState(true);
-
-  const { data: companiesData } = useQuery({
-    queryKey: ['companies'],
-    queryFn: async () => {
-      const response = await companiesAPI.getCompanies();
-      return response.data || [];
-    },
-  });
-
-  const companies = companiesData || [];
 
   const { data: sellersResponse, isLoading } = useQuery({
     queryKey: ['sellers', searchQuery],
@@ -99,7 +88,6 @@ export default function Sellers() {
     setEditingSeller(null);
     setName('');
     setEmail('');
-    setCompanyId('');
     setPassword('');
     setIsActive(true);
     setIsDialogOpen(true);
@@ -110,7 +98,6 @@ export default function Sellers() {
     setEditingSeller(seller);
     setName(seller.name || '');
     setEmail(seller.email || '');
-    setCompanyId(seller.company?.id || seller.company_id || '');
     setPassword('');
     setIsActive(seller.is_active ?? seller.isActive ?? true);
     setIsDialogOpen(true);
@@ -121,7 +108,6 @@ export default function Sellers() {
       return await sellersAPI.createSeller({
         name,
         email,
-        company_id: companyId,
         password: password || undefined,
       });
     },
@@ -150,7 +136,6 @@ export default function Sellers() {
       return await sellersAPI.updateSeller(editingSeller.id, {
         name,
         email,
-        company_id: companyId || undefined,
         is_active: isActive,
       });
     },
@@ -205,8 +190,8 @@ export default function Sellers() {
   });
 
   const handleSubmit = () => {
-    if (!name || !email || !companyId) {
-      toast({ title: 'Error', description: 'Name, email, and company are required', variant: 'destructive' });
+    if (!name || !email) {
+      toast({ title: 'Error', description: 'Name and email are required', variant: 'destructive' });
       return;
     }
     if (mode === 'create') createMutation.mutate();
@@ -269,7 +254,6 @@ export default function Sellers() {
                   <TableRow className="bg-secondary/50">
                     <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
-                    <TableHead>Company</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Last Login</TableHead>
                     <TableHead>Catalog</TableHead>
@@ -279,7 +263,7 @@ export default function Sellers() {
                 <TableBody>
                   {sellers.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                         No sellers found
                       </TableCell>
                     </TableRow>
@@ -288,7 +272,6 @@ export default function Sellers() {
                       <TableRow key={seller.id} className="hover:bg-secondary/30">
                         <TableCell className="font-medium">{seller.name}</TableCell>
                         <TableCell>{seller.email}</TableCell>
-                        <TableCell>{seller.company?.name || '—'}</TableCell>
                         <TableCell>
                           <Badge variant={(seller.is_active ?? seller.isActive) ? 'delivered' : 'cancelled'}>
                             {(seller.is_active ?? seller.isActive) ? 'active' : 'inactive'}
@@ -343,7 +326,7 @@ export default function Sellers() {
             <DialogTitle>{mode === 'create' ? 'Create Seller' : 'Edit Seller'}</DialogTitle>
             <DialogDescription>
               {mode === 'create'
-                ? 'Create a seller tied to a company. Share the temporary password with the seller.'
+                ? 'Create a seller account. Share the temporary password with the seller.'
                 : 'Update seller details.'}
             </DialogDescription>
           </DialogHeader>
@@ -357,22 +340,6 @@ export default function Sellers() {
             <div className="space-y-2">
               <Label htmlFor="seller-email">Email *</Label>
               <Input id="seller-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Company *</Label>
-              <Select value={companyId} onValueChange={setCompanyId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select company" />
-                </SelectTrigger>
-                <SelectContent>
-                  {companies.map((c: any) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
 
             {mode === 'create' && (

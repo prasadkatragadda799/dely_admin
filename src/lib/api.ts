@@ -235,7 +235,6 @@ export const sellersAPI = {
   createSeller: async (data: {
     email: string;
     name: string;
-    company_id: string;
     password?: string;
   }) => {
     const response = await apiClient.post<ApiResponse<any>>('/admin/sellers', data);
@@ -244,7 +243,7 @@ export const sellersAPI = {
 
   updateSeller: async (
     id: string,
-    data: { name?: string; email?: string; company_id?: string; is_active?: boolean }
+    data: { name?: string; email?: string; is_active?: boolean }
   ) => {
     const formattedId = formatUUID(id);
     const response = await apiClient.put<ApiResponse<any>>(`/admin/sellers/${formattedId}`, data);
