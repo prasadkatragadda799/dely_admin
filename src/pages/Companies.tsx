@@ -43,17 +43,14 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { companiesAPI, brandsAPI } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/contexts/AuthContext';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CompanyForm } from '@/components/admin/CompanyForm';
 import { BrandForm } from '@/components/admin/BrandForm';
 import { ExcelBulkImportSection } from '@/components/admin/ExcelBulkImportSection';
 
 export default function Companies() {
-  const { user } = useAuth();
-  const isSeller = user?.role === 'seller';
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState(isSeller ? 'brands' : 'companies');
+  const [activeTab, setActiveTab] = useState('companies');
   const [isCompanyDialogOpen, setIsCompanyDialogOpen] = useState(false);
   const [isBrandDialogOpen, setIsBrandDialogOpen] = useState(false);
   const [editingCompanyId, setEditingCompanyId] = useState<string | undefined>();
@@ -211,15 +208,13 @@ export default function Companies() {
               activeTab === 'companies' ? [['companies']] : [['brands'], ['companies']]
             }
           />
-          {(!isSeller || activeTab === 'brands') && (
-            <Button
-              variant="gradient"
-              onClick={activeTab === 'companies' ? handleAddCompany : handleAddBrand}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add {activeTab === 'companies' ? 'Company' : 'Brand'}
-            </Button>
-          )}
+          <Button
+            variant="gradient"
+            onClick={activeTab === 'companies' ? handleAddCompany : handleAddBrand}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add {activeTab === 'companies' ? 'Company' : 'Brand'}
+          </Button>
         </div>
       </div>
 
@@ -317,14 +312,12 @@ export default function Companies() {
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <div className="border-b border-border px-4">
             <TabsList className="h-12 bg-transparent p-0 gap-6">
-              {!isSeller && (
-                <TabsTrigger
-                  value="companies"
-                  className="data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-0"
-                >
-                  Companies
-                </TabsTrigger>
-              )}
+              <TabsTrigger
+                value="companies"
+                className="data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-0"
+              >
+                Companies
+              </TabsTrigger>
               <TabsTrigger
                 value="brands"
                 className="data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-0"
