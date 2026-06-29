@@ -738,6 +738,11 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
         formData.append('brand_id', data.brandId);
       }
       
+      // Add pricing fields
+      formData.append('mrp', (data.mrp || 0).toString());
+      formData.append('sellingPrice', (data.sellingPrice || 0).toString());
+      formData.append('commissionCost', (data.commissionCost || 0).toString());
+
       // Add stock and order quantities (overall stock for all variants)
       formData.append('stockQuantity', (data.stockQuantity || 0).toString());
       formData.append('minOrderQuantity', (data.minOrderQuantity || 1).toString());
