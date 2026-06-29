@@ -121,7 +121,13 @@ export function AdminSidebar() {
   })();
 
   const visibleManagementItems = (() => {
-    if (isSeller || isManager || isSupport) return [];
+    if (isSeller) {
+      return [
+        { title: 'Categories', url: ROUTES.CATEGORIES, icon: FolderTree },
+        { title: 'Brands', url: ROUTES.COMPANIES, icon: Tag },
+      ];
+    }
+    if (isManager || isSupport) return [];
     if (isOfficeStaff) {
       return [
         { title: 'Companies & Brands', url: ROUTES.COMPANIES, icon: Building2 },
