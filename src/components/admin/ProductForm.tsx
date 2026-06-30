@@ -94,7 +94,7 @@ const variantSchema = z.object({
   mrp: z.number().min(0, 'MRP is required for each variant'),
   specialPrice: z.number().min(0, 'Special price is required for each variant'),
   freeItem: z.string().optional(),
-  minOrderQuantity: z.number().int().min(1).optional(),
+  minOrderQuantity: z.number().int().min(1, 'Min order quantity must be at least 1'),
   cgst: z.number().min(0).max(50).default(0),
   sgst: z.number().min(0).max(50).default(0),
 });
@@ -154,6 +154,34 @@ function revokeLocalPreviews(slots: Array<ProductImageSlot | VariantImageSlot>) 
 
 function revokeAllVariantPreviews(map: Record<string, VariantImageSlot[]>) {
   Object.values(map).forEach((slots) => revokeLocalPreviews(slots));
+}
+
+/** Walks react-hook-form's nested errors object/array to find the first leaf error
+ *  (e.g. `variants.0.mrp`), so the toast and scroll-to-field both point at the same
+ *  field that's actually invalid instead of just the first top-level error key. */
+function findFirstFieldError(node: any, path: string[] = []): { path: string; message: string } | null {
+  if (!node || typeof node !== 'object') return null;
+  if (typeof node.message === 'string' && node.type) {
+    return { path: path.join('.'), message: node.message };
+  }
+  for (const key of Object.keys(node)) {
+    const result = findFirstFieldError(node[key], [...path, key]);
+    if (result) return result;
+  }
+  return null;
+}
+
+/** Scrolls to and focuses the field for a given RHF path. Registered inputs carry a
+ *  matching `name` attribute; Select-driven fields (no register()) fall back to `id`. */
+function scrollToField(path: string) {
+  const el =
+    document.querySelector<HTMLElement>(`[name="${path}"]`) ||
+    (!path.includes('.') ? document.getElementById(path) : null);
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (typeof (el as HTMLElement).focus === 'function') {
+    el.focus({ preventScroll: true });
+  }
 }
 
 export function ProductForm({ open, onOpenChange, productId }: ProductFormProps) {
@@ -893,16 +921,15 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
   };
 
   const onSubmitInvalid = (errors: any) => {
-    const firstError = Object.values(errors)?.[0] as any;
-    const message =
-      firstError?.message ||
-      firstError?.[0]?.message ||
-      'Please fill all required fields';
+    const firstError = findFirstFieldError(errors);
     toast({
       title: 'Validation error',
-      description: message,
+      description: firstError?.message || 'Please fill all required fields',
       variant: 'destructive',
     });
+    if (firstError?.path) {
+      scrollToField(firstError.path);
+    }
   };
 
   return (
@@ -1263,20 +1290,30 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
                     <Input {...register(`variants.${index}.hsnCode`)} />
                   </div>
                   <div className="space-y-2">
-                    <Label>MRP (₹)</Label>
+                    <Label>
+                      MRP (₹) <span className="text-destructive">*</span>
+                    </Label>
                     <Input
                       type="number"
                       step="0.01"
                       {...register(`variants.${index}.mrp`, { valueAsNumber: true })}
                     />
+                    {errors.variants?.[index]?.mrp && (
+                      <p className="text-sm text-destructive">{errors.variants[index]?.mrp?.message}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
-                    <Label>Special price (₹)</Label>
+                    <Label>
+                      Special price (₹) <span className="text-destructive">*</span>
+                    </Label>
                     <Input
                       type="number"
                       step="0.01"
                       {...register(`variants.${index}.specialPrice`, { valueAsNumber: true })}
                     />
+                    {errors.variants?.[index]?.specialPrice && (
+                      <p className="text-sm text-destructive">{errors.variants[index]?.specialPrice?.message}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label>Free item note</Label>
@@ -1291,6 +1328,9 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
                       placeholder="1"
                       {...register(`variants.${index}.minOrderQuantity`, { valueAsNumber: true })}
                     />
+                    {errors.variants?.[index]?.minOrderQuantity && (
+                      <p className="text-sm text-destructive">{errors.variants[index]?.minOrderQuantity?.message}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label>CGST (%)</Label>
