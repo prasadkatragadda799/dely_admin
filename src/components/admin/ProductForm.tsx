@@ -814,7 +814,7 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
       
       // Images: on update, tell backend which existing rows to keep, then append new files.
       const localSlots = imageSlots.filter((s): s is Extract<ProductImageSlot, { kind: 'local' }> => s.kind === 'local');
-      // Admin PUT supports keepImageIds; seller PUT is JSON-only (same FormData is a separate issue).
+      // Admin PUT supports keepImageIds to prune existing images; seller PUT does not prune (only appends).
       if (productId && !isSeller) {
         const keepIds = imageSlots.filter((s) => s.kind === 'remote').map((s) => s.id);
         console.log('[ProductForm] imageSlots at save:', JSON.stringify(imageSlots));
