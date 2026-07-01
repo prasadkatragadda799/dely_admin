@@ -356,7 +356,7 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
 
   // Load product data when editing
   useEffect(() => {
-    if (productData && open) {
+    if (productData && open && companiesData) {
       const categoryId =
         productData.category?.id ||
         productData.categoryId ||
@@ -529,7 +529,7 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
       variantImagesInitKeyRef.current = null;
       setSelectedCompany('');
     }
-  }, [productData, productId, open, reset]);
+  }, [productData, productId, open, reset, companiesData]);
 
   // Seed per-variant image galleries into state once useFieldArray rows exist for
   // the loaded product. Keyed by the RHF row key (field.rowKey); matched to server
