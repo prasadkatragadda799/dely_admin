@@ -305,6 +305,38 @@ export const sellerProductsAPI = {
     const response = await apiClient.get<ApiResponse<any>>('/seller/products/statistics/overview');
     return response.data;
   },
+
+  uploadVariantImages: async (
+    productId: string,
+    variantId: string,
+    images: File[],
+    primaryIndex?: number,
+  ) => {
+    const pid = formatUUID(productId);
+    const vid = formatUUID(variantId);
+    const formData = new FormData();
+    images.forEach((image) => {
+      formData.append('images', image);
+    });
+    if (primaryIndex !== undefined) {
+      formData.append('primaryIndex', String(primaryIndex));
+    }
+    const response = await apiClient.post<ApiResponse<any>>(
+      `/seller/products/${pid}/variants/${vid}/images`,
+      formData,
+    );
+    return response.data;
+  },
+
+  deleteVariantImage: async (productId: string, variantId: string, imageId: string) => {
+    const pid = formatUUID(productId);
+    const vid = formatUUID(variantId);
+    const iid = formatUUID(imageId);
+    const response = await apiClient.delete<ApiResponse<void>>(
+      `/seller/products/${pid}/variants/${vid}/images/${iid}`,
+    );
+    return response.data;
+  },
 };
 
 // Seller resource APIs (brands, categories, companies) for seller-scoped access

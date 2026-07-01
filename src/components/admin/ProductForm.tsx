@@ -677,6 +677,13 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
     const resolvedProductId: string | undefined = productId ?? product?.id;
     if (!resolvedProductId) return;
 
+    const variantDeleteFn = isSeller
+      ? sellerProductsAPI.deleteVariantImage
+      : productsAPI.deleteVariantImage;
+    const variantUploadFn = isSeller
+      ? sellerProductsAPI.uploadVariantImages
+      : productsAPI.uploadVariantImages;
+
     const serverVariants: any[] = Array.isArray(product?.variants) ? product.variants : [];
     const formVariants = data.variants ?? [];
     let hadError = false;
@@ -684,7 +691,7 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
     // Delete removed remote images first (skip ones already gone via cascade).
     for (const { variantId, imageId } of removedVariantImages) {
       try {
-        await productsAPI.deleteVariantImage(resolvedProductId, variantId, imageId);
+        await variantDeleteFn(resolvedProductId, variantId, imageId);
       } catch {
         // Variant may have been deleted (images cascade) — safe to ignore.
       }
@@ -708,7 +715,7 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
       const primaryIndex = !hasRemote && firstIsLocal ? 0 : undefined;
 
       try {
-        await productsAPI.uploadVariantImages(resolvedProductId, variantId, localFiles, primaryIndex);
+        await variantUploadFn(resolvedProductId, variantId, localFiles, primaryIndex);
       } catch {
         hadError = true;
       }
@@ -860,12 +867,10 @@ export function ProductForm({ open, onOpenChange, productId }: ProductFormProps)
           : productsAPI.createProduct(formData));
       }
 
-      // Phase 2 — per-variant image galleries (admin only; sellers can't manage variants).
+      // Phase 2 — upload/delete variant image galleries.
       // Variants come back in submission order (backend sorts by sort_order), so we
       // map form row i → response variant i to learn each row's authoritative id.
-      if (!isSeller) {
-        await syncVariantImages(result, data);
-      }
+      await syncVariantImages(result, data);
 
       return result;
     },
